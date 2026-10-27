@@ -18,3 +18,5 @@
 
 - Redaction safety invariant: all solid masks must fully replace the underlying bitmap pixels in a re-encoded output; reject invalid mask geometry rather than silently exporting unredacted content. No EXIF copied. Any OCR boxes must remain individually reviewable/undoable; never label automatic detection guaranteed.
 - Privacy on public HTTPS: prevent Cloudflare Web Analytics auto-injection using `Cache-Control: public, no-transform` for HTML. Public browser E2E must enforce that OCR traffic stays same-origin, and the proxy must not inject third-party scripts.
+
+- OCR on real-world photographs: never auto-apply every recognized token as a mask. Tesseract also identifies non-text machine textures; present review-only outline candidates, confidence/shape filtering, and manual scan-region selection. Only explicit user selection may create solid redaction pixels. Do not include user-supplied real photos in this public repository.

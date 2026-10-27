@@ -64,3 +64,9 @@ Images and filenames stay in the page session. ZIP files and outputs are generat
 - Batch redaction is capped at 96 megapixels total to bound browser memory use. A failed image selection must release temporary object URLs.
 
 - Redacted single-image and ZIP member filenames are generic rather than copies of original filenames, which might contain private names or account IDs.
+
+## OCR review-first design
+- Recognition never automatically covers the image. Detected text appears as blue outline candidates. Users explicitly check candidates or choose Cover all candidates, with a confirmation for noisy/high-area results.
+- Default OCR excludes very low-confidence tokens, punctuation-only tokens and implausible vertical/oversized shapes seen in outdoor/industrial photos; this is a heuristic, not a text or privacy guarantee.
+- Region-limited recognition enables users to draw an OCR scan area around a subtitle/date/label, preventing unrelated background objects from consuming the candidate list.
+- User-uploaded private photos are not committed as test fixtures; regression tests use generated synthetic images only.
