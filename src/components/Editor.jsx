@@ -1,6 +1,6 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
-import { MAX_FILES,inspectImage,processImage,makePassportSheet,aspectDimension,exportFilename,formatBytes } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
@@ -16,7 +16,9 @@ const dict = {
     sheet:'Make print sheet',notice:'Six 2×2-inch photos on a 4×6-inch sheet. Check the issuing authority’s rules before using it for an application.',
     choose:'Choose a file to start.',pending:'File selected.',local:'Processed in this browser tab.',
     batch:'Multiple results are packaged in a ZIP.',empty:'The selected image will appear here.',
-    single:'Choose one image for this tool.',count:'Output files'
+    single:'Choose one image for this tool.',count:'Output files',
+    loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
+    drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -31,7 +33,9 @@ const dict = {
     sheet:'生成打印排版',notice:'4×6 英寸纸面排放六张 2×2 英寸照片。用于证件申请前，请核对相关机构的照片要求。',
     choose:'请选择图片。',pending:'已选择图片。',local:'图片仅在当前浏览器标签页处理。',
     batch:'多个结果将打包为 ZIP 文件。',empty:'选择图片后在这里查看预览。',
-    single:'该工具一次只能处理一张图片。',count:'输出文件'
+    single:'该工具一次只能处理一张图片。',count:'输出文件',
+    loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
+    drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
@@ -43,28 +47,86 @@ export default function Editor({lang='en',tool='resize'}) {
   const [zoom,setZoom]=useState(100),[cropX,setCropX]=useState(0),[cropY,setCropY]=useState(0);
   const [status,setStatus]=useState(''),[busy,setBusy]=useState(false),[output,setOutput]=useState(null);
   const [preview,setPreview]=useState(null),[ready,setReady]=useState(false);
-  useEffect(()=>{setReady(true);},[]);
+  const [inspecting,setInspecting]=useState(false);
+  const canvasRef=useRef(null),selectionId=useRef(0);
+  useEffect(()=>{setReady(true);return ()=>{selectionId.current+=1;};},[]);
+  useEffect(()=>{setOutput(null);},[width,height,mode,format,target,quality,downscale,zoom,cropX,cropY]);
+  useEffect(()=>{
+    if (!preview || !canvasRef.current || output) return;
+    let active=true;
+    const image=new Image();
+    image.onload=()=>{
+      if(!active || !canvasRef.current)return;
+      const canvas=canvasRef.current;
+      const requestedW=sheet?600:Number(width),requestedH=sheet?600:Number(height);
+      if(!Number.isFinite(requestedW)||!Number.isFinite(requestedH)||requestedW<=0||requestedH<=0)return;
+      const scale=Math.min(1,440/requestedW,440/requestedH);
+      const w=Math.max(1,Math.round(requestedW*scale)),h=Math.max(1,Math.round(requestedH*scale));
+      canvas.width=w;canvas.height=h;
+      const context=canvas.getContext('2d');
+      if(!context)return;
+      context.clearRect(0,0,w,h);
+      if(format==='jpeg'||sheet){context.fillStyle='#fff';context.fillRect(0,0,w,h);}
+      const region=drawRect(image.naturalWidth,image.naturalHeight,w,h,
+        sheet?'cover':mode,Number(zoom)/100,Number(cropX)/100,Number(cropY)/100);
+      context.imageSmoothingEnabled=true;
+      context.imageSmoothingQuality='high';
+      context.drawImage(image,region.sx,region.sy,region.sw,region.sh,region.dx,region.dy,region.dw,region.dh);
+    };
+    image.onerror=()=>{};
+    image.src=preview;
+    return ()=>{active=false;image.onload=null;image.onerror=null;};
+  },[preview,output,width,height,mode,format,zoom,cropX,cropY,sheet]);
   useEffect(()=>()=>{if(output?.url)URL.revokeObjectURL(output.url);},[output]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
-  async function pick(e){
-    const chosen=Array.from(e.target.files||[]);
-    setOutput(null);
-    setPreview(null);
-    if(chosen.length>MAX_FILES){setFiles([]);setStatus(lang==='zh'?'最多选择 30 张图片。':'Maximum 30 files.');return;}
-    if(!batch && chosen.length>1){setFiles([]);setStatus(t.single);return;}
-    try {
-      if(!chosen.length){setFiles([]);setStatus('');return;}
-      const meta=await Promise.all(chosen.map(inspectImage));
+  async function selectFiles(chosen){
+    if(busy)return;
+    const id=++selectionId.current;
+    setFiles([]);setOutput(null);setPreview(null);setStatus('');
+    if(chosen.length>MAX_FILES){setStatus(lang==='zh'?'最多选择 30 张图片。':'Maximum 30 files.');return;}
+    if(!batch && chosen.length>1){setStatus(t.single);return;}
+    if(chosen.reduce((sum,f)=>sum+f.size,0)>MAX_BATCH_BYTES){setStatus(t.limit);return;}
+    if(!chosen.length)return;
+    setInspecting(true);setStatus(t.loading);
+    try{
+      const meta=[];
+      // Do not decode thirty large photos at once; browsers can run out of memory.
+      for(const file of chosen)meta.push(await inspectImage(file));
+      if(id!==selectionId.current)return;
       setFiles(chosen.map((file,i)=>({file,...meta[i]})));
       setPreview(URL.createObjectURL(chosen[0]));
-      if(!sheet&&chosen.length===1){setWidth(meta[0].width);setHeight(meta[0].height);}
+      if(!sheet&&chosen.length===1){
+        const {width:w,height:h}=meta[0];
+        const scale=Math.min(1,MAX_AXIS/w,MAX_AXIS/h,Math.sqrt(MAX_OUTPUT_PIXELS/(w*h)));
+        setWidth(Math.max(1,Math.floor(w*scale)));
+        setHeight(Math.max(1,Math.floor(h*scale)));
+      }
       setStatus(t.pending);
-    }catch(err){setFiles([]);setPreview(null);setStatus(err.message);}
+    }catch(err){
+      if(id===selectionId.current){setFiles([]);setPreview(null);setStatus(err.message||t.error);}
+    }finally{if(id===selectionId.current)setInspecting(false);}
   }
-  function changeWidth(v){setWidth(v);if(keep&&files[0])setHeight(aspectDimension(files[0].width,files[0].height,v,'width'));}
-  function changeHeight(v){setHeight(v);if(keep&&files[0])setWidth(aspectDimension(files[0].width,files[0].height,v,'height'));}
+  function pick(e){void selectFiles(Array.from(e.target.files||[]));}
+  function drop(e){
+    e.preventDefault();
+    if(!busy)void selectFiles(Array.from(e.dataTransfer?.files||[]));
+  }
+  function paste(e){
+    const files=Array.from(e.clipboardData?.files||[]);
+    if(files.length){e.preventDefault();void selectFiles(files);}
+  }
+  function changeWidth(v){
+    setWidth(v);
+    if(keep&&files[0]&&v!==''&&Number.isInteger(Number(v))&&Number(v)>0&&Number(v)<=MAX_AXIS)
+      setHeight(aspectDimension(files[0].width,files[0].height,v,'width'));
+  }
+  function changeHeight(v){
+    setHeight(v);
+    if(keep&&files[0]&&v!==''&&Number.isInteger(Number(v))&&Number(v)>0&&Number(v)<=MAX_AXIS)
+      setWidth(aspectDimension(files[0].width,files[0].height,v,'height'));
+  }
   async function run(e){
-    e.preventDefault();if(!files.length||busy)return;
+    e.preventDefault();if(!files.length||busy||inspecting)return;
     setBusy(true);setOutput(null);setStatus(t.working);
     try{
       const options={width:Number(width),height:Number(height),mode,format,targetKb:Number(target),
@@ -85,17 +147,17 @@ export default function Editor({lang='en',tool='resize'}) {
     }catch(err){setStatus(err.message||t.error);}
     finally{setBusy(false);}
   }
-  return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings}>
+  return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings} onPaste={paste}>
     <div className="editor-workspace">
       <form className="editor-controls" onSubmit={run}>
         <div className="control-section">
           <h2 className="panel-title">{t.files}</h2>
-          <label className="upload">
+          <label className="upload" onDragOver={e=>e.preventDefault()} onDrop={drop}>
             <strong>{t.upload}</strong>
             <input aria-label={t.upload} data-testid="upload" type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-              multiple={batch} onChange={pick}/>
-            <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}</span>
+              disabled={busy||inspecting} multiple={batch} onChange={pick}/>
+            <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}. {t.drop}</span>
           </label>
           {!!files.length&&<div className="file-summary">
             <strong>{files.length} {lang==='zh'?'个文件':'file(s)'}</strong>
@@ -108,7 +170,11 @@ export default function Editor({lang='en',tool='resize'}) {
           <div className="field-grid">
             <label>{t.width}<input data-testid="width" type="number" min="1" max="10000" value={width} onChange={e=>changeWidth(e.target.value)}/></label>
             <label>{t.height}<input data-testid="height" type="number" min="1" max="10000" value={height} onChange={e=>changeHeight(e.target.value)}/></label>
-            <label className="check wide"><input type="checkbox" checked={keep} onChange={e=>setKeep(e.target.checked)}/>{t.keep}</label>
+            <label className="check wide"><input type="checkbox" checked={keep} onChange={e=>{
+              setKeep(e.target.checked);
+              if(e.target.checked&&files[0]&&Number(width)>0&&Number(width)<=MAX_AXIS)
+                setHeight(aspectDimension(files[0].width,files[0].height,width,'width'));
+            }}/>{t.keep}</label>
             <label>{t.mode}<select value={mode} onChange={e=>setMode(e.target.value)}><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
             <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
             <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} onChange={e=>setTarget(e.target.value)}/></label>
@@ -127,18 +193,18 @@ export default function Editor({lang='en',tool='resize'}) {
         {sheet&&<p className="notice">{t.notice}</p>}
         {batch&&<p className="notice">{t.batch}</p>}
         <div className="form-actions">
-          <button data-testid="process" disabled={!files.length||busy} type="submit">{busy?t.working:sheet?t.sheet:t.run}</button>
-          <button type="button" className="secondary" onClick={()=>{setFiles([]);setPreview(null);setOutput(null);setStatus('');const el=document.querySelector('[data-testid=upload]');if(el)el.value='';}}>{t.reset}</button>
+          <button data-testid="process" disabled={!files.length||busy||inspecting} type="submit">{busy?t.working:sheet?t.sheet:t.run}</button>
+          <button type="button" disabled={busy||inspecting} className="secondary" onClick={()=>{selectionId.current+=1;setFiles([]);setPreview(null);setOutput(null);setStatus('');const el=document.querySelector('[data-testid=upload]');if(el)el.value='';}}>{t.reset}</button>
         </div>
       </form>
       <aside className="editor-preview" aria-label={t.preview}>
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
           {output?.results.length===1 ? <img alt={lang==='zh'?'处理后的图片':'Processed image'} src={output.url}/> :
-           preview ? <img alt={t.original} src={preview}/> :
+           preview ? <canvas ref={canvasRef} aria-label={sheet?t.cropPreview:t.preview}/> :
            <p className="preview-empty">{t.empty}</p>}
         </div>
-        {!!files.length&&!output&&<p className="preview-caption">{files[0].file.name} · {files[0].width}×{files[0].height}</p>}
+        {!!files.length&&!output&&<p className="preview-caption">{sheet?t.cropPreview:files[0].file.name+' · '+files[0].width+'×'+files[0].height}</p>}
         {output&&<div className="result">
           <strong>{t.done}</strong>
           <p data-testid="result-meta">{output.results.map(r=>r.width+'×'+r.height+' · '+formatBytes(r.bytes)).join(' | ')}</p>
