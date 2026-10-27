@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://image.plainmile.com/sitemap-index.xml
