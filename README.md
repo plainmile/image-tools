@@ -70,3 +70,9 @@ Images and filenames stay in the page session. ZIP files and outputs are generat
 - Default OCR excludes very low-confidence tokens, punctuation-only tokens and implausible vertical/oversized shapes seen in outdoor/industrial photos; this is a heuristic, not a text or privacy guarantee.
 - Region-limited recognition enables users to draw an OCR scan area around a subtitle/date/label, preventing unrelated background objects from consuming the candidate list.
 - User-uploaded private photos are not committed as test fixtures; regression tests use generated synthetic images only.
+
+## General-purpose OCR recognition
+- Use Tesseract OCR output (actual recognized text and coordinates) rather than brightness/color or hardcoded top/bottom/colored-label proposals.
+- Two independent OCR passes (sparse-text + document segmentation with contrast enhancement); optional four-pass thorough mode includes inverted and adaptive threshold images.
+- Upsample small inputs within a bounded canvas; combine and spatially deduplicate OCR candidates, and keep them review-only until deliberately checked.
+- Test receipts, screenshots, document-like layouts, photographs, and text at different positions; do not optimize for a single example image or claim perfect accuracy.

@@ -64,41 +64,67 @@ export function boxBetween(a, b, width, height) {
  * users must be able to draw any missing cover manually.
  */
 export function extractOcrBoxes(data, originalWidth, originalHeight, scanWidth, scanHeight, region=null) {
-  if (![originalWidth, originalHeight, scanWidth, scanHeight].every(
-    v => Number.isFinite(v) && v > 0)) return [];
-  const zone = region || {x:0,y:0,w:originalWidth,h:originalHeight};
-  const sx = zone.w / scanWidth, sy = zone.h / scanHeight;
-  const words = [];
-  for (const block of data?.blocks || []) {
-    for (const paragraph of block.paragraphs || []) {
-      for (const line of paragraph.lines || []) {
-        const terms = line.words?.length ? line.words : [line];
-        for (const word of terms) {
-          const label = String(word.text || '').trim();
-          const b = word.bbox;
-          if (!label || !b) continue;
-          const confidence=Number(word.confidence ?? line.confidence);
-          if (!Number.isFinite(confidence)) continue;
-          const readable=Array.from(label).filter(ch => /[\p{L}\p{N}]/u.test(ch));
-          if (!readable.length) continue;
-          const han=/[\p{Script=Han}]/u.test(label);
-          const minConfidence=readable.length === 1 ? (han ? 85 : 92) :
-            readable.length === 2 ? 77 : 65;
-          if (confidence < minConfidence) continue;
-          const rawW=(b.x1-b.x0)*sx,rawH=(b.y1-b.y0)*sy;
-          if (!Number.isFinite(rawW) || !Number.isFinite(rawH) ||
-              rawW < 4 || rawH < 5 ||
-              rawH > rawW*2.6 || rawH > Math.max(60,originalHeight*.28) ||
-              rawW * rawH > originalWidth*originalHeight*.15) continue;
-          const rect=clampBox({
-            x:zone.x+b.x0*sx,y:zone.y+b.y0*sy,w:rawW,h:rawH
-          },originalWidth,originalHeight,3);
-          if (rect)words.push({id:'ocr-'+words.length,text:label,...rect,source:'ocr',confidence});
+  if (![originalWidth,originalHeight,scanWidth,scanHeight].every(n=>Number.isFinite(n)&&n>0))return [];
+  const zone=region||{x:0,y:0,w:originalWidth,h:originalHeight};
+  const sx=zone.w/scanWidth, sy=zone.h/scanHeight, found=[];
+  // Use real Tesseract text + bounding boxes. Never infer "text" from a
+  // location, color or high-contrast stripe in an arbitrary photograph.
+  for(const block of data?.blocks||[]){
+    for(const para of block.paragraphs||[]){
+      for(const line of para.lines||[]){
+        const terms=line.words?.length?line.words:[line];
+        const accepted=[];
+        for(const word of terms){
+          const text=String(word.text||'').trim();
+          const bbox=word.bbox;
+          if(!text||!bbox)continue;
+          const legible=Array.from(text).filter(c=>/[\p{L}\p{N}]/u.test(c));
+          if(!legible.length)continue;
+          const conf=Number(word.confidence??line.confidence);
+          if(!Number.isFinite(conf))continue;
+          // A confidence cut-off of 65 discarded legible photographed
+          // labels; retain weaker multi-character candidates for review.
+          const han=/\p{Script=Han}/u.test(text);
+          const minimum=legible.length===1?(han?58:85):legible.length===2?40:28;
+          if(conf<minimum)continue;
+          const width=(bbox.x1-bbox.x0)*sx,height=(bbox.y1-bbox.y0)*sy;
+          if(!Number.isFinite(width)||!Number.isFinite(height)||width<3||height<5||
+             height>width*3.5||height>Math.max(90,originalHeight*.4)||
+             width*height>originalWidth*originalHeight*.20)continue;
+          const rect=clampBox({x:zone.x+bbox.x0*sx,y:zone.y+bbox.y0*sy,w:width,h:height},
+                              originalWidth,originalHeight,3);
+          if(rect)accepted.push({text,confidence:conf,...rect});
         }
+        accepted.sort((a,b)=>a.y-b.y||a.x-b.x);
+        let group=null;
+        function commit(){
+          if(group){
+            found.push({id:'ocr-'+found.length,text:group.text.trim(),
+              x:group.x,y:group.y,w:group.w,h:group.h,
+              confidence:Math.round(group.weight/group.count),source:'ocr'});
+          }
+        }
+        for(const part of accepted){
+          const sameY=group&&
+            (Math.min(group.y+group.h,part.y+part.h)-Math.max(group.y,part.y))/
+            Math.min(group.h,part.h)>.55;
+          const gap=group?part.x-(group.x+group.w):Infinity;
+          if(group&&sameY&&gap>=-part.w*.3&&gap<=Math.max(22,part.h*1.4)){
+            const x=Math.min(group.x,part.x),y=Math.min(group.y,part.y);
+            group={...group,x,y,w:Math.max(group.x+group.w,part.x+part.w)-x,
+              h:Math.max(group.y+group.h,part.y+part.h)-y,
+              text:group.text+' '+part.text,
+              weight:group.weight+part.confidence,count:group.count+1};
+          }else{
+            commit();
+            group={...part,weight:part.confidence,count:1};
+          }
+        }
+        commit();
       }
     }
   }
-  return words.slice(0,250);
+  return found.sort((a,b)=>a.y-b.y||a.x-b.x).slice(0,350);
 }
 
 export async function decodeBitmap(file) {
@@ -118,8 +144,9 @@ export function scanCanvas(bitmap,region=null) {
   const zone=region ? clampBox(region,bitmap.width,bitmap.height) :
     {x:0,y:0,w:bitmap.width,h:bitmap.height};
   if(!zone)throw new Error('Invalid OCR selection area.');
-  const scale = Math.min(1, 2400 / Math.max(zone.w, zone.h),
-    Math.sqrt(3_000_000 / (zone.w * zone.h)));
+  // Upscale small text where possible, but stay within a 4 MP OCR canvas.
+  const scale = Math.min(2, 3000 / Math.max(zone.w, zone.h),
+    Math.sqrt(4_000_000 / (zone.w * zone.h)));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.floor(zone.w * scale));
   canvas.height = Math.max(1, Math.floor(zone.h * scale));
