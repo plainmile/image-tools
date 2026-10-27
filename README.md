@@ -55,3 +55,10 @@ After tested main CI passes, the image is published to GHCR and a separate workf
 ## Privacy and feedback
 
 Images and filenames stay in the page session. ZIP files and outputs are generated in the browser. No image upload endpoint. For bug reports, use https://github.com/plainmile/image-tools/issues with a **synthetic** sample, not your private images.
+
+### Privacy-focused redaction notes
+
+- HTML responses set `Cache-Control: public, no-transform` to prevent Cloudflare automatic analytics script injection. Keep **Web Analytics automatic injection disabled** for `image.plainmile.com` in Cloudflare as defense in depth.
+- Manual covers have per-image Undo/Redo (up to 40 edits). OCR suggestions can all be individually unchecked, not only the first 300.
+- Black/white previews are fully opaque; exports are flattened into new image pixels. Blur and mosaic must not be used to hide secrets.
+- Batch redaction is capped at 96 megapixels total to bound browser memory use. A failed image selection must release temporary object URLs.

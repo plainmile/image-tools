@@ -15,3 +15,6 @@
 
 - Design standard: this is a practical editing utility, not a startup landing page. Keep a compact header, plain task names, file selection, settings, result preview and download near the top. Avoid marketing badges, oversized heroes, decorative gradients, emoji logos, unnecessary cards and repetitive privacy/AI slogans. Browser-local operation is a factual note, not a headline.
 - Public E2E must explicitly wait for the client-side editor to hydrate before setting synthetic file inputs, so fast test interactions cannot race Astro/React hydration over HTTPS.
+
+- Redaction safety invariant: all solid masks must fully replace the underlying bitmap pixels in a re-encoded output; reject invalid mask geometry rather than silently exporting unredacted content. No EXIF copied. Any OCR boxes must remain individually reviewable/undoable; never label automatic detection guaranteed.
+- Privacy on public HTTPS: prevent Cloudflare Web Analytics auto-injection using `Cache-Control: public, no-transform` for HTML. Public browser E2E must enforce that OCR traffic stays same-origin, and the proxy must not inject third-party scripts.

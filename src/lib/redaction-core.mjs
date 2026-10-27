@@ -3,6 +3,7 @@ import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, sanitizeStem } from './image-core.mj
 export const REDACT_MAX_FILES = 12;
 export const REDACT_MAX_BYTES = 100 * 1024 * 1024;
 export const REDACT_MAX_PIXELS = 32_000_000;
+export const REDACT_MAX_BATCH_PIXELS = 96_000_000;
 
 const MIN_BOX = 2;
 export function validateRedactionFiles(files) {
@@ -24,6 +25,21 @@ export function verifyImageSize(width, height) {
     throw new Error('Image exceeds the 32-megapixel limit.');
   }
 }
+// Bound aggregate full-resolution canvas work to avoid exhausting memory
+// during ZIP export, particularly on mobile browsers.
+export function validateRedactionPixels(entries) {
+  if (!Array.isArray(entries) || !entries.length) throw new Error('Choose one or more images.');
+  let pixels = 0;
+  for (const image of entries) {
+    verifyImageSize(image.width, image.height);
+    pixels += image.width * image.height;
+    if (pixels > REDACT_MAX_BATCH_PIXELS) {
+      throw new Error('Selected images exceed the 96-megapixel batch limit. Choose fewer or smaller images.');
+    }
+  }
+  return pixels;
+}
+
 export function clampBox(box, width, height, padding = 0) {
   if (![width, height, box.x, box.y, box.w, box.h].every(Number.isFinite) ||
       width < 1 || height < 1) return null;
@@ -98,7 +114,7 @@ export function canvasBlob(canvas, mime='image/png', quality) {
 export function paintRedactions(ctx, bitmap, masks, effect) {
   for (const item of masks) {
     const box = clampBox(item, bitmap.width, bitmap.height);
-    if (!box) continue;
+    if (!box) throw new Error('Invalid redaction box. Recheck the covered area before exporting.');
     if (effect === 'solid' || effect === 'white') {
       ctx.fillStyle = effect === 'white' ? '#fff' : '#000';
       ctx.fillRect(box.x, box.y, box.w, box.h);

@@ -61,3 +61,6 @@
  .redactor-stage{max-height:450px;}
  .redactor-sidebar{padding:0 12px;}
 }
+
+/* Keep long OCR lists scrollable; do not hide selectable candidates. */
+.redactor-recognized { max-height: 245px; }
