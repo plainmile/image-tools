@@ -49,7 +49,11 @@ test('outdoor equipment textures are not useful OCR candidates',()=>{
     {text:'110kV',confidence:95,bbox:{x0:50,y0:810,x1:190,y1:862}},
     {text:'motor',confidence:17,bbox:{x0:450,y0:200,x1:540,y1:255}},
   ];
-  const data={blocks:[{paragraphs:[{lines:[{words}]}]}]}]};
+  const data={blocks:[]};
+  const block={paragraphs:[]};
+  const paragraph={lines:[{words}]};
+  block.paragraphs.push(paragraph);
+  data.blocks.push(block);
   const suggestions=extractOcrBoxes(data,960,960,960,960);
   assert.deepEqual(suggestions.map(s=>s.text),['2026-08-28','变压器','110kV']);
   assert.equal(suggestions[0].source,'ocr');
