@@ -8,8 +8,8 @@ const pages={
 'bulk-image-resizer':{title:'Bulk Image Resizer — Local ZIP Download | PlainMile',description:'Resize up to 30 JPG, PNG or WebP files in your browser and download a ZIP of processed images.',heading:'Resize multiple images together',lead:'Pick several images, apply one set of pixel dimensions and export a ZIP. No server transfer or account.',use:'For consistent image collections, catalogs and repeat upload tasks.',hint:'A batch uses the same output width and height for every selected image. Keep your originals.'},
 'passport-photo-print':{title:'4×6 Passport Photo Print Sheet — Free | PlainMile',description:'Arrange six manually cropped 2×2 inch photos onto a 4×6 inch JPEG print sheet locally. No upload.',heading:'Create a 4×6 photo print sheet',lead:'Frame an existing photo and generate a 1200×1800 JPEG with six 600×600 photo tiles for printing at 300 pixels per inch.',use:'For printing six square copies where 2×2-inch size is specifically required.',hint:'This is only a print layout, not a passport approval or automatic compliance check. Many authorities prohibit digitally altered photos; verify official instructions.'}
 };
-export function getStaticPaths(){return Object.keys(pages).map(tool=>({params:{tool},props:{page:pages[tool]}}));}
-const {page}=Astro.props;const tool=Astro.params.tool;
+export function getStaticPaths(){return ['resize-image','compress-image-to-size','signature-resizer','bulk-image-resizer','passport-photo-print'].map(tool=>({params:{tool}}));}
+const tool=Astro.params.tool;const page=pages[tool];
 ---
 <Base path={'/'+tool+'/'} title={page.title} description={page.description}>
 <section class="hero"><div class="eyebrow">Free · Private · In your browser</div><h1>{page.heading}</h1><p class="lead">{page.lead}</p></section>
