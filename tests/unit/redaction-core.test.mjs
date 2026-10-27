@@ -27,8 +27,9 @@ test('OCR boxes map from smaller scan to original pixels', () => {
     {text:'1234',confidence:96,bbox:{x0:55,y0:20,x1:82,y1:35}},
   ]}]}]}]};
   const list=extractOcrBoxes(data,200,100,100,50);
-  assert.equal(list.length,2);
-  assert.deepEqual(list[0],{id:'ocr-0',text:'Secret',source:'ocr',x:17,y:37,w:86,h:36,confidence:97});
+  assert.equal(list.length,1);
+  assert.deepEqual(list[0],{id:'ocr-0',text:'Secret 1234',source:'ocr',
+    x:17,y:37,w:150,h:36,confidence:97});
 });
 
 test('batch pixel budget rejects oversized combined output',()=>{
@@ -66,4 +67,14 @@ test('OCR scan areas preserve original pixel coordinates',()=>{
   const boxes=extractOcrBoxes(data,1920,1080,600,300,zone);
   assert.equal(boxes.length,1);
   assert.deepEqual([boxes[0].x,boxes[0].y,boxes[0].w,boxes[0].h],[407,217,106,51]);
+});
+
+test('confidence filtering does not suppress photographed multi-character text',()=>{
+  const data={blocks:[{paragraphs:[{lines:[{words:[
+    {text:'ORDER',confidence:44,bbox:{x0:80,y0:40,x1:190,y1:65}},
+    {text:'—',confidence:99,bbox:{x0:202,y0:40,x1:250,y1:65}},
+    {text:'19',confidence:45,bbox:{x0:260,y0:40,x1:305,y1:65}},
+  ]}]}]}]};
+  const boxes=extractOcrBoxes(data,500,150,500,150);
+  assert.deepEqual(boxes.map(b=>b.text),['ORDER','19']);
 });
