@@ -10,7 +10,7 @@ await mkdir(join(out,'wasm'),{recursive:true});
 const dist='node_modules/onnxruntime-web/dist';
 // ORT dynamically imports a .mjs loader alongside its .wasm binary.
 // Copying only .wasm produces a 404 for ort-wasm-simd-threaded.jsep.mjs.
-const runtime=(await readdir(dist)).filter(n=>/^ort-wasm.*\\.(?:wasm|mjs)$/.test(n));
+const runtime=(await readdir(dist)).filter(n=>/^ort-wasm.*\.(?:wasm|mjs)$/.test(n));
 for(const name of ['ort-wasm-simd-threaded.jsep.mjs','ort-wasm-simd-threaded.jsep.wasm',
                    'ort-wasm-simd-threaded.mjs','ort-wasm-simd-threaded.wasm']) {
   if(!runtime.includes(name))throw Error('ONNX Runtime asset missing: '+name);
@@ -37,7 +37,7 @@ for(const [kind,name] of models){
   }
   // A successful HTTP download is not enough: browser-side PaddleOCR.js
   // requires an uncompressed tar with matching model metadata and ONNX.
-  const entries=execFileSync('tar',['-tf',target],{encoding:'utf8'}).trim().split('\\n');
+  const entries=execFileSync('tar',['-tf',target],{encoding:'utf8'}).trim().split('\n');
   const onnx=entries.find(p=>p==='inference.onnx'||p.endsWith('/inference.onnx'));
   const yml=entries.find(p=>p==='inference.yml'||p.endsWith('/inference.yml'));
   if(!onnx||!yml)throw Error('Invalid '+kind+' model tar: missing inference.onnx or inference.yml');
