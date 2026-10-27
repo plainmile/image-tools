@@ -155,10 +155,23 @@ test('print sheet JPEG declares 300 pixels per inch in JFIF',async({page})=>{
 test('single-image tools reject multiple uploads and expose real crop preview',async({page})=>{
   await page.goto('/resize-image/');
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
-  await uploadSynthetic(page,2);
-  await expect(page.getByTestId('status')).toContainText('Choose one image');
-  await expect(page.getByTestId('process')).toBeDisabled();
+  await expect(page.getByTestId('upload')).not.toHaveAttribute('multiple');
   await uploadSynthetic(page,1);
   await page.getByLabel('Fitting').selectOption('cover');
   await expect(page.locator('.preview-frame canvas')).toBeVisible();
+});
+
+test('batch maximum dimensions do not add padding or enlarge small images',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,2);
+  await expect(page.getByLabel('Fitting')).toHaveValue('within');
+  await page.getByTestId('width').fill('55');
+  await page.getByTestId('height').fill('35');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('result-meta')).toContainText('53×35');
+  await expect(page.getByTestId('download')).toBeVisible();
+});
+test('batch limit reports a clear error without processing',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,31);
+  await expect(page.getByTestId('status')).toContainText('Maximum 30 files');
+  await expect(page.getByTestId('process')).toBeDisabled();
 });

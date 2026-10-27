@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, drawRect, validateFile, sanitizeStem,
-  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi
+  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -58,4 +58,12 @@ test('JPEG density is inserted if the browser omitted the JFIF header', () => {
   assert.deepEqual(Array.from(result.slice(2,6)),[0xff,0xe0,0,16]);
   assert.deepEqual(Array.from(result.slice(14,18)),[1,44,1,44]);
   assert.throws(()=>jpegBytesWithDpi(new Uint8Array([1,2,3])),/Invalid JPEG/);
+});
+
+test('fit within bounding box preserves aspect ratio and does not upscale small images', () => {
+  assert.deepEqual(fitWithin(120,80,55,35),{width:53,height:35});
+  assert.deepEqual(fitWithin(120,80,800,800),{width:120,height:80});
+  assert.deepEqual(fitWithin(800,1200,800,800),{width:533,height:800});
+  assert.deepEqual(fitWithin(10000,10000,10000,10000),{width:5657,height:5657});
+  assert.throws(()=>fitWithin(100,100,0,100),/Width/);
 });
