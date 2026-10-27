@@ -5,6 +5,7 @@ import {
   validateRedactionFiles, validateRedactionPixels, boxBetween, flattenRedactedImage,
 } from '../lib/redaction-core.mjs';
 import { formatBytes } from '../lib/image-core.mjs';
+import { proposeReviewRegions } from '../lib/visual-ocr-candidates.mjs';
 import '../styles/redactor.css';
 
 const messages = {
@@ -13,7 +14,8 @@ const messages = {
     files:'Images',noImage:'Choose images or paste a screenshot to begin.',
     detect:'Find text candidates', detectAll:'Find text in all images', cancel:'Stop scanning',
     scanLanguage:'Recognition language',scanProgress:'Recognizing',loading:'Reading images…',
-    detected:'Detected text',nothing:'No words detected. Add rectangles manually.',
+    detected:'Text and suggested areas',nothing:'No suggestions found. Draw a cover manually.',
+    visualTop:'Possible text area (top)',visualBottom:'Possible text area (bottom)',visualColor:'Possible colored text or label',
     all:'Cover all candidates',clearDetected:'Remove OCR covers',
     draw:'Draw boxes',erase:'Remove boxes',undo:'Undo',redo:'Redo',eraseNote:'In Remove mode, tap a box to delete it.',
     drawNote:'Drag across the picture to add a box. Use Remove boxes to delete one.',
@@ -30,7 +32,7 @@ const messages = {
     count:'selected',first:'Choose a file.',partial:'Check detected results and manually drawn areas.',
     progress:'Loading language data…',help:'Blue outlines are suggestions, NOT blacked out. Review the list and check only the text to cover.',
     region:'Select OCR area',whole:'Scan full picture',regionNote:'Draw over the date, subtitle or label, then run recognition. The green outline is not a cover.',
-    review:'Text candidates found. Nothing was covered automatically. Select only the areas you need.',
+    review:'Blue frames include OCR text and high-contrast area suggestions. They are not verified text. Check only the areas to hide.',
     many:'There are many candidates, which may include equipment or background textures. Cover all anyway?',
   },
   zh: {
@@ -38,7 +40,8 @@ const messages = {
     files:'图片列表',noImage:'选择图片，或粘贴一张截图。',
     detect:'识别文字候选',detectAll:'批量识别文字候选',cancel:'停止识别',
     scanLanguage:'识别语言',scanProgress:'正在识别',loading:'正在读取图片…',
-    detected:'识别的文字',nothing:'没有识别出文字，可手动画框。',
+    detected:'识别文字与疑似区域',nothing:'没有发现候选区域，可手动加框。',
+    visualTop:'疑似文字区域（顶部）',visualBottom:'疑似文字区域（底部）',visualColor:'疑似彩色文字／铭牌',
     all:'遮盖全部候选文字',clearDetected:'取消已选文字遮盖',
     draw:'手动加框',erase:'删除遮挡框',undo:'撤销',redo:'重做',eraseNote:'切换到删除模式后，点击遮挡框即可移除。',
     drawNote:'在图片上拖动鼠标或手指添加遮挡框。想删掉时切换到删除模式。',
@@ -55,7 +58,7 @@ const messages = {
     count:'已选择',first:'请选择图片。',partial:'检查自动识别和手动添加的遮挡区域。',
     progress:'正在加载文字识别文件…',help:'蓝色框只是识别候选，不是打码。先检查文字，再勾选需要遮盖的内容。',
     region:'圈选识别范围',whole:'恢复整图识别',regionNote:'先框选时间、字幕或铭牌区域，再点击识别。绿色范围框不会打码。',
-    review:'找到文字候选，尚未自动打码。请勾选真正需要遮挡的内容。',
+    review:'蓝框包含 OCR 文字和高对比区域提示，并非都是真文字。请核对位置，再勾选需要遮挡的区域。',
     many:'候选过多，可能包含设备纹理和误识别。确定要全部遮盖吗？',
   }
 };
@@ -255,20 +258,33 @@ export default function Redactor({ lang='en' }) {
         },
       });
       workerRef.current = worker;
+      // Sparse text is more appropriate for photos than a full document block.
+      await worker.setParameters({ tessedit_pageseg_mode: '11' });
       for(let index=0; index<selected.length;index+=1){
         if(runId!==runIdRef.current)break;
         const item=selected[index];
         setMessage(t.scanProgress+' '+(index+1)+'/'+selected.length+' — '+localFileName(item.file));
         const bitmap=await decodeBitmap(item.file);
-        let source;
-        try { source=scanCanvas(bitmap,item.scanArea); } finally { bitmap.close(); }
+        let source, visual=[];
+        try {
+          source=scanCanvas(bitmap,item.scanArea);
+          // Color/bright overlay candidates fill the gap when OCR cannot
+          // recognize actual characters on complex photographic backgrounds.
+          if(!item.scanArea)visual=proposeReviewRegions(bitmap);
+        } finally { bitmap.close(); }
         const blob=await canvasBlob(source,'image/png');
         const scanWidth=source.width,scanHeight=source.height;
         source.width=0; source.height=0;
         const result=await worker.recognize(blob,{}, {blocks:true});
         if(runId!==runIdRef.current)break;
-        const suggestions=extractOcrBoxes(result.data,item.width,item.height,scanWidth,scanHeight,item.scanArea)
+        const labels={top:t.visualTop,bottom:t.visualBottom,color:t.visualColor};
+        const regionCandidates=visual.map((box,i)=>({
+          ...box,id:item.id+'-'+runId+'-area-'+i,
+          text:labels[box.kind],source:'ocr',confidence:null
+        }));
+        const words=extractOcrBoxes(result.data,item.width,item.height,scanWidth,scanHeight,item.scanArea)
           .map(s=>({...s,id:item.id+'-'+runId+'-'+s.id}));
+        const suggestions=[...regionCandidates,...words];
         setItems(prev => prev.map(f => {
           if(f.id!==item.id)return f;
           const updated=f.masks.filter(m=>m.source!=='ocr');
