@@ -288,7 +288,7 @@ export default function Redactor({ lang='en' }) {
       for(let index=0;index<items.length;index+=1){
         const f=items[index];
         const out=await flattenRedactedImage(f.file,f.masks,effect,format);
-        zip.file(String(index+1).padStart(2,'0')+'-'+out.filename,out.blob);
+        zip.file('redacted-'+String(index+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),out.blob);
       }
       const blob=await zip.generateAsync({type:'blob'});
       saveBlob(blob,'plainmile-redacted-images.zip');

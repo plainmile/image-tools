@@ -1,4 +1,4 @@
-import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, sanitizeStem } from './image-core.mjs';
+import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS } from './image-core.mjs';
 
 export const REDACT_MAX_FILES = 12;
 export const REDACT_MAX_BYTES = 100 * 1024 * 1024;
@@ -157,7 +157,7 @@ export async function flattenRedactedImage(file, masks, effect='solid', format='
     paintRedactions(ctx, bitmap, masks, effect);
     const blob = await canvasBlob(canvas, 'image/' + format, 0.94);
     canvas.width = 0; canvas.height = 0;
-    return { blob, filename: sanitizeStem(file.name) + '-redacted.' + (format === 'jpeg' ? 'jpg' : format) };
+    return { blob, filename: 'redacted-image.' + (format === 'jpeg' ? 'jpg' : format) };
   } finally {
     bitmap.close();
   }

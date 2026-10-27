@@ -62,3 +62,5 @@ Images and filenames stay in the page session. ZIP files and outputs are generat
 - Manual covers have per-image Undo/Redo (up to 40 edits). OCR suggestions can all be individually unchecked, not only the first 300.
 - Black/white previews are fully opaque; exports are flattened into new image pixels. Blur and mosaic must not be used to hide secrets.
 - Batch redaction is capped at 96 megapixels total to bound browser memory use. A failed image selection must release temporary object URLs.
+
+- Redacted single-image and ZIP member filenames are generic rather than copies of original filenames, which might contain private names or account IDs.
