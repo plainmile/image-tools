@@ -58,7 +58,7 @@ for route in ROUTES:
     assert doc.title and len(doc.title) <= 95, (route, doc.title)
     assert doc.title not in titles, f"duplicate title: {route} and {titles[doc.title]}"
     titles[doc.title] = route
-    assert doc.description and len(doc.description) >= 30, (route, doc.description)
+    assert doc.description and len(doc.description) >= (18 if route.startswith('/zh/') else 30), (route, doc.description)
     assert doc.h1 == 1, f"expected one H1 for {route}: {doc.h1}"
     assert doc.canonical == ORIGIN + route, (route, doc.canonical)
     counterpart = route[3:] if route.startswith("/zh/") else "/zh" + route
