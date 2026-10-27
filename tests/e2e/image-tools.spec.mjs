@@ -68,3 +68,11 @@ test('invalid and oversized dimensions report error without false download',asyn
   await page.getByTestId('process').click();await expect(page.getByTestId('status')).toContainText('32-megapixel');
   await expect(page.getByTestId('download')).toHaveCount(0);
 });
+
+test('sibling websites appear on both language versions', async({page}) => {
+  for (const route of ['/', '/zh/', '/resize-image/', '/zh/resize-image/']) {
+    await page.goto(route);
+    await expect(page.locator('footer a[href="https://plainmile.com/"]')).toBeVisible();
+    await expect(page.locator('footer a[href="https://pdf.plainmile.com/"]')).toBeVisible();
+  }
+});
