@@ -5,7 +5,7 @@ import {
   validateRedactionFiles, validateRedactionPixels, boxBetween, flattenRedactedImage,
 } from '../lib/redaction-core.mjs';
 import { formatBytes } from '../lib/image-core.mjs';
-import { recognizeImageText } from '../lib/ocr-multipass.mjs';
+import { recognizeImageText, preserveSelectedOcrCandidates } from '../lib/ocr-multipass.mjs';
 import '../styles/redactor.css';
 
 const messages = {
@@ -17,7 +17,7 @@ const messages = {
     detected:'Text and suggested areas',nothing:'No suggestions found. Draw a cover manually.',
     ocrMode:'Recognition depth',standard:'Standard (2 passes)',detailed:'Thorough (4 passes, slower)',
     all:'Cover all candidates',clearDetected:'Remove OCR covers',
-    draw:'Draw boxes',erase:'Remove boxes',undo:'Undo',redo:'Redo',eraseNote:'In Remove mode, tap a box to delete it.',
+    draw:'Draw boxes',pick:'Select detected text',pickNote:'Click a blue outline to cover text.',erase:'Remove boxes',undo:'Undo',redo:'Redo',eraseNote:'In Remove mode, tap a box to delete it.',
     drawNote:'Drag across the picture to add a box. Use Remove boxes to delete one.',
     clear:'Clear all boxes',masks:'Covered areas',remove:'Remove',
     effect:'Cover style',solid:'Solid black (recommended)',white:'Solid white',
@@ -43,7 +43,7 @@ const messages = {
     detected:'识别文字与疑似区域',nothing:'没有发现候选区域，可手动加框。',
     ocrMode:'识别强度',standard:'常规（2 轮识别）',detailed:'增强（4 轮识别，较慢）',
     all:'遮盖全部候选文字',clearDetected:'取消已选文字遮盖',
-    draw:'手动加框',erase:'删除遮挡框',undo:'撤销',redo:'重做',eraseNote:'切换到删除模式后，点击遮挡框即可移除。',
+    draw:'手动加框',pick:'点选文字候选',pickNote:'点击蓝色框即可遮挡文字。',erase:'删除遮挡框',undo:'撤销',redo:'重做',eraseNote:'切换到删除模式后，点击遮挡框即可移除。',
     drawNote:'在图片上拖动鼠标或手指添加遮挡框。想删掉时切换到删除模式。',
     clear:'清除本图全部遮挡',masks:'遮挡区域',remove:'删除',
     effect:'打码方式',solid:'实心黑块（推荐）',white:'实心白块',
@@ -221,7 +221,7 @@ export default function Redactor({ lang='en' }) {
     dragStartRef.current = null; setDraft(null);
     if (rect) {
       if (tool==='region') {
-        setItems(prev=>prev.map(f=>f.id===current.id?{...f,scanArea:rect,suggestions:[],scanned:false}:f));
+        setItems(prev=>prev.map(f=>f.id===current.id?{...f,scanArea:rect,scanned:false}:f));
         setTool('draw');
         setMessage(t.regionNote);
       } else {
@@ -232,7 +232,7 @@ export default function Redactor({ lang='en' }) {
   }
   function resetScanArea(){
     if (!current) return;
-    setItems(prev=>prev.map(f=>f.id===current.id?{...f,scanArea:null,suggestions:[],scanned:false}:f));
+    setItems(prev=>prev.map(f=>f.id===current.id?{...f,scanArea:null,scanned:false}:f));
     setTool('draw');setMessage('');
   }
 
@@ -277,9 +277,7 @@ export default function Redactor({ lang='en' }) {
         suggestions=suggestions.map((s,i)=>({...s,id:item.id+'-'+runId+'-ocr-'+i}));
         setItems(prev=>prev.map(f=>{
           if(f.id!==item.id)return f;
-          const updated=f.masks.filter(m=>m.source!=='ocr');
-          return {...f,scanned:true,suggestions,
-            undo:[...f.undo.slice(-(MAX_UNDO-1)),f.masks],redo:[],masks:updated};
+          return {...f,scanned:true,suggestions:preserveSelectedOcrCandidates(suggestions,f.masks)};
         }));
         setMessage(t.done+' · '+suggestions.length+' · '+t.review);
       }
@@ -305,7 +303,7 @@ export default function Redactor({ lang='en' }) {
     try {
       const out=await flattenRedactedImage(current.file,current.masks,effect,format);
       saveBlob(out.blob,out.filename);
-      setMessage(t.success);
+      setMessage(t.success+' '+current.width+'×'+current.height+' · '+formatBytes(out.blob.size));
     }catch(error){setMessage(error.message);}finally{setSaving(false);}
   }
   async function downloadBatch() {
@@ -321,7 +319,7 @@ export default function Redactor({ lang='en' }) {
       }
       const blob=await zip.generateAsync({type:'blob'});
       saveBlob(blob,'plainmile-redacted-images.zip');
-      setMessage(t.success);
+      setMessage(t.success+' ZIP · '+items.length+' · '+formatBytes(blob.size));
     }catch(error){setMessage(error.message);}finally{setSaving(false);}
   }
   const boxes = current?.masks || [];
@@ -348,6 +346,7 @@ export default function Redactor({ lang='en' }) {
         <div className="redactor-main">
           <div className="redactor-actions">
             <button type="button" className={tool==='draw'?'chosen':''} onClick={()=>setTool('draw')}>{t.draw}</button>
+            <button type="button" className={tool==='pick'?'chosen':''} disabled={busy||!current?.suggestions.length} onClick={()=>setTool('pick')}>{t.pick}</button>
             <button type="button" className={tool==='erase'?'chosen':''} onClick={()=>setTool('erase')}>{t.erase}</button>
             <button type="button" data-testid="redact-region-mode" className={tool==='region'?'chosen':''} onClick={()=>{setTool('region');setMessage(t.regionNote);}}>{t.region}</button>
             {current?.scanArea&&<button type="button" className="redactor-secondary" data-testid="redact-region-reset" onClick={resetScanArea}>{t.whole}</button>}
@@ -355,9 +354,9 @@ export default function Redactor({ lang='en' }) {
             <button type="button" className="redactor-secondary" data-testid="redact-redo" onClick={redoCurrent} disabled={busy||!current?.redo?.length}>{t.redo}</button>
             <button type="button" className="redactor-secondary" onClick={clearCurrent} disabled={busy||!boxes.length}>{t.clear}</button>
           </div>
-          <p className="redactor-instruction">{tool==='region'?t.regionNote:tool==='draw'?t.drawNote:t.eraseNote}</p>
+          <p className="redactor-instruction">{tool==='region'?t.regionNote:tool==='draw'?t.drawNote:tool==='pick'?t.pickNote:t.eraseNote}</p>
           <div className="redactor-stage-wrap">
-            {current&&<div className="redactor-stage" style={{aspectRatio:current.width+'/'+current.height}}>
+            {current&&<div className="redactor-stage" style={{aspectRatio:current.width+'/'+current.height,maxWidth:Math.min(900,650*current.width/current.height)+'px'}}>
               <img src={current.url} alt={lang==='zh'?'待处理图片':'Image to redact'} draggable={false}/>
               <svg data-testid="redact-overlay" viewBox={'0 0 '+current.width+' '+current.height}
                 preserveAspectRatio="none" aria-label={t.drawNote}
@@ -370,8 +369,11 @@ export default function Redactor({ lang='en' }) {
                   fill="rgba(0,130,80,.06)" strokeDasharray="8 5" pointerEvents="none"/>}
                 {current.suggestions.filter(s=>!selectedIds.has(s.id)).map(s=><rect key={s.id}
                   data-testid="redact-suggestion" x={s.x} y={s.y} width={s.w} height={s.h}
-                  fill="none" stroke="#208bcb" strokeWidth={Math.max(2,current.width/650)}
-                  pointerEvents="none"/>)}
+                  fill="rgba(32,139,203,.035)" stroke="#208bcb" strokeWidth={Math.max(2,current.width/650)}
+                  pointerEvents={tool==='pick'?'all':'none'} role="button" tabIndex={tool==='pick'?0:-1}
+                  aria-label={(lang==='zh'?'遮挡文字 ':'Cover text ')+s.text}
+                  onPointerDown={e=>{if(tool!=='pick'||busy)return;e.preventDefault();e.stopPropagation();toggleSuggestion(s);}}
+                  onKeyDown={e=>{if(tool==='pick'&&!busy&&(e.key==='Enter'||e.key===' ')){e.preventDefault();toggleSuggestion(s);}}}/>)}
                 {boxes.map(box=><rect key={box.id} data-testid="redact-mark"
                   data-mark-id={box.id} x={box.x} y={box.y} width={box.w} height={box.h}
                   fill={fill} stroke="#f59e0b" strokeWidth={Math.max(2,current.width/800)}

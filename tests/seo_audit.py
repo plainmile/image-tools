@@ -77,6 +77,8 @@ for route in ROUTES:
         assert item.get("url") == ORIGIN + route, (route, item)
         if expected == "WebApplication":
             assert item.get("offers", {}).get("price") == "0", (route, item)
+            assert item.get("inLanguage") == ("zh-CN" if route.startswith("/zh/") else "en"), (route, item)
+            assert item.get("isAccessibleForFree") is True, (route, item)
 
 not_found = Page()
 not_found.feed((DIST / "404.html").read_text(encoding="utf-8"))
