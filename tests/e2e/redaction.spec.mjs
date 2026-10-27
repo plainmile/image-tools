@@ -117,7 +117,7 @@ for(const style of ['mosaic','blur']){
   test(style+' shows real filtered pixels in preview and exported output',async({page})=>{
     await page.goto('/redact-image/');await synthetic(page);
     await page.getByTestId('redact-style-'+style).click();
-    await page.getByTestId('redact-strength').fill('48');
+    await page.getByTestId('redact-strength').press('End');
     await draw(page,[.1,.72],[.9,.96]);
     await expect.poll(async()=>(await previewStripe(page))[0]).toBeGreaterThan(30);
     const pre=await previewStripe(page);
