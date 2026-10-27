@@ -9,7 +9,7 @@ DIST = Path("dist")
 ORIGIN = "https://image.plainmile.com"
 TOOLS = [
     "resize-image", "compress-image-to-size", "signature-resizer",
-    "bulk-image-resizer", "passport-photo-print",
+    "bulk-image-resizer", "passport-photo-print", "redact-image",
 ]
 ROUTES = ["/", "/privacy/"] + [f"/{x}/" for x in TOOLS]
 ROUTES += ["/zh" + route for route in ROUTES]

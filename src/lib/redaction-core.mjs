@@ -1,0 +1,148 @@
+import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, sanitizeStem } from './image-core.mjs';
+
+export const REDACT_MAX_FILES = 12;
+export const REDACT_MAX_BYTES = 100 * 1024 * 1024;
+export const REDACT_MAX_PIXELS = 32_000_000;
+
+const MIN_BOX = 2;
+export function validateRedactionFiles(files) {
+  if (!Array.isArray(files) || !files.length) throw new Error('Choose one or more images.');
+  if (files.length > REDACT_MAX_FILES) throw new Error('Select at most 12 images.');
+  if (files.reduce((size, f) => size + Number(f?.size || 0), 0) > REDACT_MAX_BYTES) {
+    throw new Error('Selected files exceed the 100 MB batch limit.');
+  }
+  for (const f of files) {
+    if (!f || f.size <= 0 || f.size > MAX_FILE_BYTES) throw new Error('Each image must be at most 40 MB.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
+      throw new Error('Only JPEG, PNG and WebP are supported.');
+    }
+  }
+}
+export function verifyImageSize(width, height) {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 ||
+      width * height > Math.min(MAX_SOURCE_PIXELS, REDACT_MAX_PIXELS)) {
+    throw new Error('Image exceeds the 32-megapixel limit.');
+  }
+}
+export function clampBox(box, width, height, padding = 0) {
+  if (![width, height, box.x, box.y, box.w, box.h].every(Number.isFinite) ||
+      width < 1 || height < 1) return null;
+  const x1 = Math.max(0, Math.floor(box.x - padding));
+  const y1 = Math.max(0, Math.floor(box.y - padding));
+  const x2 = Math.min(width, Math.ceil(box.x + box.w + padding));
+  const y2 = Math.min(height, Math.ceil(box.y + box.h + padding));
+  if (x2 - x1 < MIN_BOX || y2 - y1 < MIN_BOX) return null;
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+export function boxBetween(a, b, width, height) {
+  return clampBox({
+    x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
+    w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y),
+  }, width, height);
+}
+export function extractOcrBoxes(data, originalWidth, originalHeight, scanWidth, scanHeight) {
+  const sx = originalWidth / scanWidth;
+  const sy = originalHeight / scanHeight;
+  const words = [];
+  for (const block of data?.blocks || []) {
+    for (const paragraph of block.paragraphs || []) {
+      for (const line of paragraph.lines || []) {
+        const terms = line.words?.length ? line.words : [line];
+        for (const word of terms) {
+          const label = String(word.text || '').trim();
+          const b = word.bbox;
+          if (!label || !b) continue;
+          const rect = clampBox({
+            x: b.x0 * sx, y: b.y0 * sy,
+            w: (b.x1 - b.x0) * sx, h: (b.y1 - b.y0) * sy,
+          }, originalWidth, originalHeight, 3);
+          if (rect) words.push({ id: 'ocr-' + words.length, text: label, ...rect, source: 'ocr' });
+        }
+      }
+    }
+  }
+  return words.slice(0, 1200);
+}
+
+export async function decodeBitmap(file) {
+  if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw new Error('Unsupported image format.');
+  }
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  try {
+    verifyImageSize(bitmap.width, bitmap.height);
+  } catch (error) {
+    bitmap.close();
+    throw error;
+  }
+  return bitmap;
+}
+export function scanCanvas(bitmap) {
+  const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height),
+    Math.sqrt(3_000_000 / (bitmap.width * bitmap.height)));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.floor(bitmap.height * scale));
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Canvas unavailable.');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+export function canvasBlob(canvas, mime='image/png', quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => blob && blob.type === mime ?
+      resolve(blob) : reject(new Error('Image encoding failed.')), mime, quality);
+  });
+}
+export function paintRedactions(ctx, bitmap, masks, effect) {
+  for (const item of masks) {
+    const box = clampBox(item, bitmap.width, bitmap.height);
+    if (!box) continue;
+    if (effect === 'solid' || effect === 'white') {
+      ctx.fillStyle = effect === 'white' ? '#fff' : '#000';
+      ctx.fillRect(box.x, box.y, box.w, box.h);
+    } else if (effect === 'mosaic') {
+      const sample = document.createElement('canvas');
+      sample.width = Math.max(1, Math.ceil(box.w / 16));
+      sample.height = Math.max(1, Math.ceil(box.h / 16));
+      const sctx = sample.getContext('2d');
+      if (!sctx) throw new Error('Canvas unavailable.');
+      sctx.drawImage(bitmap, box.x, box.y, box.w, box.h, 0, 0, sample.width, sample.height);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sample, 0, 0, sample.width, sample.height, box.x, box.y, box.w, box.h);
+      ctx.restore();
+      sample.width = 0; sample.height = 0;
+    } else if (effect === 'blur') {
+      ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
+      ctx.filter = 'blur(20px)';
+      ctx.drawImage(bitmap, 0, 0);
+      ctx.restore();
+    } else {
+      throw new Error('Unsupported redaction effect.');
+    }
+  }
+}
+export async function flattenRedactedImage(file, masks, effect='solid', format='png') {
+  if (!Array.isArray(masks) || masks.length === 0) {
+    throw new Error('Add at least one redaction box before downloading.');
+  }
+  if (!['png', 'jpeg', 'webp'].includes(format)) throw new Error('Unsupported output format.');
+  const bitmap = await decodeBitmap(file);
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width; canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d', { alpha: format !== 'jpeg' });
+    if (!ctx) throw new Error('Canvas unavailable.');
+    if (format === 'jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    ctx.drawImage(bitmap, 0, 0);
+    paintRedactions(ctx, bitmap, masks, effect);
+    const blob = await canvasBlob(canvas, 'image/' + format, 0.94);
+    canvas.width = 0; canvas.height = 0;
+    return { blob, filename: sanitizeStem(file.name) + '-redacted.' + (format === 'jpeg' ? 'jpg' : format) };
+  } finally {
+    bitmap.close();
+  }
+}

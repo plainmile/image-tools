@@ -5,11 +5,12 @@ const entries = [
   ['compress-image-to-size/', '压缩到指定 KB', '将 JPG、WebP 压缩到规定的文件大小。'],
   ['signature-resizer/', '调整签名图片', '设置签名图片的尺寸和文件大小。'],
   ['bulk-image-resizer/', '批量修改图片', '统一处理多张图片，打包下载 ZIP。'],
-  ['passport-photo-print/', '4×6 英寸照片排版', '将六张 2×2 英寸照片排版打印。']
+  ['passport-photo-print/', '4×6 英寸照片排版', '将六张 2×2 英寸照片排版打印。'],
+  ['redact-image/', '图片打码与批量遮挡', '自动识别文字并遮挡，也能手动添加或移除遮挡框。']
 ];
 ---
-<Base lang="zh" title="免费图片工具 — 调整尺寸、压缩与打印 | PlainMile" description="在线修改图片尺寸、压缩到指定 KB、调整签名图片、批量处理和打印排版。图片在浏览器中本地处理。">
-  <section class="home-head"><h1>图片工具</h1><p class="lead">调整尺寸、压缩文件大小或准备打印照片。选择需要的功能即可开始。</p></section>
+<Base lang="zh" title="免费图片工具 — 尺寸、压缩和图片打码 | PlainMile" description="在线修改图片尺寸、压缩到指定 KB、批量图片打码，自动识别文字并遮挡，支持手动调整与照片打印排版。文件在浏览器中处理，不上传图片内容。">
+  <section class="home-head"><h1>图片工具</h1><p class="lead">调整图片尺寸、压缩文件大小、打码遮挡文字或准备打印照片。选择需要的功能即可开始。</p></section>
   <section class="home-tools" aria-label="图片工具">
     <div class="tool-list">{entries.map(([path,title,detail])=><a class="tool-link" href={'/zh/'+path}><span><strong>{title}</strong><small>{detail}</small></span><span class="arrow" aria-hidden="true">›</span></a>)}</div>
   </section>

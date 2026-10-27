@@ -5,11 +5,12 @@ const entries = [
   ['compress-image-to-size/', 'Compress to a file-size limit', 'Save a JPG or WebP under a specified KB limit.'],
   ['signature-resizer/', 'Resize signature', 'Adjust signature dimensions and file size.'],
   ['bulk-image-resizer/', 'Bulk resize', 'Apply the same settings to several images and download a ZIP.'],
-  ['passport-photo-print/', '4×6 photo print sheet', 'Arrange six 2×2-inch photos for printing.']
+  ['passport-photo-print/', '4×6 photo print sheet', 'Arrange six 2×2-inch photos for printing.'],
+  ['redact-image/', 'Redact images and screenshots', 'Cover text detected in pictures, refine boxes and export in batches.']
 ];
 ---
-<Base title="Free Image Tools — Resize, Compress & Print | PlainMile" description="Resize images, compress JPG or WebP to a target KB, adjust signature dimensions and make 4×6 print sheets. Files are processed in your browser.">
-  <section class="home-head"><h1>Image tools</h1><p class="lead">Resize, compress or prepare images for forms and printing. Choose a tool to start.</p></section>
+<Base title="Free Image Tools — Resize, Compress & Redact | PlainMile" description="Resize photos, compress images below KB limits, cover text in screenshots and create print sheets. English and Chinese tools process images locally in your browser.">
+  <section class="home-head"><h1>Image tools</h1><p class="lead">Resize, compress, redact or prepare images for forms and printing. Choose a tool to start.</p></section>
   <section class="home-tools" aria-label="Image tools">
     <div class="tool-list">{entries.map(([path,title,detail])=><a class="tool-link" href={'/'+path}><span><strong>{title}</strong><small>{detail}</small></span><span class="arrow" aria-hidden="true">›</span></a>)}</div>
   </section>

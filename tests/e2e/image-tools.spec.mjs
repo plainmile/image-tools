@@ -12,7 +12,7 @@ async function uploadSynthetic(page, count=1){
   await page.getByTestId('upload').setInputFiles(Array.from({length:count},(_,i)=>({name:'sample-'+i+'.png',mimeType:'image/png',buffer:Buffer.from(png)})));
 }
 test('English and Chinese pages contain valid static SEO metadata',async({page})=>{
-  for(const route of ['/','/zh/','/resize-image/','/zh/resize-image/','/compress-image-to-size/','/zh/compress-image-to-size/','/signature-resizer/','/zh/signature-resizer/','/bulk-image-resizer/','/zh/bulk-image-resizer/','/passport-photo-print/','/zh/passport-photo-print/','/privacy/','/zh/privacy/']){
+  for(const route of ['/','/zh/','/resize-image/','/zh/resize-image/','/compress-image-to-size/','/zh/compress-image-to-size/','/signature-resizer/','/zh/signature-resizer/','/bulk-image-resizer/','/zh/bulk-image-resizer/','/passport-photo-print/','/zh/passport-photo-print/','/redact-image/','/zh/redact-image/','/privacy/','/zh/privacy/']){
     const response=await page.goto(route);expect(response.status()).toBe(200);
     const canonical=await page.locator('link[rel=canonical]').getAttribute('href');
     expect(canonical).toBe('https://image.plainmile.com'+route);
@@ -81,7 +81,7 @@ test('sibling websites appear on both language versions', async({page}) => {
 test('plain tool-first layout and localized labels',async({page})=>{
   for(const route of ['/','/zh/']){
     await page.goto(route);
-    await expect(page.locator('.tool-list .tool-link')).toHaveCount(5);
+    await expect(page.locator('.tool-list .tool-link')).toHaveCount(6);
     await expect(page.locator('.brandmark,.eyebrow,.tile')).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText(/No uploads, accounts, or AI|无需上传、账号或 AI/);
   }

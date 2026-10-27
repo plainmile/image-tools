@@ -1,0 +1,29 @@
+---
+import Base from '../layouts/Base.astro';
+import Redactor from '../components/Redactor.jsx';
+---
+<Base path="/redact-image/" title="Redact Images & Screenshots — OCR Text & Batch | PlainMile" description="Black out sensitive text in JPG, PNG and WebP images. Detect English or Chinese text in your browser, review each box, add manual covers, and download batches.">
+<section class="page-head">
+  <p class="breadcrumb"><a href="/">Image tools</a> / Redact images</p>
+  <h1>Redact text in images and screenshots</h1>
+  <p class="lead">Find text in a screenshot, cover what needs hiding, then review each box before downloading. Process one image or a batch.</p>
+</section>
+<Redactor client:load lang="en"/>
+<section class="reference">
+  <h2>How to redact a screenshot</h2>
+  <ol><li>Select JPG, PNG or WebP images. You can paste a screenshot or select up to 12 images.</li>
+  <li>Choose English or Simplified Chinese + English, then select <strong>Find and cover text</strong> for one image or <strong>Find text in all images</strong> for a batch.</li>
+  <li>Uncheck words that should remain visible. Drag on the preview to draw additional boxes. Switch to Remove boxes to delete one.</li>
+  <li>Choose a cover style, review every image and download a re-encoded image or ZIP.</li></ol>
+  <h2>Solid black, pixelation and blur</h2>
+  <p>Use opaque black or white blocks for passwords, addresses, access tokens and identification numbers. Pixelation and blur can still leak information, particularly if the original text is predictable. Exported images are newly encoded so the original text pixels inside solid masks and the original EXIF metadata are not included.</p>
+  <h2>Does OCR catch every word?</h2>
+  <p>No. Small, diagonal, blurry or decorative text is easily missed. Text detection can also mistake parts of icons for letters. Inspect the picture at full size and add manual rectangles over missed information. Automatic recognition is a starting point, not a privacy guarantee.</p>
+  <h2>What about batch processing?</h2>
+  <p>Batch recognition processes one image at a time on your device, using a single OCR worker. Each file keeps its own masks and recognized words; switch between images to refine them. Exporting the ZIP requires at least one cover on every selected image to avoid accidentally including a completely unredacted original.</p>
+  <h2>Privacy and file limits</h2>
+  <p>English and Simplified Chinese OCR files load from this website, not an outside text recognition service. Image pixels, detected text and exported files stay in your browser. Up to 12 files and 100 MB total are accepted, with a 32-megapixel image limit. See our <a href="/privacy/">privacy policy</a>.</p>
+  <h2>Related tools</h2>
+  <ul class="related-links"><li><a href="/resize-image/">Resize image</a></li><li><a href="/compress-image-to-size/">Compress to KB</a></li><li><a href="/bulk-image-resizer/">Bulk resize</a></li></ul>
+</section>
+</Base>
