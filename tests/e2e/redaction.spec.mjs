@@ -371,3 +371,34 @@ test('OCR detects text in receipts, chat screenshots and photographed signs at d
   });
   expect(actual.slice(0,3)).toEqual([0,0,0]);
 });
+
+test('mixed-language OCR genuinely reads Chinese glyphs, not just English text',async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='chromium','Check Chinese training data with actual Han characters');
+  test.setTimeout(180000);
+  await page.goto('/zh/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const bytes=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');canvas.width=1100;canvas.height=540;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#222';ctx.font='bold 72px "Noto Sans CJK SC", sans-serif';
+    ctx.fillText('中文测试 订单编号',125,285);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'chinese-lettering.png',mimeType:'image/png',buffer:Buffer.from(bytes)
+  });
+  await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  await page.getByLabel('识别语言').selectOption('mixed');
+  await page.getByTestId('redact-ocr').click();
+  await expect(page.getByTestId('redact-ocr')).toBeEnabled({timeout:120000});
+  const labels=page.locator('.redactor-recognized label');
+  const transcript=await labels.allTextContents();
+  expect(transcript.join('')).toMatch(/[\u4e00-\u9fff]{2}/);
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  const selected=labels.filter({hasText:/[\u4e00-\u9fff]/}).first();
+  await selected.locator('input').check();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(page.getByTestId('redact-mark').first()).toHaveAttribute('fill','#000');
+});
