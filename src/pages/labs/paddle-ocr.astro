@@ -1,0 +1,47 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base noindex path="/labs/paddle-ocr/" title="Private OCR development benchmark | PlainMile" description="Unindexed OCR development check, not a public product.">
+<section class="reference" style="max-width:790px">
+  <h1>OCR experiment (not production)</h1>
+  <p>Only synthetic test files. Do not upload private documents. All model weights are served from this website.</p>
+  <input data-testid="paddle-file" type="file" accept="image/png,image/jpeg,image/webp"/>
+  <button data-testid="paddle-run" type="button">Run detector and recognizer</button>
+  <pre data-testid="paddle-output" style="white-space:pre-wrap">Ready</pre>
+</section>
+</Base>
+<script>
+  import {PaddleOCR} from '@paddleocr/paddleocr-js';
+  const picker=document.querySelector<HTMLInputElement>('[data-testid=paddle-file]')!;
+  const button=document.querySelector<HTMLButtonElement>('[data-testid=paddle-run]')!;
+  const output=document.querySelector<HTMLElement>('[data-testid=paddle-output]')!;
+  button.addEventListener('click',async()=>{
+    const file=picker.files?.[0];
+    if(!file)return;
+    button.disabled=true;
+    window.__paddleTestState='running';
+    output.textContent='Initializing local OCR models...';
+    let ocr;
+    try{
+      ocr=await PaddleOCR.create({
+        lang:'ch',
+        textDetectionModelName:'PP-OCRv5_mobile_det',
+        textDetectionModelAsset:{url:'/ocr/paddle/det.tar'},
+        textRecognitionModelName:'PP-OCRv5_mobile_rec',
+        textRecognitionModelAsset:{url:'/ocr/paddle/rec.tar'},
+        worker:true,
+        ortOptions:{backend:'wasm',wasmPaths:'/ocr/paddle/wasm/',numThreads:1,simd:true},
+      });
+      const results=await ocr.predict(file,{textRecScoreThresh:0.45,textDetBoxThresh:0.6});
+      window.__paddleTestResult=results[0];
+      window.__paddleTestState='complete';
+      output.textContent=JSON.stringify({items:results[0]?.items,metrics:results[0]?.metrics},null,2);
+    }catch(error){
+      window.__paddleTestState='failed';
+      output.textContent=String(error?.stack||error);
+    }finally{
+      try{await ocr?.dispose?.();}catch{}
+      button.disabled=false;
+    }
+  });
+</script>

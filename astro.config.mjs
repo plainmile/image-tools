@@ -4,7 +4,7 @@ import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
   site: 'https://image.plainmile.com',
-  integrations: [react(), sitemap({ filter: (page) => !page.endsWith('/404/') })],
+  integrations: [react(), sitemap({ filter: (page) => !page.endsWith('/404/') && !page.includes('/labs/') })],
   output: 'static',
   trailingSlash: 'always',
   build: { format: 'directory' },
