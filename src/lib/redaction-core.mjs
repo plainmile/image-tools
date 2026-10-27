@@ -88,7 +88,7 @@ export function extractOcrBoxes(data, originalWidth, originalHeight, scanWidth, 
           const rawW=(b.x1-b.x0)*sx,rawH=(b.y1-b.y0)*sy;
           if (!Number.isFinite(rawW) || !Number.isFinite(rawH) ||
               rawW < 4 || rawH < 5 ||
-              rawH > rawW*2.6 || rawH > originalHeight*.28 ||
+              rawH > rawW*2.6 || rawH > Math.max(60,originalHeight*.28) ||
               rawW * rawH > originalWidth*originalHeight*.15) continue;
           const rect=clampBox({
             x:zone.x+b.x0*sx,y:zone.y+b.y0*sy,w:rawW,h:rawH
