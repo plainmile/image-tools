@@ -57,9 +57,8 @@ function clusters(mask, raw, w, h, kind) {
       }
     }
     const bw = right - left + 1, bh = bottom - top + 1;
-    if (bw < 40 || bh < 10 || bh > 110 || bw / bh < 1.1) continue;
-    if (kind !== 'color' && bw / bh < 4) continue;
-    if (kind === 'color' && area < 180) continue;
+    if (bw < 20 || bh < 9 || bh > 110) continue;
+    if (kind === 'color' && (bw / bh < 1.1 || area < 180)) continue;
     let foreground = 0;
     for (let y = top; y <= bottom; y++) {
       for (let x = left; x <= right; x++) foreground += raw[y * w + x];
@@ -68,8 +67,31 @@ function clusters(mask, raw, w, h, kind) {
     if (density < .04) continue;
     found.push({ x: left, y: top, w: bw, h: bh, score: area * density });
   }
-  found.sort((a, b) => b.score - a.score);
-  return found.slice(0, 1);
+  // Subtitle words often form separate connected components. Merge only
+  // same-baseline bottom components; do not merge top beams into timestamps.
+  if (kind === 'bottom') {
+    let merging = true;
+    while (merging) {
+      merging = false;
+      outer: for (let i = 0; i < found.length; i++) {
+        for (let j = i+1; j < found.length; j++) {
+          const a = found[i], b = found[j];
+          const overlap = Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y);
+          const gap = Math.max(0,Math.max(a.x,b.x)-Math.min(a.x+a.w,b.x+b.w));
+          if (overlap > Math.min(a.h,b.h)*.55 && gap <= 35) {
+            const left = Math.min(a.x,b.x), right = Math.max(a.x+a.w,b.x+b.w);
+            const top = Math.min(a.y,b.y), lower = Math.max(a.y+a.h,b.y+b.h);
+            found[i] = {x:left,y:top,w:right-left,h:lower-top,score:a.score+b.score};
+            found.splice(j,1); merging = true; break outer;
+          }
+        }
+      }
+    }
+  }
+  const filtered = found.filter(b => b.w >= 40 && b.h >= 10 &&
+    b.w/b.h >= (kind === 'color' ? 1.1 : 4));
+  filtered.sort((a,b) => b.score-a.score);
+  return filtered.slice(0,1);
 }
 export function detectReviewRegions(rgba, w, h, originalWidth = w, originalHeight = h) {
   if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1 ||
