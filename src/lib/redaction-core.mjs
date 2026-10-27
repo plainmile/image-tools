@@ -56,9 +56,18 @@ export function boxBetween(a, b, width, height) {
     w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y),
   }, width, height);
 }
-export function extractOcrBoxes(data, originalWidth, originalHeight, scanWidth, scanHeight) {
-  const sx = originalWidth / scanWidth;
-  const sy = originalHeight / scanHeight;
+/**
+ * OCR is an untrusted suggestion source, never an automatic mask generator.
+ * Reject punctuation, low-confidence tokens and implausibly tall/wide
+ * glyphs produced by machinery, fences, cables and architectural textures.
+ * This heuristic intentionally trades recall for reviewable precision;
+ * users must be able to draw any missing cover manually.
+ */
+export function extractOcrBoxes(data, originalWidth, originalHeight, scanWidth, scanHeight, region=null) {
+  if (![originalWidth, originalHeight, scanWidth, scanHeight].every(
+    v => Number.isFinite(v) && v > 0)) return [];
+  const zone = region || {x:0,y:0,w:originalWidth,h:originalHeight};
+  const sx = zone.w / scanWidth, sy = zone.h / scanHeight;
   const words = [];
   for (const block of data?.blocks || []) {
     for (const paragraph of block.paragraphs || []) {
@@ -68,16 +77,28 @@ export function extractOcrBoxes(data, originalWidth, originalHeight, scanWidth, 
           const label = String(word.text || '').trim();
           const b = word.bbox;
           if (!label || !b) continue;
-          const rect = clampBox({
-            x: b.x0 * sx, y: b.y0 * sy,
-            w: (b.x1 - b.x0) * sx, h: (b.y1 - b.y0) * sy,
-          }, originalWidth, originalHeight, 3);
-          if (rect) words.push({ id: 'ocr-' + words.length, text: label, ...rect, source: 'ocr' });
+          const confidence=Number(word.confidence ?? line.confidence);
+          if (!Number.isFinite(confidence)) continue;
+          const readable=Array.from(label).filter(ch => /[\\p{L}\\p{N}]/u.test(ch));
+          if (!readable.length) continue;
+          const han=/[\\p{Script=Han}]/u.test(label);
+          const minConfidence=readable.length === 1 ? (han ? 85 : 92) :
+            readable.length === 2 ? 77 : 65;
+          if (confidence < minConfidence) continue;
+          const rawW=(b.x1-b.x0)*sx,rawH=(b.y1-b.y0)*sy;
+          if (!Number.isFinite(rawW) || !Number.isFinite(rawH) ||
+              rawW < 4 || rawH < 5 ||
+              rawH > rawW*2.6 || rawH > originalHeight*.28 ||
+              rawW * rawH > originalWidth*originalHeight*.15) continue;
+          const rect=clampBox({
+            x:zone.x+b.x0*sx,y:zone.y+b.y0*sy,w:rawW,h:rawH
+          },originalWidth,originalHeight,3);
+          if (rect)words.push({id:'ocr-'+words.length,text:label,...rect,source:'ocr',confidence});
         }
       }
     }
   }
-  return words.slice(0, 1200);
+  return words.slice(0,250);
 }
 
 export async function decodeBitmap(file) {
@@ -93,16 +114,19 @@ export async function decodeBitmap(file) {
   }
   return bitmap;
 }
-export function scanCanvas(bitmap) {
-  const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height),
-    Math.sqrt(3_000_000 / (bitmap.width * bitmap.height)));
+export function scanCanvas(bitmap,region=null) {
+  const zone=region ? clampBox(region,bitmap.width,bitmap.height) :
+    {x:0,y:0,w:bitmap.width,h:bitmap.height};
+  if(!zone)throw new Error('Invalid OCR selection area.');
+  const scale = Math.min(1, 2400 / Math.max(zone.w, zone.h),
+    Math.sqrt(3_000_000 / (zone.w * zone.h)));
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.floor(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.floor(bitmap.height * scale));
+  canvas.width = Math.max(1, Math.floor(zone.w * scale));
+  canvas.height = Math.max(1, Math.floor(zone.h * scale));
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('Canvas unavailable.');
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, zone.x, zone.y, zone.w, zone.h,0,0,canvas.width,canvas.height);
   return canvas;
 }
 export function canvasBlob(canvas, mime='image/png', quality) {
