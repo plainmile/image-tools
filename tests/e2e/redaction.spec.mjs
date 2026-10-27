@@ -277,74 +277,128 @@ test('industrial-style texture cannot cause automatic blackout during OCR',async
 });
 
 
-test('realistic three-region photo proposals produce actual solid pixels after selection',async({page},testInfo)=>{
-  test.skip(testInfo.project.name!=='chromium','Heavy local OCR plus exported-pixel inspection in Chromium');
+test('OCR detects text in receipts, chat screenshots and photographed signs at different locations',async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='chromium','Real multi-image Tesseract OCR regression');
+  test.setTimeout(300000);
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const pictures=await page.evaluate(async()=>{
+    const themes=[
+      {name:'receipt',text:'INVOICE 4826',x:180,y:335},
+      {name:'chat',text:'MESSAGE 8421',x:315,y:272},
+      {name:'photo',text:'PARKING 284',x:460,y:490},
+    ];
+    const files=[];
+    for(const theme of themes){
+      const canvas=document.createElement('canvas');canvas.width=960;canvas.height=620;
+      const c=canvas.getContext('2d');
+      if(theme.name==='receipt'){
+        c.fillStyle='#fff';c.fillRect(0,0,960,620);
+        c.fillStyle='#777';c.fillRect(65,110,800,3);
+        c.fillRect(65,460,800,3);c.fillRect(65,500,800,3);
+        c.fillStyle='#141414';
+      }else if(theme.name==='chat'){
+        c.fillStyle='#f8f8f8';c.fillRect(0,0,960,620);
+        c.fillStyle='#284e92';c.fillRect(260,175,630,175);
+        c.fillStyle='#fff';
+      }else{
+        c.fillStyle='#526e81';c.fillRect(0,0,960,620);
+        c.fillStyle='#3c4f5c';
+        for(let i=0;i<18;i++)c.fillRect(i*58,40,9,540);
+        c.fillStyle='#f4efd9';c.fillRect(415,410,520,130);
+        c.fillStyle='#171717';
+      }
+      c.font='bold 57px Arial';
+      c.fillText(theme.text,theme.x,theme.y);
+      const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+      files.push({name:theme.name+'.png',buffer:Array.from(new Uint8Array(await blob.arrayBuffer()))});
+    }
+    return files;
+  });
+  await page.getByTestId('redact-upload').setInputFiles(pictures.map(f=>({
+    name:f.name,mimeType:'image/png',buffer:Buffer.from(f.buffer)
+  })));
+  await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  await page.getByTestId('redact-ocr-all').click();
+  await expect(page.getByTestId('redact-ocr-all')).toBeEnabled({timeout:240000});
+  for(const scene of [
+    {name:'receipt',word:'INVOICE',x:180,y:335},
+    {name:'chat',word:'MESSAGE',x:315,y:272},
+    {name:'photo',word:'PARKING',x:460,y:490}
+  ]){
+    await page.getByRole('button',{name:new RegExp(scene.name+'.png')}).click();
+    const matching=page.locator('.redactor-recognized label')
+      .filter({hasText:new RegExp(scene.word,'i')}).first();
+    await expect(matching, 'OCR failed on '+scene.name+': '+
+      await page.locator('.redactor-recognized').innerText()).toBeVisible();
+    await expect(page.getByTestId('redact-count')).toHaveText('0');
+    await matching.locator('input').check();
+    const mark=page.getByTestId('redact-mark').first();
+    await expect(mark).toHaveAttribute('fill','#000');
+    const box=await mark.evaluate(el=>({
+      x:+el.getAttribute('x'),y:+el.getAttribute('y'),
+      w:+el.getAttribute('width'),h:+el.getAttribute('height')
+    }));
+    // The OCR box must correspond to the actual painted caption,
+    // regardless of its vertical position or background style.
+    expect(box.x).toBeLessThan(scene.x+220);
+    expect(box.x+box.w).toBeGreaterThan(scene.x+40);
+    expect(box.y).toBeLessThan(scene.y);
+    expect(box.y+box.h).toBeGreaterThan(scene.y-65);
+  }
+  // Check that checking an OCR result changes *exported image pixels*,
+  // rather than merely changing the checkbox or the SVG border.
+  await page.evaluate(()=>{
+    const orig=URL.createObjectURL.bind(URL);
+    window.__redactedOutput=null;
+    URL.createObjectURL=blob=>{
+      if(blob.type==='image/png')window.__redactedOutput=blob;
+      return orig(blob);
+    };
+  });
+  const promise=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await promise;
+  const actual=await page.evaluate(async()=>{
+    const blob=window.__redactedOutput;
+    const bm=await createImageBitmap(blob);
+    const c=document.createElement('canvas');c.width=bm.width;c.height=bm.height;
+    const ctx=c.getContext('2d');ctx.drawImage(bm,0,0);
+    const b=document.querySelector('[data-testid=redact-mark]');
+    const x=Math.round(+b.getAttribute('x')+(+b.getAttribute('width'))/2);
+    const y=Math.round(+b.getAttribute('y')+(+b.getAttribute('height'))/2);
+    return Array.from(ctx.getImageData(x,y,1,1).data);
+  });
+  expect(actual.slice(0,3)).toEqual([0,0,0]);
+});
+
+test('mixed-language OCR genuinely reads Chinese glyphs, not just English text',async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='chromium','Check Chinese training data with actual Han characters');
   test.setTimeout(180000);
   await page.goto('/zh/redact-image/');
   await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
   const bytes=await page.evaluate(async()=>{
-    const c=document.createElement('canvas');c.width=960;c.height=540;
-    const x=c.getContext('2d');
-    x.fillStyle='#687b89';x.fillRect(0,0,960,540);
-    // Industrial radiator panels create repetitive non-text background texture.
-    for(let k=0;k<40;k++){
-      x.fillStyle=k%2?'#abb6b8':'#647d84';x.fillRect(50+k*21,130,12,300);
-    }
-    x.font='bold 34px Arial';x.lineWidth=2;
-    x.strokeStyle='#121719';x.fillStyle='#f4f4f4';
-    x.strokeText('2026-08-28 12:10:32',600,62);
-    x.fillText('2026-08-28 12:10:32',600,62);
-    x.fillStyle='#d0d2ce';x.fillRect(408,290,135,72);
-    x.strokeStyle='#ab1111';x.lineWidth=2;x.strokeRect(408,290,135,72);
-    x.font='bold 27px Arial';x.fillStyle='#e21a1a';x.fillText('2 MAIN',419,334);
-    x.font='bold 34px Arial';x.lineWidth=2;
-    x.strokeStyle='#101619';x.fillStyle='#f4f4f4';
-    x.strokeText('110kV TRANSFORMER - WEST',30,523);
-    x.fillText('110kV TRANSFORMER - WEST',30,523);
-    const blob=await new Promise(done=>c.toBlob(done,'image/png'));
+    const canvas=document.createElement('canvas');canvas.width=1100;canvas.height=540;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#222';ctx.font='bold 72px "Noto Sans CJK SC", sans-serif';
+    ctx.fillText('中文测试 订单编号',125,285);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
     return Array.from(new Uint8Array(await blob.arrayBuffer()));
   });
   await page.getByTestId('redact-upload').setInputFiles({
-    name:'generated-photo.png',mimeType:'image/png',buffer:Buffer.from(bytes)
+    name:'chinese-lettering.png',mimeType:'image/png',buffer:Buffer.from(bytes)
   });
   await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  await page.getByLabel('识别语言').selectOption('mixed');
   await page.getByTestId('redact-ocr').click();
   await expect(page.getByTestId('redact-ocr')).toBeEnabled({timeout:120000});
-
-  const candidate=label=>page.locator('.redactor-recognized label').filter({hasText:label});
-  await expect(candidate('疑似文字区域（顶部）')).toBeVisible();
-  await expect(candidate('疑似文字区域（底部）')).toBeVisible();
-  await expect(candidate('疑似彩色文字／铭牌')).toBeVisible();
+  const labels=page.locator('.redactor-recognized label');
+  const transcript=await labels.allTextContents();
+  expect(transcript.join('')).toMatch(/[\u4e00-\u9fff]{2}/);
   await expect(page.getByTestId('redact-count')).toHaveText('0');
-  await expect(page.getByTestId('redact-mark')).toHaveCount(0);
-
-  await candidate('疑似文字区域（顶部）').locator('input').check();
+  const selected=labels.filter({hasText:/[\u4e00-\u9fff]/}).first();
+  await selected.locator('input').check();
   await expect(page.getByTestId('redact-count')).toHaveText('1');
-  const mark=page.getByTestId('redact-mark').first();
-  await expect(mark).toHaveAttribute('fill','#000');
-  const bounds=await mark.evaluate(el=>({
-    x:Number(el.getAttribute('x')),y:Number(el.getAttribute('y')),
-    w:Number(el.getAttribute('width')),h:Number(el.getAttribute('height'))
-  }));
-  expect(bounds.y).toBeLessThan(110);
-  expect(bounds.x).toBeGreaterThan(550);
-
-  await page.evaluate(()=>{
-    const original=URL.createObjectURL.bind(URL);
-    URL.createObjectURL=blob=>{
-      if(blob.type==='image/png')window.__exportedRedaction=blob;
-      return original(blob);
-    };
-  });
-  const downloaded=page.waitForEvent('download');
-  await page.getByTestId('redact-download').click();
-  await downloaded;
-  const color=await page.evaluate(async({x,y,w,h})=>{
-    const blob=window.__exportedRedaction;
-    const image=await createImageBitmap(blob);
-    const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
-    const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
-    return Array.from(ctx.getImageData(Math.round(x+w/2),Math.round(y+h/2),1,1).data);
-  },bounds);
-  expect(color.slice(0,3)).toEqual([0,0,0]);
+  await expect(page.getByTestId('redact-mark').first()).toHaveAttribute('fill','#000');
 });
