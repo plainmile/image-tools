@@ -98,12 +98,13 @@ test('batch export requires a mask on each image and packages a ZIP',async({page
 });
 test('no source image is submitted to an external server',async({page})=>{
   const unexpected=[];
-  const url='https://image.plainmile.com';
+  await page.goto('/redact-image/');
+  const expectedOrigin=new URL(page.url()).origin;
   page.on('request',r=>{
     if(r.method()!=='GET'&&r.method()!=='HEAD')unexpected.push(r.url());
-    if(r.url().startsWith('http')&&new URL(r.url()).origin!==new URL(page.url()).origin)unexpected.push(r.url());
+    if(r.url().startsWith('http')&&new URL(r.url()).origin!==expectedOrigin)unexpected.push(r.url());
   });
-  await page.goto('/redact-image/');await synthetic(page);await draw(page);
+  await synthetic(page);await draw(page);
   const p=page.waitForEvent('download');
   await page.getByTestId('redact-download').click();await p;
   expect(unexpected).toEqual([]);
@@ -123,8 +124,23 @@ test('actual local OCR finds English text, permits unchecking a suggestion and n
   page.on('request',r=>{if(r.url().startsWith('http')&&r.url().indexOf('image.plainmile.com')<0 &&
     !r.url().startsWith('http://127.0.0.1:18082'))offsite.push(r.url());});
   await page.goto('/redact-image/');await synthetic(page);
+  const browserErrors=[];
+  page.on('pageerror',e=>browserErrors.push(e.message));
+  page.on('console',e=>{if(e.type()==='error')browserErrors.push(e.text());});
+  page.on('requestfailed',r=>browserErrors.push(r.url()+' '+r.failure()?.errorText));
+  page.on('response',response=>{
+    if(response.url().includes('/ocr/')&&response.status()>=400){
+      browserErrors.push('OCR asset HTTP '+response.status()+' '+response.url());
+    }
+  });
   await page.getByTestId('redact-ocr').click();
-  await expect(page.getByTestId('redact-mark').first()).toBeVisible({timeout:120000});
+  try{
+    await expect(page.getByTestId('redact-mark').first()).toBeVisible({timeout:90000});
+  }catch(error){
+    const status=await page.getByTestId('redact-status').innerText();
+    throw new Error('Actual OCR did not detect text. Status: '+status+' Browser errors: '+
+      JSON.stringify(browserErrors)+'; '+error.message);
+  }
   const n=await page.getByTestId('redact-mark').count();
   expect(n).toBeGreaterThan(0);
   await expect(page.getByTestId('redact-count')).toHaveText(String(n));
