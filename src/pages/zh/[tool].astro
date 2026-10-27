@@ -1,0 +1,18 @@
+---
+import Base from '../../layouts/Base.astro';
+import Editor from '../../components/Editor.jsx';
+const pages={
+'resize-image':['免费修改图片尺寸和像素 | PlainMile','浏览器内修改 JPG、PNG、WebP 图片的精确宽高像素，不上传文件。','精确修改图片像素尺寸','输入目标宽度和高度，完整保留图片或裁剪填充。支持 JPG、PNG、WebP。','适合需要精确宽高的表单、头像、上传系统。保留完整图片时会有留白，裁剪模式可能去掉边缘内容。'],
+'compress-image-to-size':['在线压缩图片到指定 KB | PlainMile','在浏览器中将图片压缩到指定最大 KB，确认实际输出字节。','将图片压缩到指定 KB 以下','设置最大文件大小，例如 50KB、100KB 或 200KB。下载前会检测真实输出文件大小。','JPG/WebP 可以调低质量，PNG 很难缩小。必要时允许减小像素。没有达到限制时会明确提示失败。'],
+'signature-resizer':['签名图片尺寸和 KB 调整 | PlainMile','修改电子签名图片的像素尺寸与文件大小，纯浏览器处理。','修改电子签名图片','按照申请要求输入宽高像素和 KB 限制，处理后下载。','请按照实际申请系统的规定操作。本工具不验证签名真实性，也不保证申请通过。'],
+'bulk-image-resizer':['在线批量修改图片尺寸 | PlainMile','最多同时处理 30 张 JPG、PNG、WebP 图片，在本地导出 ZIP。','批量调整图片尺寸','为多张照片应用统一的尺寸和格式，直接下载 ZIP。无需登录或上传。','所有图片采用相同的输出宽高和适配方式，建议保留原图。'],
+'passport-photo-print':['4×6 英寸证件照打印排版 | PlainMile','在浏览器中将六张 2×2 英寸照片排版为 4×6 英寸 JPG 图片。','制作 4×6 英寸照片打印排版','手动选择和调整原始照片取景，生成六张方形照片的 1200×1800 打印图片。','这只是排版工具，不保证任何官方证件照申请要求；很多机构禁止对照片进行数字修改。请核对官方规定。']
+};
+export function getStaticPaths(){return Object.keys(pages).map(tool=>({params:{tool},props:{page:pages[tool]}}));}
+const tool=Astro.params.tool;const [title,description,heading,lead,hint]=Astro.props.page;
+---
+<Base lang="zh" path={'/zh/'+tool+'/'} title={title} description={description}>
+<section class="hero"><div class="eyebrow">免费 · 隐私 · 浏览器本地处理</div><h1>{heading}</h1><p class="lead">{lead}</p></section>
+<Editor client:load lang="zh" tool={tool}/>
+<section class="info"><h2>适用场景与注意事项</h2><p>{hint}</p><h2>如何使用？</h2><ol><li>从您的设备选择 JPG、PNG 或 WebP 图片。</li><li>调整参数并点击处理。</li><li>查看真实文件大小、图片尺寸，然后下载。</li></ol><h2>隐私保护</h2><p>所有图片内容只在浏览器中处理，不会上传到 PlainMile 服务器。详情请阅读<a href="/zh/privacy/">隐私政策</a>。</p></section>
+</Base>

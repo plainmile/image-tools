@@ -1,0 +1,33 @@
+---
+import '../styles/global.css';
+const {title,description,lang='en',path='/',noindex=false}=Astro.props;
+const origin='https://image.plainmile.com';
+const normalized=path==='/'?'/':path.replace(/\/$/,'')+'/';
+const english=normalized.startsWith('/zh/')?normalized.slice(3)||'/':normalized;
+const chinese='/zh'+(english==='/'?'/':english);
+const current=lang==='zh'?chinese:english;
+const links=lang==='zh'?[['/zh/','首页'],['/zh/resize-image/','调整尺寸'],['/zh/compress-image-to-size/','压缩到指定 KB'],['/zh/signature-resizer/','签名尺寸'],['/zh/bulk-image-resizer/','批量处理'],['/zh/passport-photo-print/','证件照排版']]:[['/','Home'],['/resize-image/','Resize'],['/compress-image-to-size/','Compress to KB'],['/signature-resizer/','Signature'],['/bulk-image-resizer/','Bulk resize'],['/passport-photo-print/','Photo print']];
+---
+<!doctype html>
+<html lang={lang==='zh'?'zh-CN':'en'}>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#164e63"/>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+  <title>{title}</title><meta name="description" content={description}/>
+  {noindex?<meta name="robots" content="noindex,follow"/>:<>
+    <link rel="canonical" href={origin+current}/>
+    <link rel="alternate" hreflang="en" href={origin+english}/>
+    <link rel="alternate" hreflang="zh-CN" href={origin+chinese}/>
+    <link rel="alternate" hreflang="x-default" href={origin+english}/>
+  </>}
+  {!noindex&&<script type="application/ld+json" set:html={JSON.stringify({"@context":"https://schema.org","@type":"WebApplication",name:title,description,applicationCategory:"MultimediaApplication",operatingSystem:"Any modern web browser",url:origin+current,offers:{"@type":"Offer",price:"0",priceCurrency:"USD"}})}/>}
+</head>
+<body>
+<header class="site-header"><div class="shell header-row"><a class="brand" href={lang==='zh'?'/zh/':'/'}><span class="brandmark">▧</span> PlainMile <span>Image Tools</span></a><div class="lang-switch"><a lang={lang==='zh'?'en':'zh-CN'} href={lang==='zh'?english:chinese}>{lang==='zh'?'English':'简体中文'}</a></div></div></header>
+<nav class="nav shell" aria-label={lang==='zh'?'工具导航':'Tool navigation'}>{links.map(([url,label])=><a href={url} aria-current={current===url?'page':undefined}>{label}</a>)}</nav>
+<main class="shell"><slot/></main>
+<footer class="footer"><div class="shell"><div><strong>PlainMile Image Tools</strong> · {lang==='zh'?'所有图片在浏览器中本地处理':'All processing stays in your browser'}.</div><div><a href={lang==='zh'?'/zh/privacy/':'/privacy/'}>{lang==='zh'?'隐私政策':'Privacy'}</a> · <a href="https://github.com/plainmile/image-tools/issues" rel="noopener noreferrer">{lang==='zh'?'反馈问题':'Report an issue'}</a> · <a href="https://pdf.plainmile.com/" rel="noopener noreferrer">PDF Tools</a></div></div></footer>
+</body>
+</html>
