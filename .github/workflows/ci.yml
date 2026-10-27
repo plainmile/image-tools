@@ -27,6 +27,14 @@ jobs:
             test -s "dist/ocr/core/$name"
           done
           find dist/ocr/core -maxdepth 1 -type f -name '*.wasm' | grep -q wasm
+      - name: Verify local PaddleOCR runtime and model archives
+        run: |
+          set -euo pipefail
+          for name in ort-wasm-simd-threaded.jsep.mjs ort-wasm-simd-threaded.jsep.wasm ort-wasm-simd-threaded.mjs ort-wasm-simd-threaded.wasm; do
+            test -s "dist/ocr/paddle/wasm/$name"
+          done
+          test -s dist/ocr/paddle/det.tar
+          test -s dist/ocr/paddle/rec.tar
       - name: Verify public SEO routes and sitemap
         run: |
           set -euo pipefail
@@ -61,6 +69,9 @@ jobs:
           curl -fsS http://127.0.0.1:18082/ | grep -q 'href="/resize-image/"'
           curl -fsS http://127.0.0.1:18082/zh/ | grep -q '图片'
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18082/not-a-page)" = 404
+          # ONNX Runtime loads the JSEP .mjs dynamically; verify HTTP + JS MIME.
+          curl -fsSI http://127.0.0.1:18082/ocr/paddle/wasm/ort-wasm-simd-threaded.jsep.mjs | grep -iE '^Content-Type: (application|text)/javascript'
+          curl -fsS http://127.0.0.1:18082/ocr/paddle/wasm/ort-wasm-simd-threaded.jsep.wasm -o /dev/null
       - name: Real browser E2E in Chromium, Firefox, WebKit
         run: |
           docker run --rm --network host -v "$PWD:/work:ro" -e IMAGE_BASE_URL=http://127.0.0.1:18082 mcr.microsoft.com/playwright:v1.55.0-noble bash -lc '
@@ -71,6 +82,8 @@ jobs:
             cd /tmp/test
             npm init -y >/dev/null
             npm install --no-audit --no-fund @playwright/test@1.55.0
+            # Fail fast on the experimental engine before running the full suite.
+            npx playwright test tests/e2e/paddle-experiment.spec.mjs --project=chromium
             npx playwright test
           '
       - name: Cleanup
