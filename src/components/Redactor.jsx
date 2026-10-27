@@ -126,13 +126,15 @@ export default function Redactor({lang='en'}) {
     const width=Math.max(1,Math.round(current.width*scale));
     const height=Math.max(1,Math.round(current.height*scale));
     preview.width=width;preview.height=height;
+    preview.dataset.rendered='false';
     try{
       const ctx=preview.getContext('2d');
       if(!ctx)throw new Error('Canvas unavailable.');
       ctx.clearRect(0,0,width,height);
       ctx.drawImage(bitmap,0,0,width,height);
       paintRedactions(ctx,bitmap,masks,'solid',width,height);
-    }catch(error){setStatus(error.message||'Unable to render preview.');}
+      preview.dataset.rendered='true';
+    }catch(error){preview.dataset.rendered='false';setStatus(error.message||'Unable to render preview.');}
   },[current?.id,current?.masks,paintReady]);
 
   async function selectImages(files) {
@@ -204,7 +206,7 @@ export default function Redactor({lang='en'}) {
     };
   }
   function pointerDown(event){
-    if(!current||tool!=='draw'||blocked||event.button>0)return;
+    if(!current||tool!=='draw'||blocked||event.button>0||previewRef.current?.dataset.rendered!=='true')return;
     pointRef.current=point(event);setDraft(null);
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -292,7 +294,7 @@ export default function Redactor({lang='en'}) {
               aspectRatio:current.width+'/'+current.height,
               maxWidth:Math.min(900,650*current.width/current.height)+'px'
             }}>
-              <canvas ref={previewRef} data-testid="redact-preview"
+              <canvas ref={previewRef} data-testid="redact-preview" data-rendered="false"
                 aria-label={lang==='zh'?'带真实打码效果的预览':'Preview with actual redaction effects'}/>
               <svg data-testid="redact-overlay" viewBox={'0 0 '+current.width+' '+current.height}
                 preserveAspectRatio="none" aria-label={t.drawHelp}
