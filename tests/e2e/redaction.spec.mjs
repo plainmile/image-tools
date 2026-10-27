@@ -275,3 +275,76 @@ test('industrial-style texture cannot cause automatic blackout during OCR',async
   await expect(page.getByTestId('redact-count')).toHaveText('0');
   await expect(page.getByTestId('redact-download')).toBeDisabled();
 });
+
+
+test('realistic three-region photo proposals produce actual solid pixels after selection',async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='chromium','Heavy local OCR plus exported-pixel inspection in Chromium');
+  test.setTimeout(180000);
+  await page.goto('/zh/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const bytes=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=960;c.height=540;
+    const x=c.getContext('2d');
+    x.fillStyle='#687b89';x.fillRect(0,0,960,540);
+    // Industrial radiator panels create repetitive non-text background texture.
+    for(let k=0;k<40;k++){
+      x.fillStyle=k%2?'#abb6b8':'#647d84';x.fillRect(50+k*21,130,12,300);
+    }
+    x.font='bold 34px Arial';x.lineWidth=2;
+    x.strokeStyle='#121719';x.fillStyle='#f4f4f4';
+    x.strokeText('2026-08-28 12:10:32',600,62);
+    x.fillText('2026-08-28 12:10:32',600,62);
+    x.fillStyle='#d0d2ce';x.fillRect(408,290,135,72);
+    x.strokeStyle='#ab1111';x.lineWidth=2;x.strokeRect(408,290,135,72);
+    x.font='bold 27px Arial';x.fillStyle='#e21a1a';x.fillText('2 MAIN',419,334);
+    x.font='bold 34px Arial';x.lineWidth=2;
+    x.strokeStyle='#101619';x.fillStyle='#f4f4f4';
+    x.strokeText('110kV TRANSFORMER - WEST',30,523);
+    x.fillText('110kV TRANSFORMER - WEST',30,523);
+    const blob=await new Promise(done=>c.toBlob(done,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'generated-photo.png',mimeType:'image/png',buffer:Buffer.from(bytes)
+  });
+  await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  await page.getByTestId('redact-ocr').click();
+  await expect(page.getByTestId('redact-ocr')).toBeEnabled({timeout:120000});
+
+  const candidate=label=>page.locator('.redactor-recognized label').filter({hasText:label});
+  await expect(candidate('疑似文字区域（顶部）')).toBeVisible();
+  await expect(candidate('疑似文字区域（底部）')).toBeVisible();
+  await expect(candidate('疑似彩色文字／铭牌')).toBeVisible();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await expect(page.getByTestId('redact-mark')).toHaveCount(0);
+
+  await candidate('疑似文字区域（顶部）').locator('input').check();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  const mark=page.getByTestId('redact-mark').first();
+  await expect(mark).toHaveAttribute('fill','#000');
+  const bounds=await mark.evaluate(el=>({
+    x:Number(el.getAttribute('x')),y:Number(el.getAttribute('y')),
+    w:Number(el.getAttribute('width')),h:Number(el.getAttribute('height'))
+  }));
+  expect(bounds.y).toBeLessThan(110);
+  expect(bounds.x).toBeGreaterThan(550);
+
+  await page.evaluate(()=>{
+    const original=URL.createObjectURL.bind(URL);
+    URL.createObjectURL=blob=>{
+      if(blob.type==='image/png')window.__exportedRedaction=blob;
+      return original(blob);
+    };
+  });
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await downloaded;
+  const color=await page.evaluate(async({x,y,w,h})=>{
+    const blob=window.__exportedRedaction;
+    const image=await createImageBitmap(blob);
+    const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+    const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+    return Array.from(ctx.getImageData(Math.round(x+w/2),Math.round(y+h/2),1,1).data);
+  },bounds);
+  expect(color.slice(0,3)).toEqual([0,0,0]);
+});
