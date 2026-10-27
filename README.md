@@ -1,78 +1,48 @@
 # PlainMile Image Tools
 
-Free, private image utilities — designed for **https://image.plainmile.com/** and developed in the public repository https://github.com/plainmile/image-tools.
+Free, browser-local image utilities for **https://image.plainmile.com/**, with English and Chinese pages.
 
-**Status:** V0 runs on the existing netcup deployment. CI and public-HTTPS E2E must pass independently for each subsequent release.
+The tools process selected image files directly in the visitor's browser. Images are never uploaded to our server. No accounts, OCR, cloud inference, paid API or image server are required.
 
-Image processing and OCR run in your browser, not on our server. The OCR engine uses self-hosted language and WebAssembly models, downloaded from this site only when the user requests recognition. No image uploads, accounts, cloud inference or paid APIs.
+## Tools
 
-## First release
+- Resize a single image to exact pixel dimensions, preserving the full image or cropping to fill.
+- Compress JPG/WebP under a target KB limit and verify the actual byte count.
+- Resize signature images for upload forms.
+- Batch-resize up to 30 images with a local ZIP export.
+- Generate a 4x6-inch 300-DPI print sheet containing six 2x2-inch tiles. This does not certify compliance with photo rules.
+- **Manual image redaction**: draw rectangles to hide any part of a screenshot or photo with opaque black, white, a custom solid color, actual pixelation or blur. The preview renders the real selected effect. Each new cover stores its style, color and effect strength, and previously drawn covers are not silently changed. Undo/Redo, remove, English/Chinese UI, single image export and batch ZIP export are supported.
 
-- Resize to exact width/height, choose crop-to-fill or fit-with-padding; PNG and WebP preserve source transparency and JPEG has a white background.
-- Compress JPEG/WebP to a target KB, optionally reducing pixel dimensions when needed. Verify the **actual** output bytes.
-- Resize signatures by pixel size and target KB (application requirements vary).
-- Batch resize locally and download a ZIP. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; exact-size Fit and crop-to-fill remain available.
-- Redact pictures and screenshots in-browser: English/Chinese OCR proposes boxes, manually add/remove and batch ZIP export. Solid black/white boxes permanently replace the covered pixels; mosaic/blur are for appearance only and not guaranteed private.
-- Create a 4x6-inch 300-DPI JPEG print sheet with six 2x2-inch photos, by manually framing an existing photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
-- English/Chinese SEO pages and a non-indexed 404. UI can be used on mobile.
+### Redaction privacy and safety
 
-## Development (without installing Node on your host)
+- There is **no automatic text recognition, OCR or automatic redaction**. The previous OCR experiment produced false positives on photographs with busy backgrounds, so it has been removed from the production website.
+- Use opaque solid color to hide passwords, identity numbers, financial information and other sensitive content. Blur and pixelation are visual effects, **not reliable protection for secrets**.
+- Exported images are freshly rasterized PNG/JPG/WebP files; original metadata is not carried over. Opaque covers replace original pixels. Solid covers take priority if regions overlap.
+- Each batch image must have at least one manually placed cover before ZIP export, and ZIP members use generic names rather than private source filenames.
+- Maximum 12 images / 100 MB per redaction batch, 32 MP per image and 96 MP total.
+- Site HTML opts out of Cloudflare script injection with Cache-Control: public, no-transform. Also disable Cloudflare analytics automatic injection at the zone level.
 
-```sh
-docker run --rm -v "$PWD:/app" -w /app -p 4321:4321 node:22-bookworm-slim sh -lc 'npm install --no-audit --no-fund && npm run dev'
-```
+## Development
 
-For local unit + build:
-```sh
-docker run --rm -v "$PWD:/app" -w /app node:22-bookworm-slim sh -lc 'npm install --no-audit --no-fund && npm run test:unit && npm run build'
-```
-
-The `Image Tools CI` GitHub Action builds the production Docker image and runs real Playwright browser E2E before main can be merged. See `tests/`.
-
-## Self-host
+Unit tests and build can be run in an isolated Node container:
 
 ```sh
-docker compose -f compose.selfhost.yaml up -d
-# http://127.0.0.1:8082
+docker run --rm -v "$PWD:/app" -w /app node:22-bookworm-slim \
+  sh -lc 'npm install --no-audit --no-fund && npm run test:unit && npm run build'
 ```
 
-Once GHCR package visibility is set to Public, users can pull `ghcr.io/plainmile/image-tools:latest`. This static website does not need databases, volumes or cloud inference.
+Browser E2E exercises Chromium, Firefox and WebKit, including exported pixel data, the actual preview effects, mobile layout, batch ZIP and SEO routes.
 
-## netcup production
+## Deployment
 
-Use existing Cloudflare + shared Edge Nginx. Preserve other vhosts, containers and the existing external `edge` Docker network.
+- Image origin: https://image.plainmile.com/
+- Docker image: ghcr.io/plainmile/image-tools:<full-main-commit-sha>
+- Production Compose directory: /opt/compose/image-tools/ (compose.prod.yaml)
+- Container: plainmile-image-tools (only internal port 80, external edge network)
+- Netcup updates are automated after a green main CI and successful GHCR publish, then verify HTTPS and public browser E2E.
 
-- Domain: `image.plainmile.com`
-- Image: `ghcr.io/plainmile/image-tools:<full-main-commit-sha>`
-- Container: `plainmile-image-tools` (internal port 80 only)
-- Compose directory: `/opt/compose/image-tools`, file `compose.prod.yaml`.
-- Edge upstream: `http://plainmile-image-tools:80`; see `deploy/edge-vhost.example.conf` for a **location snippet only**, not a complete TLS vhost.
+No separate image storage, database, OCR language packs or WebAssembly inference runtime are deployed.
 
-New repo GitHub Actions SSH secrets, if deployment is configured: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT` (existing nonstandard port), `DEPLOY_SSH_KEY`, `DEPLOY_HOST_KEY` (verified **host public key**, not a guessed fingerprint). Never commit credentials or private keys.
+## Privacy / feedback
 
-After tested main CI passes, the image is published to GHCR and a separate workflow deploys the immutable SHA to netcup. A manual deploy trigger is also available. Deployment verifies container health, public HTTPS and real browser E2E; **do not regard deployment as fully verified until the final production workflow passes**. Keep existing DNS, Edge Nginx routing and Origin CA.
-
-## Privacy and feedback
-
-Images and filenames stay in the page session. ZIP files and outputs are generated in the browser. No image upload endpoint. For bug reports, use https://github.com/plainmile/image-tools/issues with a **synthetic** sample, not your private images.
-
-### Privacy-focused redaction notes
-
-- HTML responses set `Cache-Control: public, no-transform` to prevent Cloudflare automatic analytics script injection. Keep **Web Analytics automatic injection disabled** for `image.plainmile.com` in Cloudflare as defense in depth.
-- Manual covers have per-image Undo/Redo (up to 40 edits). OCR suggestions can all be individually unchecked, not only the first 300.
-- Black/white previews are fully opaque; exports are flattened into new image pixels. Blur and mosaic must not be used to hide secrets.
-- Batch redaction is capped at 96 megapixels total to bound browser memory use. A failed image selection must release temporary object URLs.
-
-- Redacted single-image and ZIP member filenames are generic rather than copies of original filenames, which might contain private names or account IDs.
-
-## OCR review-first design
-- Recognition never automatically covers the image. Detected text appears as blue outline candidates. Users explicitly check candidates or choose Cover all candidates, with a confirmation for noisy/high-area results.
-- Default OCR excludes very low-confidence tokens, punctuation-only tokens and implausible vertical/oversized shapes seen in outdoor/industrial photos; this is a heuristic, not a text or privacy guarantee.
-- Region-limited recognition enables users to draw an OCR scan area around a subtitle/date/label, preventing unrelated background objects from consuming the candidate list.
-- User-uploaded private photos are not committed as test fixtures; regression tests use generated synthetic images only.
-
-## General-purpose OCR recognition
-- Use Tesseract OCR output (actual recognized text and coordinates) rather than brightness/color or hardcoded top/bottom/colored-label proposals.
-- Two independent OCR passes (sparse-text + document segmentation with contrast enhancement); optional four-pass thorough mode includes inverted and adaptive threshold images.
-- Upsample small inputs within a bounded canvas; combine and spatially deduplicate OCR candidates, and keep them review-only until deliberately checked.
-- Test receipts, screenshots, document-like layouts, photographs, and text at different positions; do not optimize for a single example image or claim perfect accuracy.
+For problems, create a synthetic reproducer and file it at https://github.com/plainmile/image-tools/issues. Do not upload personal images or private documents to public issues.
