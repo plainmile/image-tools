@@ -97,6 +97,20 @@ export function mergeOcrCandidates(candidates) {
   }
   return result.sort((a,b)=>a.y-b.y||a.x-b.x).slice(0,250);
 }
+// Preserve explicit review choices when OCR is re-run. A new pass may
+// miss text which the user already decided to cover.
+export function preserveSelectedOcrCandidates(detected,masks) {
+  const selected=(masks||[]).filter(mask=>mask.source==='ocr');
+  const overlaps=(a,b)=>{
+    const width=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));
+    const height=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+    const smaller=Math.min(a.w*a.h,b.w*b.h);
+    return smaller>0 && (width*height)/smaller>0.65;
+  };
+  return [...selected,...(detected||[]).filter(box=>!selected.some(saved=>overlaps(saved,box)))]
+    .sort((a,b)=>a.y-b.y||a.x-b.x);
+}
+
 export async function recognizeImageText(worker,bitmap,{region=null,mode='standard',cancelled=()=>false,onPass=()=>{}}={}) {
   const passes=ocrPasses(mode,Boolean(region)),candidates=[];
   for(let index=0;index<passes.length;index++){
