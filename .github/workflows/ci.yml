@@ -18,15 +18,6 @@ jobs:
       - name: Test and build in Docker
         run: |
           docker run --rm -v "$PWD:/app" -w /app node:22-bookworm-slim sh -lc 'npm install --no-audit --no-fund && npm run test:unit && npm run build'
-      - name: Verify self-hosted OCR assets
-        run: |
-          set -euo pipefail
-          for name in eng chi_sim; do test -s "dist/ocr/lang/$name.traineddata.gz"; done
-          test -s dist/ocr/worker.min.js
-          for name in tesseract-core-simd-lstm.wasm.js tesseract-core-relaxedsimd-lstm.wasm.js; do
-            test -s "dist/ocr/core/$name"
-          done
-          find dist/ocr/core -maxdepth 1 -type f -name '*.wasm' | grep -q wasm
       - name: Verify public SEO routes and sitemap
         run: |
           set -euo pipefail

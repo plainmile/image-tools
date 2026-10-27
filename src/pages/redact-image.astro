@@ -2,28 +2,13 @@
 import Base from '../layouts/Base.astro';
 import Redactor from '../components/Redactor.jsx';
 ---
-<Base path="/redact-image/" title="Redact Images & Screenshots — OCR Text & Batch | PlainMile" description="Black out sensitive text in JPG, PNG and WebP images. Detect English or Chinese text in your browser, review each box, add manual covers, and download batches.">
-<section class="page-head">
-  <p class="breadcrumb"><a href="/">Image tools</a> / Redact images</p>
-  <h1>Redact text in images and screenshots</h1>
-  <p class="lead">Recognize text in screenshots, scanned pages and photographs with local OCR. Review detected words before covering and downloading.</p>
-</section>
+<Base path="/redact-image/" title="Redact Images Manually — Black Box, Pixelate & Blur | PlainMile" description="Manually cover text or faces with a black box, mosaic or blur. Preview actual effects, undo and download JPG, PNG, WebP or batch ZIP locally in your browser.">
+<section class="page-head"><p class="breadcrumb"><a href="/">Image tools</a> / Redact images</p><h1>Manually redact images and screenshots</h1><p class="lead">Draw rectangles to hide sensitive areas. Choose solid black, pixelation or Gaussian blur, then download. No automatic text detection.</p></section>
 <Redactor client:load lang="en"/>
 <section class="reference">
-  <h2>How to redact a screenshot</h2>
-  <ol><li>Select JPG, PNG or WebP images. You can paste a screenshot or select up to 12 images.</li>
-  <li>Choose English or Simplified Chinese + English, optionally draw an OCR region around a subtitle or date, then select <strong>Find text candidates</strong>. Nothing is covered automatically.</li>
-  <li>Tick only candidate words you want to hide, or use Cover all candidates after reviewing them. Drag to add missing covers, use Remove boxes to delete one, and Undo/Redo to correct mistakes.</li>
-  <li>Choose a cover style, review every image and download a re-encoded image or ZIP.</li></ol>
-  <h2>Solid black, pixelation and blur</h2>
-  <p>Use opaque black or white blocks for passwords, addresses, access tokens and identification numbers. Pixelation and blur can still leak information, particularly if the original text is predictable. Exported images are newly encoded so the original text pixels inside solid masks and the original EXIF metadata are not included.</p>
-  <h2>Does OCR catch every word?</h2>
-  <p>No. On real photographs, machinery, cables, fences and patterns may look like letters to OCR. Uncertain matches are filtered, and all remaining matches are shown as blue outlines for review only. Select OCR area to scan just a date, subtitle or label. Small or diagonal text can still be missed. Inspect at full size and add rectangles manually; OCR is not a privacy guarantee.</p>
-  <h2>What about batch processing?</h2>
-  <p>Batch recognition processes one image at a time on your device, using a single OCR worker. Each file keeps its own masks and recognized words; switch between images to refine them. Exporting the ZIP requires at least one cover on every selected image to avoid accidentally including a completely unredacted original. Exported files use generic names so the source filenames are not shared.</p>
-  <h2>Privacy and file limits</h2>
-  <p>English and Simplified Chinese OCR files load from this website, not an outside text recognition service. Image pixels, detected text and exported files stay in your browser. Up to 12 files and 100 MB total are accepted, with a 32-megapixel per-image limit and 96-megapixel combined limit. See our <a href="/privacy/">privacy policy</a>.</p>
-  <h2>Related tools</h2>
-  <ul class="related-links"><li><a href="/resize-image/">Resize image</a></li><li><a href="/compress-image-to-size/">Compress to KB</a></li><li><a href="/bulk-image-resizer/">Bulk resize</a></li></ul>
-</section>
-</Base>
+<h2>How to redact a screenshot</h2><ol><li>Select or paste one or more JPG, PNG or WebP images.</li><li>Drag over the image to draw a cover. Use Remove, Undo or Redo to correct it.</li><li>Choose black box for private data, pixelation for visual obscuring or blur for a soft effect. Preview and adjust strength.</li><li>Review each image and download a new image or ZIP.</li></ol>
+<h2>Black box, pixelation or blur?</h2><p>A solid black box replaces source pixels in the selected area and is the safer choice for passwords, personal details and account numbers. Pixelation and Gaussian blur can still leak recognizable information, so do not rely on them for confidential content.</p>
+<h2>Does the tool automatically detect text?</h2><p>No. This tool is manual only. Draw exactly the areas that you want covered. There is no OCR scan or automatic selection.</p>
+<h2>Batch export and privacy</h2><p>Each image has independent covers and Undo/Redo. Every image must have a cover before being included in a ZIP. Exports are re-encoded without source metadata or source filenames. Everything runs in your browser, without uploading image contents. Limits: 12 images, 100 MB total, 32 megapixels per image and 96 megapixels combined.</p>
+<h2>Related tools</h2><ul class="related-links"><li><a href="/resize-image/">Resize image</a></li><li><a href="/compress-image-to-size/">Compress to KB</a></li><li><a href="/bulk-image-resizer/">Bulk resize</a></li></ul>
+</section></Base>
