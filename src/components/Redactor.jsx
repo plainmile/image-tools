@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import {
   REDACT_MAX_FILES, decodeBitmap, scanCanvas, canvasBlob, extractOcrBoxes,
-  validateRedactionFiles, boxBetween, flattenRedactedImage,
+  validateRedactionFiles, validateRedactionPixels, boxBetween, flattenRedactedImage,
 } from '../lib/redaction-core.mjs';
 import { formatBytes } from '../lib/image-core.mjs';
 import '../styles/redactor.css';
@@ -15,7 +15,7 @@ const messages = {
     scanLanguage:'Recognition language',scanProgress:'Recognizing',loading:'Reading images…',
     detected:'Detected text',nothing:'No words detected. Add rectangles manually.',
     all:'Select all detected',clearDetected:'Unselect detected text',
-    draw:'Draw boxes',erase:'Remove boxes',eraseNote:'In Remove mode, tap a box to delete it.',
+    draw:'Draw boxes',erase:'Remove boxes',undo:'Undo',redo:'Redo',eraseNote:'In Remove mode, tap a box to delete it.',
     drawNote:'Drag across the picture to add a box. Use Remove boxes to delete one.',
     clear:'Clear all boxes',masks:'Covered areas',remove:'Remove',
     effect:'Cover style',solid:'Solid black (recommended)',white:'Solid white',
@@ -37,7 +37,7 @@ const messages = {
     scanLanguage:'识别语言',scanProgress:'正在识别',loading:'正在读取图片…',
     detected:'识别的文字',nothing:'没有识别出文字，可手动画框。',
     all:'选中所有识别结果',clearDetected:'取消识别结果的遮挡',
-    draw:'手动加框',erase:'删除遮挡框',eraseNote:'切换到删除模式后，点击遮挡框即可移除。',
+    draw:'手动加框',erase:'删除遮挡框',undo:'撤销',redo:'重做',eraseNote:'切换到删除模式后，点击遮挡框即可移除。',
     drawNote:'在图片上拖动鼠标或手指添加遮挡框。想删掉时切换到删除模式。',
     clear:'清除本图全部遮挡',masks:'遮挡区域',remove:'删除',
     effect:'打码方式',solid:'实心黑块（推荐）',white:'实心白块',
@@ -77,6 +77,7 @@ export default function Redactor({ lang='en' }) {
   const [message, setMessage] = useState('');
   const [ready, setReady] = useState(false);
   const [draft, setDraft] = useState(null);
+  const MAX_UNDO = 40;
   const workerRef = useRef(null);
   const busyRef = useRef(false);
   const runIdRef = useRef(0);
@@ -106,18 +107,19 @@ export default function Redactor({ lang='en' }) {
     if (busyRef.current) return;
     setMessage('');
     setLoading(true);
+    const next = [];
     try {
       validateRedactionFiles(files);
-      const next = [];
       for (const file of files) {
         const bitmap = await decodeBitmap(file);
         const width = bitmap.width, height = bitmap.height;
         bitmap.close();
         next.push({
           id: 'image-' + (++counterRef.current), file, width, height,
-          url: URL.createObjectURL(file), suggestions: [], masks: [], scanned: false,
+          url: URL.createObjectURL(file), suggestions: [], masks: [], undo: [], redo: [], scanned: false,
         });
       }
+      validateRedactionPixels(next);
       urlRef.current.forEach(url => URL.revokeObjectURL(url));
       urlRef.current = next.map(item => item.url);
       setItems(next);
@@ -125,11 +127,35 @@ export default function Redactor({ lang='en' }) {
       setTool('draw');
       setMessage(t.partial);
     } catch (error) {
+      // Decoding can fail after earlier files created object URLs.
+      // A rejected selection must not leave temporary URLs alive.
+      next.forEach(item => URL.revokeObjectURL(item.url));
       setMessage(error.message || t.first);
     } finally { setLoading(false); }
   }
   function updateMasks(id, callback) {
-    setItems(prev => prev.map(f => f.id === id ? { ...f, masks: callback(f.masks, f) } : f));
+    setItems(prev => prev.map(f => {
+      if (f.id !== id) return f;
+      const updated = callback(f.masks, f);
+      if (updated === f.masks || !Array.isArray(updated)) return f;
+      return { ...f, masks: updated, undo: [...f.undo.slice(-(MAX_UNDO-1)),f.masks], redo: [] };
+    }));
+  }
+  function undoCurrent() {
+    if (!current || !current.undo.length || busy) return;
+    setItems(prev => prev.map(f => {
+      if (f.id !== current.id || !f.undo.length) return f;
+      return { ...f, masks:f.undo[f.undo.length-1],undo:f.undo.slice(0,-1),
+        redo:[...f.redo.slice(-(MAX_UNDO-1)),f.masks] };
+    }));
+  }
+  function redoCurrent() {
+    if (!current || !current.redo.length || busy) return;
+    setItems(prev => prev.map(f => {
+      if (f.id !== current.id || !f.redo.length) return f;
+      return { ...f, masks:f.redo[f.redo.length-1],redo:f.redo.slice(0,-1),
+        undo:[...f.undo.slice(-(MAX_UNDO-1)),f.masks] };
+    }));
   }
   function toggleSuggestion(s) {
     if (!current) return;
@@ -224,6 +250,7 @@ export default function Redactor({ lang='en' }) {
         setItems(prev => prev.map(f => {
           if(f.id!==item.id)return f;
           return { ...f, scanned:true, suggestions,
+            undo: [...f.undo.slice(-(MAX_UNDO-1)), f.masks],redo: [],
             masks:[...f.masks.filter(m=>m.source!=='ocr'), ...suggestions] };
         }));
       }
@@ -261,7 +288,7 @@ export default function Redactor({ lang='en' }) {
       for(let index=0;index<items.length;index+=1){
         const f=items[index];
         const out=await flattenRedactedImage(f.file,f.masks,effect,format);
-        zip.file(String(index+1).padStart(2,'0')+'-'+out.filename,out.blob);
+        zip.file('redacted-'+String(index+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),out.blob);
       }
       const blob=await zip.generateAsync({type:'blob'});
       saveBlob(blob,'plainmile-redacted-images.zip');
@@ -270,13 +297,13 @@ export default function Redactor({ lang='en' }) {
   }
   const boxes = current?.masks || [];
   const selectedIds = new Set(boxes.map(b=>b.id));
-  const fill = effect==='white' ? 'rgba(255,255,255,.89)' :
-    effect==='mosaic' || effect==='blur' ? 'rgba(70,85,104,.42)' : 'rgba(0,0,0,.84)';
+  const fill = effect==='white' ? '#fff' :
+    effect==='mosaic' || effect==='blur' ? 'rgba(70,85,104,.42)' : '#000';
   return <section className="redactor" data-redactor-ready={ready?'true':'false'} aria-label={lang==='zh'?'图片打码编辑器':'Image redaction editor'}>
     <div className="redactor-top">
       <label className="redactor-upload">{t.upload}
         <input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-          multiple disabled={busy} onChange={e=>void selectImages(Array.from(e.target.files||[]))}/>
+          multiple disabled={busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void selectImages(files);}}/>
       </label>
       <span className="redactor-hint">{t.hint}</span>
     </div>
@@ -293,6 +320,8 @@ export default function Redactor({ lang='en' }) {
           <div className="redactor-actions">
             <button type="button" className={tool==='draw'?'chosen':''} onClick={()=>setTool('draw')}>{t.draw}</button>
             <button type="button" className={tool==='erase'?'chosen':''} onClick={()=>setTool('erase')}>{t.erase}</button>
+            <button type="button" className="redactor-secondary" data-testid="redact-undo" onClick={undoCurrent} disabled={busy||!current?.undo?.length}>{t.undo}</button>
+            <button type="button" className="redactor-secondary" data-testid="redact-redo" onClick={redoCurrent} disabled={busy||!current?.redo?.length}>{t.redo}</button>
             <button type="button" className="redactor-secondary" onClick={clearCurrent} disabled={busy||!boxes.length}>{t.clear}</button>
           </div>
           <p className="redactor-instruction">{tool==='draw'?t.drawNote:t.eraseNote}</p>
@@ -342,11 +371,11 @@ export default function Redactor({ lang='en' }) {
               <button className="redactor-secondary" type="button" disabled={!current?.suggestions.length||busy} onClick={clearDetected}>{t.clearDetected}</button>
             </div>
             {!!current?.suggestions.length&&<div className="redactor-recognized">
-              {current.suggestions.slice(0,300).map(s=><label key={s.id}>
+              {current.suggestions.map(s=><label key={s.id}>
                 <input type="checkbox" checked={selectedIds.has(s.id)} onChange={()=>toggleSuggestion(s)} disabled={busy}/>
                 <span>{s.text}</span>
               </label>)}
-              {current.suggestions.length>300&&<small>+{current.suggestions.length-300}</small>}
+              {current.suggestions.length>300&&<small>{lang==='zh'?'滚动查看全部识别结果':'Scroll to review all detected words'}</small>}
             </div>}
           </div>
           <div className="redactor-control">

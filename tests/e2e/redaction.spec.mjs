@@ -95,6 +95,15 @@ test('batch export requires a mask on each image and packages a ZIP',async({page
   });
   expect(zip.header).toEqual([80,75,3,4]);
   expect(zip.bytes).toBeGreaterThan(200);
+  // ZIP filenames are stored in cleartext: never leak source image filenames.
+  const names=await page.evaluate(async()=>{
+    const blob=window.__zipExports.at(-1);
+    return new TextDecoder('latin1').decode(await blob.arrayBuffer());
+  });
+  expect(names).toContain('redacted-01.png');
+  expect(names).toContain('redacted-02.png');
+  expect(names).not.toContain('capture-0');
+  expect(names).not.toContain('capture-1');
 });
 test('no source image is submitted to an external server',async({page})=>{
   const unexpected=[];
@@ -173,4 +182,44 @@ test('mixed OCR loads the locally hosted Simplified Chinese model and detects sc
   }
   await expect(page.getByTestId('redact-count')).not.toHaveText('0');
   expect(outside).toEqual([]);
+});
+
+test('undo, redo and clear are reversible per image',async({page})=>{
+  await page.goto('/redact-image/');await synthetic(page,2);
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await page.getByTestId('redact-undo').click();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await page.getByTestId('redact-redo').click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await page.getByRole('button',{name:'Clear all boxes'}).click();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await page.getByTestId('redact-undo').click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await page.getByRole('button',{name:/capture-1.png/}).click();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await expect(page.getByTestId('redact-undo')).toBeDisabled();
+  await page.getByRole('button',{name:/capture-0.png/}).click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+});
+test('black redaction preview is fully opaque rather than a translucent mockup',async({page})=>{
+  await page.goto('/redact-image/');await synthetic(page);await draw(page);
+  const fill=await page.getByTestId('redact-mark').first().getAttribute('fill');
+  expect(fill).toBe('#000');
+});
+test('public HTML opts out of proxy script injection with no-transform',async({request})=>{
+  const response=await request.get('/redact-image/');
+  expect(response.ok()).toBeTruthy();
+  expect(response.headers()['cache-control']).toContain('no-transform');
+});
+
+test('downloaded redacted image does not reveal the source filename',async({page})=>{
+  await page.goto('/redact-image/');
+  await synthetic(page);
+  await draw(page);
+  const download=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  const result=await download;
+  expect(result.suggestedFilename()).toBe('redacted-image.png');
+  expect(result.suggestedFilename()).not.toContain('capture');
 });

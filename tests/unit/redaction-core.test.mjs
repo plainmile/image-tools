@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   REDACT_MAX_FILES, REDACT_MAX_BYTES, validateRedactionFiles,
-  verifyImageSize, clampBox, boxBetween, extractOcrBoxes,
+  verifyImageSize, validateRedactionPixels, REDACT_MAX_BATCH_PIXELS, clampBox, boxBetween, extractOcrBoxes,
 } from '../../src/lib/redaction-core.mjs';
 
 test('validate input limits and unsupported types', () => {
@@ -29,4 +29,11 @@ test('OCR boxes map from smaller scan to original pixels', () => {
   const list=extractOcrBoxes(data,200,100,100,50);
   assert.equal(list.length,2);
   assert.deepEqual(list[0],{id:'ocr-0',text:'Secret',source:'ocr',x:17,y:37,w:86,h:36});
+});
+
+test('batch pixel budget rejects oversized combined output',()=>{
+  assert.equal(REDACT_MAX_BATCH_PIXELS,96_000_000);
+  assert.equal(validateRedactionPixels([{width:1920,height:1080},{width:1920,height:1080}]),4147200);
+  assert.throws(()=>validateRedactionPixels(Array.from({length:12},()=>({width:4000,height:3000}))),/96-megapixel/);
+  assert.throws(()=>validateRedactionPixels([{width:0,height:42}]),/32-megapixel/);
 });
