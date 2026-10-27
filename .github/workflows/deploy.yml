@@ -6,6 +6,10 @@ on:
         description: Full tested main commit SHA (leave blank to use current main)
         required: false
         type: string
+  workflow_run:
+    workflows: ['Publish Image']
+    types: [completed]
+    branches: [main]
 permissions:
   contents: read
 concurrency:
@@ -13,8 +17,15 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
+    # Deploy only after a successful image publish from this repository/main,
+    # or through an explicit manual workflow dispatch.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main' &&
+           github.event.workflow_run.head_repository.full_name == 'plainmile/image-tools') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -22,6 +33,7 @@ jobs:
         id: release
         env:
           INPUT_SHA: ${{ inputs.image_sha }}
+          PUBLISHED_SHA: ${{ github.event.workflow_run.head_sha }}
           GH_TOKEN: ${{ github.token }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -33,7 +45,7 @@ jobs:
             test -n "${!v}" || { echo "Missing $v" >&2; exit 1; }
           done
           main_sha=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/plainmile/image-tools/branches/main | jq -r '.commit.sha')
-          release_sha="${INPUT_SHA:-$main_sha}"
+          release_sha="${PUBLISHED_SHA:-${INPUT_SHA:-$main_sha}}"
           test "$release_sha" = "$main_sha" || { echo "Only current main can be deployed" >&2; exit 1; }
           [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
           echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
