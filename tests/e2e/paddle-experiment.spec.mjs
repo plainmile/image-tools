@@ -8,9 +8,13 @@ test('experimental Paddle scene text engine distinguishes actual words from patt
   page.on('console',m=>{if(m.type()==='error')browserErrors.push('console: '+m.text());});
   page.on('requestfailed',r=>browserErrors.push('requestfailed '+r.url()+' '+r.failure()?.errorText));
   page.on('response',r=>{if(r.status()>=400)browserErrors.push('HTTP '+r.status()+' '+r.url());});
+  // The first navigation request fires while page.url() is still about:blank.
+  // Compare against the configured site origin, not the changing page URL.
+  const localOrigin=new URL(process.env.IMAGE_BASE_URL||'http://127.0.0.1:18082').origin;
   page.on('request',r=>{
-    if(r.url().startsWith('http')&&
-       new URL(r.url()).origin!==new URL(page.url()).origin)offsite.push(r.url());
+    if(/^https?:/.test(r.url())&&new URL(r.url()).origin!==localOrigin){
+      offsite.push(r.url());
+    }
   });
   await page.goto('/labs/paddle-ocr/');
   await expect(page.locator('meta[name=robots]')).toHaveAttribute('content','noindex,follow');
