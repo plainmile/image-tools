@@ -46,8 +46,14 @@ export function fitWithin(sourceWidth, sourceHeight, maxWidth, maxHeight) {
   }
   const scale = Math.min(1, w / sourceWidth, h / sourceHeight,
     Math.sqrt(MAX_OUTPUT_PIXELS / (sourceWidth * sourceHeight)));
-  return assertDimensions(Math.max(1, Math.round(sourceWidth * scale)),
-    Math.max(1, Math.round(sourceHeight * scale)));
+  let width = Math.max(1, Math.round(sourceWidth * scale));
+  let height = Math.max(1, Math.round(sourceHeight * scale));
+  // Rounding may add one pixel per axis and exceed the safety pixel limit.
+  if (width * height > MAX_OUTPUT_PIXELS) {
+    width = Math.max(1, Math.floor(sourceWidth * scale));
+    height = Math.max(1, Math.floor(sourceHeight * scale));
+  }
+  return assertDimensions(width, height);
 }
 
 export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, mode = 'contain', zoom = 1, x = 0, y = 0) {
