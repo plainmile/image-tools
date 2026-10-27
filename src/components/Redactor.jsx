@@ -1,467 +1,382 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
 import {
-  REDACT_MAX_FILES, decodeBitmap, scanCanvas, canvasBlob, extractOcrBoxes,
-  validateRedactionFiles, validateRedactionPixels, boxBetween, flattenRedactedImage,
+  decodeBitmap,validateRedactionFiles,validateRedactionPixels,boxBetween,
+  paintRedactions,flattenRedactedImage,
 } from '../lib/redaction-core.mjs';
-import { formatBytes } from '../lib/image-core.mjs';
-import { recognizeImageText, preserveSelectedOcrCandidates } from '../lib/ocr-multipass.mjs';
+import {formatBytes} from '../lib/image-core.mjs';
 import '../styles/redactor.css';
 
-const messages = {
-  en: {
-    upload:'Choose images',hint:'JPG, PNG or WebP · up to 12 images / 100 MB total',
-    files:'Images',noImage:'Choose images or paste a screenshot to begin.',
-    detect:'Find text candidates', detectAll:'Find text in all images', cancel:'Stop scanning',
-    scanLanguage:'Recognition language',scanProgress:'Recognizing',loading:'Reading images…',
-    detected:'Text and suggested areas',nothing:'No suggestions found. Draw a cover manually.',
-    ocrMode:'Recognition depth',standard:'Standard (2 passes)',detailed:'Thorough (4 passes, slower)',
-    all:'Cover all candidates',clearDetected:'Remove OCR covers',
-    draw:'Draw boxes',pick:'Select detected text',pickNote:'Click a blue outline to cover text.',erase:'Remove boxes',undo:'Undo',redo:'Redo',eraseNote:'In Remove mode, tap a box to delete it.',
-    drawNote:'Drag across the picture to add a box. Use Remove boxes to delete one.',
-    clear:'Clear all boxes',masks:'Covered areas',remove:'Remove',
-    effect:'Cover style',solid:'Solid black (recommended)',white:'Solid white',
-    mosaic:'Mosaic (visual only)',blur:'Blur (visual only)',
-    warning:'For passwords, keys or ID numbers use solid black. Mosaic and blur are not reliable concealment.',
-    missed:'OCR can miss small, rotated or low-contrast text. Review every image and add or remove boxes before sharing.',
-    format:'Save as',download:'Download this image',zip:'Download all as ZIP',
-    needBoxes:'Add at least one box to every image you plan to export.',
-    success:'File ready.',cancelled:'Recognition stopped.',done:'Recognition complete.',
-    noMatches:'No readable text was found. You can draw boxes manually.',
-    local:'All recognition and editing run locally in this browser.',
-    count:'selected',first:'Choose a file.',partial:'Check detected results and manually drawn areas.',
-    progress:'Loading language data…',help:'Blue outlines are suggestions, NOT blacked out. Review the list and check only the text to cover.',
-    region:'Select OCR area',whole:'Scan full picture',regionNote:'Draw over the date, subtitle or label, then run recognition. The green outline is not a cover.',
-    review:'Blue boxes contain OCR-detected words, not arbitrary high-contrast image regions. Review before covering.',
-    many:'There are many candidates, which may include equipment or background textures. Cover all anyway?',
+const labels={
+  en:{
+    upload:'Choose images',hint:'JPG, PNG or WebP · 12 images / 100 MB maximum',
+    drop:'Or drag and drop images here, or paste a screenshot (Ctrl/⌘ + V).',
+    images:'Images',none:'Choose an image to begin.',reading:'Reading image…',
+    draw:'Draw rectangle',erase:'Remove rectangle',undo:'Undo',redo:'Redo',clear:'Clear all',
+    drawHelp:'Drag over each area you want to cover. Each new box uses the selected style.',
+    eraseHelp:'Click a highlighted rectangle to remove it. Undo is available.',
+    style:'How should the area look?',solid:'Solid color',mosaic:'Pixelate',blur:'Blur',
+    solidHint:'Fully replaces hidden pixels. Choose this for private information.',
+    weakHint:'For appearance only. Blur or pixelation may leave text recoverable. Use solid color for secrets.',
+    color:'Cover color',black:'Black',white:'White',custom:'Custom color',
+    strength:'Effect strength',styleHelp:'Changing the style only affects new rectangles.',
+    areas:'Covered areas',area:'Area',remove:'Remove',empty:'Drag on the image to add a cover.',
+    save:'Export',format:'Output format',download:'Download image',zip:'Download ZIP',
+    needsMask:'Every exported image must have at least one manually drawn cover.',
+    ready:'Saved file:',batchReady:'ZIP prepared:',success:'Ready',working:'Creating file…',
+    change:'Remove images',local:'Everything is edited in your browser; no image uploads.',
+    caution:'Inspect the full image before sharing. Only solid color is suitable for sensitive text.',
   },
-  zh: {
-    upload:'选择图片',hint:'JPG、PNG、WebP，最多 12 张，总计 100 MB',
-    files:'图片列表',noImage:'选择图片，或粘贴一张截图。',
-    detect:'识别文字候选',detectAll:'批量识别文字候选',cancel:'停止识别',
-    scanLanguage:'识别语言',scanProgress:'正在识别',loading:'正在读取图片…',
-    detected:'识别文字与疑似区域',nothing:'没有发现候选区域，可手动加框。',
-    ocrMode:'识别强度',standard:'常规（2 轮识别）',detailed:'增强（4 轮识别，较慢）',
-    all:'遮盖全部候选文字',clearDetected:'取消已选文字遮盖',
-    draw:'手动加框',pick:'点选文字候选',pickNote:'点击蓝色框即可遮挡文字。',erase:'删除遮挡框',undo:'撤销',redo:'重做',eraseNote:'切换到删除模式后，点击遮挡框即可移除。',
-    drawNote:'在图片上拖动鼠标或手指添加遮挡框。想删掉时切换到删除模式。',
-    clear:'清除本图全部遮挡',masks:'遮挡区域',remove:'删除',
-    effect:'打码方式',solid:'实心黑块（推荐）',white:'实心白块',
-    mosaic:'马赛克（仅视觉处理）',blur:'模糊（仅视觉处理）',
-    warning:'密码、密钥、证件号码等敏感信息应使用实心黑块。马赛克和模糊不能保证隐藏内容。',
-    missed:'文字识别可能漏掉小字、倾斜或模糊的文字。分享前请逐张检查并补画或删除遮挡框。',
-    format:'导出格式',download:'下载当前图片',zip:'全部打包 ZIP 下载',
-    needBoxes:'每张需要导出的图片至少添加一个遮挡框。',
-    success:'文件已生成。',cancelled:'已停止识别。',done:'文字识别完成。',
-    noMatches:'未发现清晰可读的文字，可以手动画框。',
-    local:'文字识别及图片处理只在当前浏览器执行。',
-    count:'已选择',first:'请选择图片。',partial:'检查自动识别和手动添加的遮挡区域。',
-    progress:'正在加载文字识别文件…',help:'蓝色框只是识别候选，不是打码。先检查文字，再勾选需要遮盖的内容。',
-    region:'圈选识别范围',whole:'恢复整图识别',regionNote:'先框选时间、字幕或铭牌区域，再点击识别。绿色范围框不会打码。',
-    review:'蓝框只来自 OCR 识别出的文字，不会根据图片颜色或位置猜测文字。识别不准时请手动补画。',
-    many:'候选过多，可能包含设备纹理和误识别。确定要全部遮盖吗？',
-  }
+  zh:{
+    upload:'选择图片',hint:'支持 JPG、PNG、WebP，最多 12 张 / 总计 100 MB',
+    drop:'也可以拖放图片，或粘贴截图（Ctrl/⌘ + V）。',
+    images:'图片',none:'请先选择图片。',reading:'正在读取图片…',
+    draw:'画矩形框',erase:'删除矩形框',undo:'撤销',redo:'重做',clear:'清除本图',
+    drawHelp:'在图片上拖动选中需要遮挡的位置，新画的框使用当前选中的方式。',
+    eraseHelp:'点击已有遮挡区域即可删除，也可以撤销。',
+    style:'打码方式',solid:'纯色遮挡',mosaic:'马赛克',blur:'模糊',
+    solidHint:'完全替换原始像素。敏感信息建议使用这种方式。',
+    weakHint:'仅用于视觉处理。模糊和马赛克可能被推测或恢复，密码、证件号等请用纯色遮挡。',
+    color:'遮挡颜色',black:'黑色',white:'白色',custom:'自定义颜色',
+    strength:'效果强度',styleHelp:'切换方式只影响新画的区域，不会改变已经画好的框。',
+    areas:'已遮挡区域',area:'区域',remove:'删除',empty:'在图片上拖动鼠标或手指画框。',
+    save:'导出图片',format:'输出格式',download:'下载当前图片',zip:'批量下载 ZIP',
+    needsMask:'每张准备导出的图片都必须先手动画至少一个遮挡框。',
+    ready:'文件已生成：',batchReady:'ZIP 已生成：',success:'完成',working:'正在生成文件…',
+    change:'清空图片',local:'图片只在浏览器中编辑，不会上传。',
+    caution:'分享前请逐张检查。敏感文字请使用纯色遮挡。',
+  },
 };
 
-function localFileName(file) { return String(file?.name || 'image').slice(0,100); }
-function sameEntry(existing, update) { return existing.map(f => f.id === update.id ? { ...f, ...update } : f); }
-function saveBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+function saveBlob(blob,filename) {
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-export default function Redactor({ lang='en' }) {
-  const t = messages[lang];
-  const [items, setItems] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [language, setLanguage] = useState(lang === 'zh' ? 'mixed' : 'eng');
-  const [ocrMode,setOcrMode]=useState('standard');
-  const [tool, setTool] = useState('draw');
-  const [effect, setEffect] = useState('solid');
-  const [format, setFormat] = useState('png');
-  const [scanning, setScanning] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [ready, setReady] = useState(false);
-  const [draft, setDraft] = useState(null);
-  const MAX_UNDO = 40;
-  const workerRef = useRef(null);
-  const busyRef = useRef(false);
-  const runIdRef = useRef(0);
-  const counterRef = useRef(0);
-  const dragStartRef = useRef(null);
-  const urlRef = useRef([]);
-  const current = items.find(item => item.id === activeId) || null;
-  const busy = scanning || saving || loading;
-  busyRef.current = busy;
+function updateOne(entries,id,callback) {
+  return entries.map(entry=>entry.id===id?callback(entry):entry);
+}
 
-  useEffect(() => {
+export default function Redactor({lang='en'}) {
+  const t=labels[lang];
+  const [items,setItems]=useState([]);
+  const [activeId,setActiveId]=useState(null);
+  const [tool,setTool]=useState('draw');
+  const [effect,setEffect]=useState('solid');
+  const [color,setColor]=useState('#000000');
+  const [strength,setStrength]=useState(24);
+  const [format,setFormat]=useState('png');
+  const [busy,setBusy]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const [status,setStatus]=useState('');
+  const [draft,setDraft]=useState(null);
+  const [ready,setReady]=useState(false);
+  const [paintReady,setPaintReady]=useState(false);
+  const current=items.find(x=>x.id===activeId)||null;
+  const masks=current?.masks||[];
+  const blocked=busy||loading;
+  const urlRef=useRef([]);
+  const sequenceRef=useRef(0);
+  const selectionRef=useRef(0);
+  const busyRef=useRef(false);
+  const pointRef=useRef(null);
+  const previewRef=useRef(null);
+  const bitmapRef=useRef(null);
+  busyRef.current=blocked;
+
+  useEffect(()=>{
     setReady(true);
-    const onPaste = (event) => {
-      if (event.target?.tagName === 'INPUT' || event.target?.tagName === 'TEXTAREA') return;
-      const images = Array.from(event.clipboardData?.files || []);
-      if (images.length) { event.preventDefault(); void selectImages(images); }
+    const paste=event=>{
+      if(['INPUT','TEXTAREA','SELECT'].includes(event.target?.tagName))return;
+      const files=Array.from(event.clipboardData?.files||[]).filter(f=>f.type.startsWith('image/'));
+      if(files.length&&!busyRef.current){event.preventDefault();void selectImages(files);}
     };
-    window.addEventListener('paste', onPaste);
-    return () => {
-      runIdRef.current += 1;
-      void workerRef.current?.terminate().catch(() => {});
-      urlRef.current.forEach(url => URL.revokeObjectURL(url));
-      window.removeEventListener('paste', onPaste);
+    window.addEventListener('paste',paste);
+    return()=>{
+      ++selectionRef.current;
+      urlRef.current.forEach(url=>URL.revokeObjectURL(url));
+      window.removeEventListener('paste',paste);
     };
-  }, []);
+  },[]);
+
+  // Decode only the active image. Do not keep every full-resolution bitmap in RAM.
+  useEffect(()=>{
+    let alive=true;
+    setPaintReady(false);
+    if(bitmapRef.current){bitmapRef.current.bitmap.close();bitmapRef.current=null;}
+    if(!current)return ()=>{alive=false;};
+    decodeBitmap(current.file).then(bitmap=>{
+      if(!alive){bitmap.close();return;}
+      bitmapRef.current={id:current.id,bitmap};
+      setPaintReady(true);
+    }).catch(error=>{if(alive)setStatus(error.message||t.reading);});
+    return()=>{
+      alive=false;
+      if(bitmapRef.current?.id===current.id){bitmapRef.current.bitmap.close();bitmapRef.current=null;}
+    };
+  },[current?.id]);
+
+  // The editor renders the actual effect, not a fake semi-transparent box.
+  useEffect(()=>{
+    if(!paintReady||!current||!previewRef.current||bitmapRef.current?.id!==current.id)return;
+    const bitmap=bitmapRef.current.bitmap;
+    const preview=previewRef.current;
+    const scale=Math.min(1,900/current.width,650/current.height);
+    const width=Math.max(1,Math.round(current.width*scale));
+    const height=Math.max(1,Math.round(current.height*scale));
+    preview.width=width;preview.height=height;
+    try{
+      const ctx=preview.getContext('2d');
+      if(!ctx)throw new Error('Canvas unavailable.');
+      ctx.clearRect(0,0,width,height);
+      ctx.drawImage(bitmap,0,0,width,height);
+      paintRedactions(ctx,bitmap,masks,'solid',width,height);
+    }catch(error){setStatus(error.message||'Unable to render preview.');}
+  },[current?.id,current?.masks,paintReady]);
+
   async function selectImages(files) {
-    if (busyRef.current) return;
-    setMessage('');
-    setLoading(true);
-    const next = [];
+    if(busyRef.current)return;
+    const attempt=++selectionRef.current;
+    setLoading(true);setStatus(t.reading);
+    const next=[];
     try {
       validateRedactionFiles(files);
-      for (const file of files) {
-        const bitmap = await decodeBitmap(file);
-        const width = bitmap.width, height = bitmap.height;
-        bitmap.close();
-        next.push({
-          id: 'image-' + (++counterRef.current), file, width, height,
-          url: URL.createObjectURL(file), suggestions: [], masks: [], undo: [], redo: [], scanned: false, scanArea:null,
-        });
+      for(const file of files){
+        const bitmap=await decodeBitmap(file);
+        const width=bitmap.width,height=bitmap.height;bitmap.close();
+        next.push({id:'image-'+(++sequenceRef.current),file,width,height,
+          url:URL.createObjectURL(file),masks:[],undo:[],redo:[]});
       }
       validateRedactionPixels(next);
-      urlRef.current.forEach(url => URL.revokeObjectURL(url));
-      urlRef.current = next.map(item => item.url);
-      setItems(next);
-      setActiveId(next[0].id);
-      setTool('draw');
-      setMessage(t.partial);
-    } catch (error) {
-      // Decoding can fail after earlier files created object URLs.
-      // A rejected selection must not leave temporary URLs alive.
-      next.forEach(item => URL.revokeObjectURL(item.url));
-      setMessage(error.message || t.first);
-    } finally { setLoading(false); }
+      if(attempt!==selectionRef.current){next.forEach(i=>URL.revokeObjectURL(i.url));return;}
+      urlRef.current.forEach(url=>URL.revokeObjectURL(url));
+      urlRef.current=next.map(item=>item.url);
+      setItems(next);setActiveId(next[0].id);setTool('draw');setDraft(null);
+      setStatus(t.drawHelp);
+    }catch(error){
+      next.forEach(item=>URL.revokeObjectURL(item.url));
+      if(attempt===selectionRef.current)setStatus(error.message||t.none);
+    }finally{if(attempt===selectionRef.current)setLoading(false);}
   }
-  function updateMasks(id, callback) {
-    setItems(prev => prev.map(f => {
-      if (f.id !== id) return f;
-      const updated = callback(f.masks, f);
-      if (updated === f.masks || !Array.isArray(updated)) return f;
-      return { ...f, masks: updated, undo: [...f.undo.slice(-(MAX_UNDO-1)),f.masks], redo: [] };
-    }));
-  }
-  function undoCurrent() {
-    if (!current || !current.undo.length || busy) return;
-    setItems(prev => prev.map(f => {
-      if (f.id !== current.id || !f.undo.length) return f;
-      return { ...f, masks:f.undo[f.undo.length-1],undo:f.undo.slice(0,-1),
-        redo:[...f.redo.slice(-(MAX_UNDO-1)),f.masks] };
-    }));
-  }
-  function redoCurrent() {
-    if (!current || !current.redo.length || busy) return;
-    setItems(prev => prev.map(f => {
-      if (f.id !== current.id || !f.redo.length) return f;
-      return { ...f, masks:f.redo[f.redo.length-1],redo:f.redo.slice(0,-1),
-        undo:[...f.undo.slice(-(MAX_UNDO-1)),f.masks] };
-    }));
-  }
-  function toggleSuggestion(s) {
-    if (!current) return;
-    updateMasks(current.id, (masks) =>
-      masks.some(m => m.id === s.id) ? masks.filter(m => m.id !== s.id) : [...masks, s]);
-  }
-  function selectAll() {
-    if (!current || !current.suggestions.length) return;
-    const area=current.suggestions.reduce((sum,b)=>sum+b.w*b.h,0);
-    if ((current.suggestions.length>20 || area>current.width*current.height*.25) &&
-        !window.confirm(t.many)) return;
-    updateMasks(current.id, (masks, f) => {
-      const ids = new Set(masks.map(m => m.id));
-      const missing=f.suggestions.filter(s=>!ids.has(s.id));
-      return missing.length?[...masks,...missing]:masks;
-    });
-  }
-  function clearDetected() {
-    if (!current) return;
-    updateMasks(current.id, masks => masks.filter(m => m.source !== 'ocr'));
-  }
-  function clearCurrent() {
-    if (!current) return;
-    updateMasks(current.id, () => []);
-    setMessage('');
-  }
-  function removeBox(id) {
-    if (!current) return;
-    updateMasks(current.id, masks => masks.filter(m => m.id !== id));
-  }
-  function toPoint(e) {
-    if (!current) return null;
-    const rect = e.currentTarget.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(current.width, (e.clientX - rect.left) * current.width / rect.width)),
-      y: Math.max(0, Math.min(current.height, (e.clientY - rect.top) * current.height / rect.height)),
-    };
-  }
-  function pointerDown(e) {
-    if (!current || !['draw','region'].includes(tool) || busy || e.button > 0) return;
-    const point = toPoint(e);
-    dragStartRef.current = point;
-    setDraft(null);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function pointerMove(e) {
-    if (!dragStartRef.current || !current || !['draw','region'].includes(tool)) return;
-    setDraft(boxBetween(dragStartRef.current, toPoint(e), current.width, current.height));
-  }
-  function pointerUp(e) {
-    if (!current || !dragStartRef.current) return;
-    const rect = boxBetween(dragStartRef.current, toPoint(e), current.width, current.height);
-    dragStartRef.current = null; setDraft(null);
-    if (rect) {
-      if (tool==='region') {
-        setItems(prev=>prev.map(f=>f.id===current.id?{...f,scanArea:rect,scanned:false}:f));
-        setTool('draw');
-        setMessage(t.regionNote);
-      } else {
-        const box = { id: 'manual-' + (++counterRef.current), ...rect, source: 'manual', text: '' };
-        updateMasks(current.id, masks => [...masks, box]);
-      }
-    }
-  }
-  function resetScanArea(){
-    if (!current) return;
-    setItems(prev=>prev.map(f=>f.id===current.id?{...f,scanArea:null,scanned:false}:f));
-    setTool('draw');setMessage('');
+  function clearImages(){
+    if(blocked)return;
+    ++selectionRef.current;
+    urlRef.current.forEach(url=>URL.revokeObjectURL(url));
+    urlRef.current=[];
+    setItems([]);setActiveId(null);setDraft(null);setStatus(t.none);
   }
 
-  async function recognize(all=false) {
-    if (busy || !items.length) return;
-    const selected = all ? [...items] : items.filter(f => f.id === activeId);
-    if (!selected.length) return;
-    const runId = ++runIdRef.current;
-    setScanning(true); setMessage(t.progress);
-    let worker;
-    try {
-      // Lazy import so visitors who only draw boxes never load OCR runtime.
-      const { createWorker } = await import('tesseract.js');
-      const langCodes = language === 'mixed' ? ['chi_sim','eng'] : ['eng'];
-      worker = await createWorker(langCodes, 1, {
-        workerPath:'/ocr/worker.min.js',
-        corePath:'/ocr/core',
-        langPath:'/ocr/lang',
-        workerBlobURL:false,
-        logger: e => {
-          if(runId !== runIdRef.current)return;
-          const progress=Number.isFinite(e.progress)?' '+Math.round(e.progress*100)+'%':'';
-          setMessage(t.scanProgress+progress);
-        },
-      });
-      workerRef.current = worker;
-      for(let index=0; index<selected.length;index+=1){
-        if(runId!==runIdRef.current)break;
-        const item=selected[index];
-        setMessage(t.scanProgress+' '+(index+1)+'/'+selected.length+' — '+localFileName(item.file));
-        const bitmap=await decodeBitmap(item.file);
-        let suggestions;
-        try{
-          suggestions=await recognizeImageText(worker,bitmap,{
-            region:item.scanArea,mode:ocrMode,
-            cancelled:()=>runId!==runIdRef.current,
-            onPass:(step,total)=>setMessage(t.scanProgress+' '+(index+1)+'/'+selected.length+
-              ' · '+step+'/'+total),
-          });
-        }finally{bitmap.close();}
-        if(runId!==runIdRef.current)break;
-        suggestions=suggestions.map((s,i)=>({...s,id:item.id+'-'+runId+'-ocr-'+i}));
-        setItems(prev=>prev.map(f=>{
-          if(f.id!==item.id)return f;
-          return {...f,scanned:true,suggestions:preserveSelectedOcrCandidates(suggestions,f.masks)};
-        }));
-        setMessage(t.done+' · '+suggestions.length+' · '+t.review);
-      }
-      if(runId===runIdRef.current)setMessage(t.done+' · '+t.review);
-    }catch(error) {
-      if(runId===runIdRef.current)setMessage((error.message||'OCR failed')+'. '+t.missed);
-    }finally {
-      if(workerRef.current===worker)workerRef.current=null;
-      if(worker)try{await worker.terminate();}catch{}
-      setScanning(false);
+  function changeMasks(id,callback) {
+    setItems(previous=>updateOne(previous,id,entry=>{
+      const updated=callback(entry.masks);
+      if(updated===entry.masks||!Array.isArray(updated))return entry;
+      return {...entry,masks:updated,undo:[...entry.undo.slice(-39),entry.masks],redo:[]};
+    }));
+  }
+  function undo(){
+    if(!current||!current.undo.length||blocked)return;
+    setItems(entries=>updateOne(entries,current.id,item=>{
+      if(!item.undo.length)return item;
+      return {...item,masks:item.undo.at(-1),undo:item.undo.slice(0,-1),
+        redo:[...item.redo.slice(-39),item.masks]};
+    }));
+  }
+  function redo(){
+    if(!current||!current.redo.length||blocked)return;
+    setItems(entries=>updateOne(entries,current.id,item=>{
+      if(!item.redo.length)return item;
+      return {...item,masks:item.redo.at(-1),redo:item.redo.slice(0,-1),
+        undo:[...item.undo.slice(-39),item.masks]};
+    }));
+  }
+  function removeBox(id) {
+    if(!current||blocked)return;
+    changeMasks(current.id,prev=>prev.filter(box=>box.id!==id));
+  }
+  function point(event){
+    if(!current)return null;
+    const bounds=event.currentTarget.getBoundingClientRect();
+    if(!bounds.width||!bounds.height)return null;
+    return {
+      x:Math.max(0,Math.min(current.width,(event.clientX-bounds.left)*current.width/bounds.width)),
+      y:Math.max(0,Math.min(current.height,(event.clientY-bounds.top)*current.height/bounds.height)),
+    };
+  }
+  function pointerDown(event){
+    if(!current||tool!=='draw'||blocked||event.button>0)return;
+    pointRef.current=point(event);setDraft(null);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function pointerMove(event){
+    if(!pointRef.current||!current||tool!=='draw')return;
+    const end=point(event);if(end)setDraft(boxBetween(pointRef.current,end,current.width,current.height));
+  }
+  function pointerUp(event){
+    if(!current||!pointRef.current)return;
+    const end=point(event);
+    const box=end&&boxBetween(pointRef.current,end,current.width,current.height);
+    pointRef.current=null;setDraft(null);
+    if(box&&tool==='draw'){
+      const mask={...box,id:'manual-'+(++sequenceRef.current),effect,color,strength};
+      changeMasks(current.id,prev=>[...prev,mask]);
     }
   }
-  function stopScan() {
-    if(!scanning)return;
-    ++runIdRef.current;
-    void workerRef.current?.terminate().catch(()=>{});
-    setMessage(t.cancelled);
-  }
-  async function downloadCurrent() {
-    if (!current || saving) return;
-    if (!current.masks.length){setMessage(t.needBoxes);return;}
-    setSaving(true);
+  async function downloadCurrent(){
+    if(!current||blocked)return;
+    if(!masks.length){setStatus(t.needsMask);return;}
+    setBusy(true);setStatus(t.working);
     try {
-      const out=await flattenRedactedImage(current.file,current.masks,effect,format);
-      saveBlob(out.blob,out.filename);
-      setMessage(t.success+' '+current.width+'×'+current.height+' · '+formatBytes(out.blob.size));
-    }catch(error){setMessage(error.message);}finally{setSaving(false);}
+      const file=await flattenRedactedImage(current.file,masks,'solid',format);
+      saveBlob(file.blob,file.filename);
+      setStatus(t.ready+' '+file.width+'×'+file.height+' · '+formatBytes(file.blob.size));
+    }catch(error){setStatus(error.message);}finally{setBusy(false);}
   }
-  async function downloadBatch() {
-    if(!items.length || busy)return;
-    if(items.some(f=>!f.masks.length)){setMessage(t.needBoxes);return;}
-    setSaving(true);
+  async function downloadBatch(){
+    if(items.length<2||blocked)return;
+    if(items.some(entry=>!entry.masks.length)){setStatus(t.needsMask);return;}
+    setBusy(true);setStatus(t.working);
     try {
       const zip=new JSZip();
-      for(let index=0;index<items.length;index+=1){
-        const f=items[index];
-        const out=await flattenRedactedImage(f.file,f.masks,effect,format);
-        zip.file('redacted-'+String(index+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),out.blob);
+      for(let index=0;index<items.length;index++){
+        const item=items[index];
+        const file=await flattenRedactedImage(item.file,item.masks,'solid',format);
+        zip.file('redacted-'+String(index+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),file.blob);
       }
-      const blob=await zip.generateAsync({type:'blob'});
-      saveBlob(blob,'plainmile-redacted-images.zip');
-      setMessage(t.success+' ZIP · '+items.length+' · '+formatBytes(blob.size));
-    }catch(error){setMessage(error.message);}finally{setSaving(false);}
+      const result=await zip.generateAsync({type:'blob'});
+      saveBlob(result,'plainmile-redacted-images.zip');
+      setStatus(t.batchReady+' '+items.length+' · '+formatBytes(result.size));
+    }catch(error){setStatus(error.message);}finally{setBusy(false);}
   }
-  const boxes = current?.masks || [];
-  const selectedIds = new Set(boxes.map(b=>b.id));
-  const fill = effect==='white' ? '#fff' :
-    effect==='mosaic' || effect==='blur' ? 'rgba(70,85,104,.42)' : '#000';
-  return <section className="redactor" data-redactor-ready={ready?'true':'false'} aria-label={lang==='zh'?'图片打码编辑器':'Image redaction editor'}>
-    <div className="redactor-top">
-      <label className="redactor-upload">{t.upload}
-        <input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-          multiple disabled={busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void selectImages(files);}}/>
-      </label>
+  const effectLabel={solid:t.solid,mosaic:t.mosaic,blur:t.blur};
+  return <section className="redactor" data-redactor-ready={ready?'true':'false'}
+    aria-label={lang==='zh'?'手动图片打码':'Manual image redaction'}>
+    <div className="redactor-top" onDragOver={e=>e.preventDefault()}
+      onDrop={e=>{e.preventDefault();if(!blocked)void selectImages(Array.from(e.dataTransfer?.files||[]));}}>
+      <label className="redactor-upload" htmlFor="redact-files">{t.upload}</label>
+      <input id="redact-files" className="redactor-file-input" data-testid="redact-upload"
+        type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+        disabled={blocked} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';if(files.length)void selectImages(files);}}/>
       <span className="redactor-hint">{t.hint}</span>
+      <span className="redactor-hint redactor-drop">{t.drop}</span>
+      {!!items.length&&<button type="button" className="redactor-secondary" disabled={blocked}
+        onClick={clearImages}>{t.change}</button>}
     </div>
     {!!items.length&&<>
-      <div className="redactor-gallery" aria-label={t.files}>
-        {items.map(item=><button type="button" key={item.id} className={'redactor-file '+(item.id===activeId?'chosen':'')}
-          onClick={()=>{setActiveId(item.id);setDraft(null);}} disabled={busy}>
-          <span>{localFileName(item.file)}</span>
-          <small>{item.width}×{item.height} · {item.masks.length} {lang==='zh'?'处遮挡':'boxes'}</small>
+      <div className="redactor-gallery" aria-label={t.images}>
+        {items.map(item=><button key={item.id} type="button"
+          className={'redactor-file '+(item.id===activeId?'chosen':'')}
+          aria-current={item.id===activeId?'true':undefined}
+          disabled={blocked} onClick={()=>{setActiveId(item.id);setDraft(null);setTool('draw');}}>
+          <span>{item.file.name}</span>
+          <small>{item.width}×{item.height} · {item.masks.length} {t.areas}</small>
         </button>)}
       </div>
       <div className="redactor-tools">
         <div className="redactor-main">
           <div className="redactor-actions">
-            <button type="button" className={tool==='draw'?'chosen':''} onClick={()=>setTool('draw')}>{t.draw}</button>
-            <button type="button" className={tool==='pick'?'chosen':''} disabled={busy||!current?.suggestions.length} onClick={()=>setTool('pick')}>{t.pick}</button>
-            <button type="button" className={tool==='erase'?'chosen':''} onClick={()=>setTool('erase')}>{t.erase}</button>
-            <button type="button" data-testid="redact-region-mode" className={tool==='region'?'chosen':''} onClick={()=>{setTool('region');setMessage(t.regionNote);}}>{t.region}</button>
-            {current?.scanArea&&<button type="button" className="redactor-secondary" data-testid="redact-region-reset" onClick={resetScanArea}>{t.whole}</button>}
-            <button type="button" className="redactor-secondary" data-testid="redact-undo" onClick={undoCurrent} disabled={busy||!current?.undo?.length}>{t.undo}</button>
-            <button type="button" className="redactor-secondary" data-testid="redact-redo" onClick={redoCurrent} disabled={busy||!current?.redo?.length}>{t.redo}</button>
-            <button type="button" className="redactor-secondary" onClick={clearCurrent} disabled={busy||!boxes.length}>{t.clear}</button>
+            <button type="button" className={tool==='draw'?'chosen':''} aria-pressed={tool==='draw'}
+              disabled={blocked} onClick={()=>setTool('draw')}>{t.draw}</button>
+            <button type="button" className={tool==='erase'?'chosen':''} aria-pressed={tool==='erase'}
+              disabled={blocked} onClick={()=>setTool('erase')}>{t.erase}</button>
+            <button type="button" className="redactor-secondary" data-testid="redact-undo"
+              disabled={blocked||!current?.undo.length} onClick={undo}>{t.undo}</button>
+            <button type="button" className="redactor-secondary" data-testid="redact-redo"
+              disabled={blocked||!current?.redo.length} onClick={redo}>{t.redo}</button>
+            <button type="button" className="redactor-secondary" disabled={blocked||!masks.length}
+              onClick={()=>changeMasks(current.id,()=>[])}>{t.clear}</button>
           </div>
-          <p className="redactor-instruction">{tool==='region'?t.regionNote:tool==='draw'?t.drawNote:tool==='pick'?t.pickNote:t.eraseNote}</p>
+          <p className="redactor-instruction">{tool==='draw'?t.drawHelp:t.eraseHelp}</p>
           <div className="redactor-stage-wrap">
-            {current&&<div className="redactor-stage" style={{aspectRatio:current.width+'/'+current.height,maxWidth:Math.min(900,650*current.width/current.height)+'px'}}>
-              <img src={current.url} alt={lang==='zh'?'待处理图片':'Image to redact'} draggable={false}/>
+            {current&&<div className="redactor-stage" style={{
+              aspectRatio:current.width+'/'+current.height,
+              maxWidth:Math.min(900,650*current.width/current.height)+'px'
+            }}>
+              <canvas ref={previewRef} data-testid="redact-preview"
+                aria-label={lang==='zh'?'带真实打码效果的预览':'Preview with actual redaction effects'}/>
               <svg data-testid="redact-overlay" viewBox={'0 0 '+current.width+' '+current.height}
-                preserveAspectRatio="none" aria-label={t.drawNote}
+                preserveAspectRatio="none" aria-label={t.drawHelp}
                 onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp}
-                onPointerCancel={()=>{dragStartRef.current=null;setDraft(null);}}>
+                onPointerCancel={()=>{pointRef.current=null;setDraft(null);}}>
                 <rect x="0" y="0" width={current.width} height={current.height} fill="transparent"/>
-                {current.scanArea&&<rect data-testid="redact-scan-region"
-                  x={current.scanArea.x} y={current.scanArea.y} width={current.scanArea.w}
-                  height={current.scanArea.h} stroke="#19805e" strokeWidth={Math.max(2,current.width/600)}
-                  fill="rgba(0,130,80,.06)" strokeDasharray="8 5" pointerEvents="none"/>}
-                {current.suggestions.filter(s=>!selectedIds.has(s.id)).map(s=><rect key={s.id}
-                  data-testid="redact-suggestion" x={s.x} y={s.y} width={s.w} height={s.h}
-                  fill="rgba(32,139,203,.035)" stroke="#208bcb" strokeWidth={Math.max(2,current.width/650)}
-                  pointerEvents={tool==='pick'?'all':'none'} role="button" tabIndex={tool==='pick'?0:-1}
-                  aria-label={(lang==='zh'?'遮挡文字 ':'Cover text ')+s.text}
-                  onPointerDown={e=>{if(tool!=='pick'||busy)return;e.preventDefault();e.stopPropagation();toggleSuggestion(s);}}
-                  onKeyDown={e=>{if(tool==='pick'&&!busy&&(e.key==='Enter'||e.key===' ')){e.preventDefault();toggleSuggestion(s);}}}/>)}
-                {boxes.map(box=><rect key={box.id} data-testid="redact-mark"
-                  data-mark-id={box.id} x={box.x} y={box.y} width={box.w} height={box.h}
-                  fill={fill} stroke="#f59e0b" strokeWidth={Math.max(2,current.width/800)}
-                  onPointerDown={e=>{
-                    if(tool!=='erase')return;
-                    e.preventDefault(); e.stopPropagation(); removeBox(box.id);
-                  }}/>)}
+                {masks.map((mask,index)=><rect key={mask.id} data-testid="redact-mark"
+                  data-mark-id={mask.id} x={mask.x} y={mask.y} width={mask.w} height={mask.h}
+                  fill="transparent" stroke="#f4a340" strokeDasharray="6 4"
+                  strokeWidth={Math.max(2,current.width/800)}
+                  role={tool==='erase'?'button':undefined} tabIndex={tool==='erase'?0:-1}
+                  aria-label={t.remove+' '+t.area+' '+(index+1)}
+                  onPointerDown={e=>{if(tool==='erase'&&!blocked){e.stopPropagation();e.preventDefault();removeBox(mask.id);}}}
+                  onKeyDown={e=>{if(tool==='erase'&&(e.key==='Enter'||e.key===' ')){e.preventDefault();removeBox(mask.id);}}}/>)}
                 {draft&&<rect data-testid="redact-draft" x={draft.x} y={draft.y} width={draft.w} height={draft.h}
-                  stroke="#e69d1b" strokeWidth={Math.max(2,current.width/800)} strokeDasharray="8 6" fill="rgba(0,0,0,.45)"
-                  pointerEvents="none"/>}
+                  fill="rgba(244,163,64,.18)" stroke="#f4a340" strokeWidth={Math.max(2,current.width/800)}
+                  strokeDasharray="7 5" pointerEvents="none"/>}
               </svg>
             </div>}
           </div>
-          <p className="redactor-instruction">{t.missed}</p>
+          <p className="redactor-instruction">{t.caution}</p>
         </div>
         <aside className="redactor-sidebar">
           <div className="redactor-control">
-            <label htmlFor="ocr-language">{t.scanLanguage}</label>
-            <select id="ocr-language" value={language} disabled={busy} onChange={e=>setLanguage(e.target.value)}>
-              <option value="eng">English</option>
-              <option value="mixed">简体中文 + English</option>
-            </select>
-            <label htmlFor="ocr-mode">{t.ocrMode}</label>
-            <select id="ocr-mode" data-testid="redact-ocr-mode" disabled={busy}
-              value={ocrMode} onChange={e=>setOcrMode(e.target.value)}>
-              <option value="standard">{t.standard}</option>
-              <option value="detailed">{t.detailed}</option>
-            </select>
-            <div className="redactor-actions">
-              <button type="button" data-testid="redact-ocr" disabled={busy} onClick={()=>void recognize(false)}>{t.detect}</button>
-              {items.length>1&&<button type="button" data-testid="redact-ocr-all" className="redactor-secondary" disabled={busy}
-                onClick={()=>void recognize(true)}>{t.detectAll}</button>}
-              {scanning&&<button type="button" className="redactor-secondary" onClick={stopScan}>{t.cancel}</button>}
+            <strong className="redactor-control-title">{t.style}</strong>
+            <div className="redactor-style-choices" role="group" aria-label={t.style}>
+              {['solid','mosaic','blur'].map(value=><button key={value} type="button"
+                data-testid={'redact-style-'+value} className={effect===value?'chosen':''}
+                aria-pressed={effect===value} disabled={blocked}
+                onClick={()=>setEffect(value)}>{effectLabel[value]}</button>)}
             </div>
-            <p className="redactor-instruction">{t.help}</p>
+            {effect==='solid'?<div className="redactor-effect-settings">
+              <label className="redactor-field-label">{t.color}</label>
+              <div className="redactor-color-choices">
+                <button type="button" data-testid="redact-color-black" className={color==='#000000'?'chosen':''}
+                  aria-pressed={color==='#000000'} disabled={blocked}
+                  onClick={()=>setColor('#000000')}>{t.black}</button>
+                <button type="button" data-testid="redact-color-white" className={color==='#ffffff'?'chosen':''}
+                  aria-pressed={color==='#ffffff'} disabled={blocked}
+                  onClick={()=>setColor('#ffffff')}>{t.white}</button>
+                <label>{t.custom}<input aria-label={t.custom} type="color" value={color}
+                  disabled={blocked} onChange={e=>setColor(e.target.value)}/></label>
+              </div>
+              <p className="redactor-good">{t.solidHint}</p>
+            </div>:<div className="redactor-effect-settings">
+              <label className="redactor-field-label" htmlFor="redact-strength">{t.strength}: {strength}</label>
+              <input id="redact-strength" data-testid="redact-strength" type="range" min="8" max="64" step="4"
+                value={strength} disabled={blocked} onChange={e=>setStrength(Number(e.target.value))}/>
+              <p className="redactor-warning">{t.weakHint}</p>
+            </div>}
+            <p className="redactor-instruction">{t.styleHelp}</p>
           </div>
           <div className="redactor-control">
-            <div className="redactor-heading"><strong>{t.detected}</strong><span>{current?.suggestions.length||0}</span></div>
-            {current?.scanned && !current.suggestions.length&&<p>{t.nothing}</p>}
-            <div className="redactor-actions">
-              <button className="redactor-secondary" type="button" disabled={!current?.suggestions.length||busy} onClick={selectAll}>{t.all}</button>
-              <button className="redactor-secondary" type="button" disabled={!current?.suggestions.length||busy} onClick={clearDetected}>{t.clearDetected}</button>
-            </div>
-            {!!current?.suggestions.length&&<div className="redactor-recognized">
-              {current.suggestions.map(s=><label key={s.id}>
-                <input type="checkbox" checked={selectedIds.has(s.id)} onChange={()=>toggleSuggestion(s)} disabled={busy}/>
-                <span>{s.text}</span>
-              </label>)}
-              {current.suggestions.length>20&&<small>{lang==='zh'?'提示：照片上可能含有误识别，建议圈选文字区域再识别。':'Tip: on photos, select a smaller OCR region to reduce false positives.'}</small>}
+            <div className="redactor-heading"><strong>{t.areas}</strong>
+              <span data-testid="redact-count">{masks.length}</span></div>
+            {!masks.length?<p>{t.empty}</p>:<div className="redactor-areas">
+              {masks.map((box,index)=><div key={box.id}>
+                <span>{t.area} {index+1} · {effectLabel[box.effect]}</span>
+                <button type="button" className="redactor-secondary" disabled={blocked}
+                  aria-label={t.remove+' '+(index+1)} onClick={()=>removeBox(box.id)}>{t.remove}</button>
+              </div>)}
             </div>}
           </div>
           <div className="redactor-control">
-            <label htmlFor="redact-effect">{t.effect}</label>
-            <select id="redact-effect" data-testid="redact-effect" value={effect} disabled={busy} onChange={e=>setEffect(e.target.value)}>
-              <option value="solid">{t.solid}</option>
-              <option value="white">{t.white}</option>
-              <option value="mosaic">{t.mosaic}</option>
-              <option value="blur">{t.blur}</option>
-            </select>
-            <p className="redactor-warning">{t.warning}</p>
-          </div>
-          <div className="redactor-control">
-            <div className="redactor-heading"><strong>{t.masks}</strong><span data-testid="redact-count">{boxes.length}</span></div>
-            <div className="redactor-areas">
-              {boxes.slice(-15).map((box,index)=><div key={box.id}>
-                <span>{box.source==='ocr'?box.text:(lang==='zh'?'手动框':'Manual box')+' '+(index+1)}</span>
-                <button type="button" className="redactor-secondary" disabled={busy} onClick={()=>removeBox(box.id)}>{t.remove}</button>
-              </div>)}
-            </div>
-          </div>
-          <div className="redactor-control">
-            <label htmlFor="redact-format">{t.format}</label>
-            <select id="redact-format" value={format} disabled={busy} onChange={e=>setFormat(e.target.value)}>
+            <strong className="redactor-control-title">{t.save}</strong>
+            <label className="redactor-field-label" htmlFor="redact-format">{t.format}</label>
+            <select id="redact-format" data-testid="redact-format" value={format} disabled={blocked}
+              onChange={e=>setFormat(e.target.value)}>
               <option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option>
             </select>
             <div className="redactor-actions">
-              <button data-testid="redact-download" disabled={busy||!current?.masks.length} type="button" onClick={()=>void downloadCurrent()}>{t.download}</button>
-              {items.length>1&&<button data-testid="redact-download-all" type="button" disabled={busy}
+              <button type="button" data-testid="redact-download" disabled={blocked||!masks.length}
+                onClick={()=>void downloadCurrent()}>{t.download}</button>
+              {items.length>1&&<button type="button" data-testid="redact-download-all"
+                className="redactor-secondary" disabled={blocked}
                 onClick={()=>void downloadBatch()}>{t.zip}</button>}
             </div>
           </div>
         </aside>
       </div>
     </>}
-    {!items.length&&<p className="redactor-empty">{t.noImage}</p>}
+    {!items.length&&<p className="redactor-empty">{t.none}</p>}
     <div className="redactor-status">
-      <p role="status" data-testid="redact-status">{message||t.first}</p>
-      <p>{t.local}</p>
+      <p role="status" data-testid="redact-status">{status||t.none}</p><p>{t.local}</p>
     </div>
   </section>;
 }
