@@ -38,6 +38,18 @@ export function aspectDimension(originalWidth, originalHeight, dimension, change
   return clamp(Math.round(value * ratio), 1, MAX_AXIS);
 }
 
+export function fitWithin(sourceWidth, sourceHeight, maxWidth, maxHeight) {
+  const w = integer(maxWidth, 'Width');
+  const h = integer(maxHeight, 'Height');
+  if (!Number.isInteger(sourceWidth) || !Number.isInteger(sourceHeight) || sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error('Invalid source dimensions.');
+  }
+  const scale = Math.min(1, w / sourceWidth, h / sourceHeight,
+    Math.sqrt(MAX_OUTPUT_PIXELS / (sourceWidth * sourceHeight)));
+  return assertDimensions(Math.max(1, Math.round(sourceWidth * scale)),
+    Math.max(1, Math.round(sourceHeight * scale)));
+}
+
 export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, mode = 'contain', zoom = 1, x = 0, y = 0) {
   if (![sourceWidth, sourceHeight, outputWidth, outputHeight].every((v) => Number.isFinite(v) && v > 0)) {
     throw new Error('Invalid image dimensions.');
@@ -178,7 +190,9 @@ export async function processImage(file, options = {}) {
   validateFile(file);
   const format = options.format || 'jpeg';
   if (!MIME[format]) throw new Error('Unsupported output format.');
-  let { width, height } = assertDimensions(options.width, options.height);
+  let { width, height } = options.mode === 'within'
+    ? { width: integer(options.width, 'Width'), height: integer(options.height, 'Height') }
+    : assertDimensions(options.width, options.height);
   const targetKb = Number(options.targetKb || 0);
   if (!Number.isFinite(targetKb) || targetKb < 0 || targetKb > 20_000) {
     throw new Error('Target size must be between 0 and 20,000 KB.');
@@ -186,8 +200,9 @@ export async function processImage(file, options = {}) {
   const targetBytes = targetKb ? Math.floor(targetKb * 1024) : 0;
   const preferredQuality = clamp(Number(options.quality ?? 0.9), 0.05, 0.95);
   const image = await readImage(file);
+  if (options.mode === 'within') ({ width, height } = fitWithin(image.naturalWidth, image.naturalHeight, width, height));
   for (let attempt = 0; attempt < (options.allowDownscale ? 15 : 1); attempt += 1) {
-    const canvas = makeCanvas(image, { ...options, format }, width, height);
+    const canvas = makeCanvas(image, { ...options, mode: options.mode === 'within' ? 'contain' : options.mode, format }, width, height);
     const result = await encodeWithTarget(canvas, format, targetBytes, preferredQuality);
     canvas.width = 0;
     canvas.height = 0;
