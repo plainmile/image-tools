@@ -23,6 +23,9 @@ async function synthetic(page,count=1){
   await expect(page.getByTestId('redact-preview')).toHaveAttribute('data-rendered','true');
 }
 async function draw(page,a=[.2,.25],b=[.65,.65]){
+  // Mouse coordinates must be inside the viewport. Range keys and file upload
+  // can leave the editor partly offscreen, especially in Firefox.
+  await page.getByTestId('redact-overlay').scrollIntoViewIfNeeded();
   const rect=await page.getByTestId('redact-overlay').boundingBox();
   await page.mouse.move(rect.x+rect.width*a[0],rect.y+rect.height*a[1]);
   await page.mouse.down();
