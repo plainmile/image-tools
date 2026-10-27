@@ -20,6 +20,7 @@ async function synthetic(page,count=1){
     }))
   );
   await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  await expect(page.getByTestId('redact-preview')).toHaveAttribute('data-rendered','true');
 }
 async function draw(page,a=[.2,.25],b=[.65,.65]){
   const rect=await page.getByTestId('redact-overlay').boundingBox();
@@ -75,7 +76,7 @@ test('English/Chinese pages contain manual-only descriptions and correct SEO',as
     await expect(page.locator('link[rel=canonical]')).toHaveAttribute('href','https://image.plainmile.com'+route);
     await expect(page.locator('link[hreflang=en]')).toHaveAttribute('href','https://image.plainmile.com/redact-image/');
     await expect(page.locator('link[hreflang=zh-CN]')).toHaveAttribute('href','https://image.plainmile.com/zh/redact-image/');
-    await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+    await synthetic(page);
     for(const style of ['solid','mosaic','blur'])await expect(page.getByTestId('redact-style-'+style)).toBeVisible();
     await expect(page.locator('[data-testid^="redact-ocr"]')).toHaveCount(0);
   }
@@ -119,6 +120,12 @@ for(const style of ['mosaic','blur']){
     await page.getByTestId('redact-style-'+style).click();
     await page.getByTestId('redact-strength').press('End');
     await draw(page,[.1,.72],[.9,.96]);
+    await expect(page.getByTestId('redact-count')).toHaveText('1');
+    const debug=await page.getByTestId('redact-preview').evaluate(c=>{
+      const ctx=c.getContext('2d'),ys=Math.floor(c.height*.82);
+      return [.22,.225,.23,.235,.24,.245,.25].map(x=>ctx.getImageData(Math.floor(c.width*x),ys,1,1).data[0]);
+    });
+    console.log('manual preview '+style+': '+JSON.stringify(debug));
     await expect.poll(async()=>(await previewStripe(page))[0]).toBeGreaterThan(30);
     const pre=await previewStripe(page);
     expect(pre[0]).toBeLessThan(220);
