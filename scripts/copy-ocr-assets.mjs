@@ -12,8 +12,9 @@ const scriptSource = join(root, 'tesseract.js', 'dist', 'worker.min.js');
 await copyFile(scriptSource, join(destination, 'worker.min.js'));
 
 const coreFiles = (await readdir(join(root, 'tesseract.js-core')))
-  .filter((name) => /^tesseract-core(?:-simd)?(?:-lstm)?\.wasm(?:\.js)?$/.test(name));
+  .filter((name) => /^tesseract-core(?:-[a-z0-9]+)*\.wasm(?:\.js)?$/.test(name));
 if (!coreFiles.includes('tesseract-core-simd-lstm.wasm.js') ||
+    !coreFiles.includes('tesseract-core-relaxedsimd-lstm.wasm.js') ||
     !coreFiles.some((name) => name.endsWith('.wasm'))) {
   throw new Error('Tesseract core assets are missing; fail rather than falling back to a CDN.');
 }
