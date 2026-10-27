@@ -175,3 +175,20 @@ test('batch limit reports a clear error without processing',async({page})=>{
   await expect(page.getByTestId('status')).toContainText('Maximum 30 files');
   await expect(page.getByTestId('process')).toBeDisabled();
 });
+
+test('batch blocks excessive output pixels before allocating a giant canvas',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,5);
+  await page.getByLabel('Fitting').selectOption('contain');
+  await page.getByTestId('width').fill('8000');
+  await page.getByTestId('height').fill('4000');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('status')).toContainText('120-megapixel');
+  await expect(page.getByTestId('download')).toHaveCount(0);
+});
+test('uploaded image data stays local; processing sends no POST requests',async({page})=>{
+  const posts=[];
+  page.on('request',request=>{if(request.method()!=='GET'&&request.method()!=='HEAD')posts.push(request.url());});
+  await page.goto('/resize-image/');await uploadSynthetic(page);
+  await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
+  expect(posts).toEqual([]);
+});

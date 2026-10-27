@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
-import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,fitWithin,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,exportFilename,formatBytes } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,fitWithin,validateBatchPixels,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
@@ -137,6 +137,7 @@ export default function Editor({lang='en',tool='resize'}) {
     try{
       const options={width:Number(width),height:Number(height),mode,format,targetKb:Number(target),
         quality:Number(quality)/100,allowDownscale:downscale,zoom:Number(zoom)/100,cropX:Number(cropX)/100,cropY:Number(cropY)/100};
+      if(batch)validateBatchPixels(files,options.width,options.height,mode);
       const results=[];
       for(const item of files){
         const result=sheet?await makePassportSheet(item.file,options):await processImage(item.file,options);

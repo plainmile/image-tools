@@ -71,10 +71,12 @@ for route in ROUTES:
     }, (route, doc.hreflangs)
     assert "noindex" not in doc.robots.lower(), (route, doc.robots)
     assert len(doc.jsonld) >= 1, f"missing JSON-LD on {route}"
+    expected = "WebSite" if route in ("/", "/zh/") else "WebPage" if route.endswith("/privacy/") else "WebApplication"
+    assert any(item.get("@type") == expected for item in doc.jsonld), (route, expected, doc.jsonld)
     for item in doc.jsonld:
-        if item.get("@type") == "WebApplication":
-            assert item.get("url") == ORIGIN + route, (route, item)
-    assert any(item.get("@type") == "WebApplication" for item in doc.jsonld), route
+        assert item.get("url") == ORIGIN + route, (route, item)
+        if expected == "WebApplication":
+            assert item.get("offers", {}).get("price") == "0", (route, item)
 
 not_found = Page()
 not_found.feed((DIST / "404.html").read_text(encoding="utf-8"))

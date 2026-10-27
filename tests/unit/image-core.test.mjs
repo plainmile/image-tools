@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, drawRect, validateFile, sanitizeStem,
-  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin
+  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -66,4 +66,10 @@ test('fit within bounding box preserves aspect ratio and does not upscale small 
   assert.deepEqual(fitWithin(800,1200,800,800),{width:533,height:800});
   assert.deepEqual(fitWithin(10000,10000,10000,10000),{width:5656,height:5656});
   assert.throws(()=>fitWithin(100,100,0,100),/Width/);
+});
+
+test('batch resource budget blocks multi-image megapixel explosions',()=>{
+  assert.equal(MAX_BATCH_OUTPUT_PIXELS,120_000_000);
+  assert.equal(validateBatchPixels([{width:120,height:80},{width:120,height:80}],55,35,'within'),3710);
+  assert.throws(()=>validateBatchPixels(Array.from({length:5},()=>({width:120,height:80})),8000,4000,'contain'),/120-megapixel/);
 });

@@ -1,6 +1,7 @@
 export const MAX_FILE_BYTES = 40 * 1024 * 1024;
 export const MAX_FILES = 30;
 export const MAX_BATCH_BYTES = 160 * 1024 * 1024;
+export const MAX_BATCH_OUTPUT_PIXELS = 120_000_000;
 export const MAX_SOURCE_PIXELS = 80_000_000;
 export const MAX_OUTPUT_PIXELS = 32_000_000;
 export const MAX_AXIS = 10_000;
@@ -54,6 +55,20 @@ export function fitWithin(sourceWidth, sourceHeight, maxWidth, maxHeight) {
     height = Math.max(1, Math.floor(sourceHeight * scale));
   }
   return assertDimensions(width, height);
+}
+
+export function validateBatchPixels(images, width, height, mode) {
+  if (!Array.isArray(images) || images.length > MAX_FILES) throw new Error('Too many batch images.');
+  let total = 0;
+  const exact = mode === 'within' ? null : assertDimensions(width, height);
+  for (const image of images) {
+    const dim = exact || fitWithin(image.width, image.height, width, height);
+    total += dim.width * dim.height;
+    if (total > MAX_BATCH_OUTPUT_PIXELS) {
+      throw new Error('The batch exceeds the 120-megapixel output limit. Reduce dimensions or select fewer images.');
+    }
+  }
+  return total;
 }
 
 export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, mode = 'contain', zoom = 1, x = 0, y = 0) {
