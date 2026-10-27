@@ -12,6 +12,7 @@ on:
     branches: [main]
 permissions:
   contents: read
+  packages: read
 concurrency:
   group: image-tools-netcup-production
   cancel-in-progress: false
@@ -72,6 +73,22 @@ jobs:
           set -euo pipefail
           ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'test ! -L /opt/compose/image-tools && mkdir -p /opt/compose/image-tools && docker network inspect edge >/dev/null'
           scp -P "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes compose.prod.yaml "$DEPLOY_USER@$DEPLOY_HOST:/opt/compose/image-tools/compose.prod.yaml"
+      - name: Log in to GHCR on netcup using temporary Docker credentials
+        # A newly published GHCR package can initially be private. The trusted
+        # workflow token has package read access; no personal token is stored.
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            'test ! -L /opt/compose/image-tools/.docker-auth && install -d -m 700 /opt/compose/image-tools/.docker-auth'
+          printf '%s\n' "$GHCR_TOKEN" | \
+            ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+              "DOCKER_CONFIG=/opt/compose/image-tools/.docker-auth docker login ghcr.io -u '$GHCR_USER' --password-stdin"
       - name: Deploy immutable image and verify container health
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -87,6 +104,7 @@ jobs:
           docker compose -f compose.prod.yaml config --quiet
           umask 077
           printf 'IMAGE_TAG=%s\n' "$IMAGE_TAG" > .env
+          export DOCKER_CONFIG=/opt/compose/image-tools/.docker-auth
           docker compose -f compose.prod.yaml pull
           docker compose -f compose.prod.yaml up -d
           for i in $(seq 1 24); do
@@ -120,3 +138,15 @@ jobs:
             npm install --no-audit --no-fund @playwright/test@1.55.0
             npx playwright test
           '
+
+      - name: Erase temporary GHCR credentials
+        if: always()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+        run: |
+          if [ -n "$DEPLOY_HOST" ] && [ -n "$DEPLOY_USER" ]; then
+            ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+              'if [ -d /opt/compose/image-tools/.docker-auth ] && [ ! -L /opt/compose/image-tools/.docker-auth ]; then rm -rf /opt/compose/image-tools/.docker-auth; fi' || true
+          fi
