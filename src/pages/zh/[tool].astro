@@ -12,7 +12,7 @@ export function getStaticPaths(){return ['resize-image','compress-image-to-size'
 const tool=Astro.params.tool;const [title,description,heading,lead,hint]=pages[tool];
 ---
 <Base lang="zh" path={'/zh/'+tool+'/'} title={title} description={description}>
-<section class="hero"><div class="eyebrow">免费 · 隐私 · 浏览器本地处理</div><h1>{heading}</h1><p class="lead">{lead}</p></section>
+<section class="page-head"><h1>{heading}</h1><p class="lead">{lead}</p></section>
 <Editor client:load lang="zh" tool={tool}/>
-<section class="info"><h2>适用场景与注意事项</h2><p>{hint}</p><h2>如何使用？</h2><ol><li>从您的设备选择 JPG、PNG 或 WebP 图片。</li><li>调整参数并点击处理。</li><li>查看真实文件大小、图片尺寸，然后下载。</li></ol><h2>隐私保护</h2><p>所有图片内容只在浏览器中处理，不会上传到 PlainMile 服务器。详情请阅读<a href="/zh/privacy/">隐私政策</a>。</p></section>
+<section class="reference"><h2>适用场景与注意事项</h2><p>{hint}</p><h2>如何使用？</h2><ol><li>从您的设备选择 JPG、PNG 或 WebP 图片。</li><li>调整参数并点击处理。</li><li>查看真实文件大小、图片尺寸，然后下载。</li></ol><h2>文件处理方式</h2><p>图片在当前浏览器标签页内处理。详见<a href="/zh/privacy/">隐私说明</a>。</p></section>
 </Base>

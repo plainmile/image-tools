@@ -12,7 +12,7 @@ export function getStaticPaths(){return ['resize-image','compress-image-to-size'
 const tool=Astro.params.tool;const page=pages[tool];
 ---
 <Base path={'/'+tool+'/'} title={page.title} description={page.description}>
-<section class="hero"><div class="eyebrow">Free · Private · In your browser</div><h1>{page.heading}</h1><p class="lead">{page.lead}</p></section>
+<section class="page-head"><h1>{page.heading}</h1><p class="lead">{page.lead}</p></section>
 <Editor client:load lang="en" tool={tool}/>
-<section class="info"><h2>When should you use this tool?</h2><p>{page.use}</p><h2>How it works</h2><ol><li>Select a JPEG, PNG, or WebP image from your device.</li><li>Adjust the visible options and run the operation.</li><li>Check the actual image size and download the result.</li></ol><p>{page.hint}</p><h2>What happens to my images?</h2><p>Your image content stays on your device during processing. Nothing is uploaded to PlainMile. For additional details, read our <a href="/privacy/">privacy page</a>.</p></section>
+<section class="reference"><h2>When should you use this tool?</h2><p>{page.use}</p><h2>How it works</h2><ol><li>Select a JPEG, PNG, or WebP image from your device.</li><li>Adjust the visible options and run the operation.</li><li>Check the actual image size and download the result.</li></ol><p>{page.hint}</p><h2>File handling</h2><p>Images are processed in this browser tab. See the <a href="/privacy/">privacy policy</a> for details.</p></section>
 </Base>

@@ -11,3 +11,6 @@
 - Output names are sanitized. Ensure object URLs are revoked. No invisible watermark, remote fonts, unnecessary trackers or ad scripts. Follow-system dark mode via CSS is welcome.
 - Never claim a published Docker image or successful PR is proof of live netcup deployment. The host proxy, Cloudflare record, origin certificate, GH Actions secrets, and live public browser E2E must be verified independently.
 - CI and deploy must not use secrets in untrusted PR jobs. Only deploy SHA-pinned images from tested main. Production health check and rollback should not interrupt other sites.
+
+- Design standard: this is a practical editing utility, not a startup landing page. Keep a compact header, plain task names, file selection, settings, result preview and download near the top. Avoid marketing badges, oversized heroes, decorative gradients, emoji logos, unnecessary cards and repetitive privacy/AI slogans. Browser-local operation is a factual note, not a headline.
+- Public E2E must explicitly wait for the client-side editor to hydrate before setting synthetic file inputs, so fast test interactions cannot race Astro/React hydration over HTTPS.

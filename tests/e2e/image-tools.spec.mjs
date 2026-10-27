@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 async function uploadSynthetic(page, count=1){
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   const png=await page.evaluate(async()=>{
     const c=document.createElement('canvas');c.width=120;c.height=80;
     const x=c.getContext('2d');x.fillStyle='#cf3d4e';x.fillRect(0,0,120,80);
@@ -74,5 +75,30 @@ test('sibling websites appear on both language versions', async({page}) => {
     await page.goto(route);
     await expect(page.locator('footer a[href="https://plainmile.com/"]')).toBeVisible();
     await expect(page.locator('footer a[href="https://pdf.plainmile.com/"]')).toBeVisible();
+  }
+});
+
+test('plain tool-first layout and localized labels',async({page})=>{
+  for(const route of ['/','/zh/']){
+    await page.goto(route);
+    await expect(page.locator('.tool-list .tool-link')).toHaveCount(5);
+    await expect(page.locator('.brandmark,.eyebrow,.tile')).toHaveCount(0);
+    await expect(page.locator('main')).not.toContainText(/No uploads, accounts, or AI|无需上传、账号或 AI/);
+  }
+  await page.goto('/zh/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'参数设置'})).toBeVisible();
+  await uploadSynthetic(page);
+  await expect(page.locator('.preview-frame img')).toBeVisible();
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+});
+test('375px layout has no horizontal page overflow',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  for(const route of ['/zh/','/zh/resize-image/','/passport-photo-print/']){
+    await page.goto(route);
+    if(route!=='/zh/') await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+    const layout=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
+    expect(layout.scroll).toBeLessThanOrEqual(layout.width+1);
   }
 });
