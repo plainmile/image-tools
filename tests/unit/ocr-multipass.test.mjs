@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ocrPasses,mergeOcrCandidates} from '../../src/lib/ocr-multipass.mjs';
+import {ocrPasses,mergeOcrCandidates,preserveSelectedOcrCandidates} from '../../src/lib/ocr-multipass.mjs';
 
 test('OCR strategies are independent of photograph color, position or subject',()=>{
   assert.deepEqual(ocrPasses('standard').map(p=>p.psm),['11','3']);
@@ -26,4 +26,12 @@ test('similarly sized boxes at different locations remain independent',()=>{
     {text:'PAID',confidence:80,x:240,y:30,w:90,h:42},
   ];
   assert.equal(mergeOcrCandidates(boxes).length,3);
+});
+
+test('re-scanning keeps approved OCR covers, without duplicating nearby candidates',()=>{
+  const approved={id:'approved',text:'ACCOUNT',source:'ocr',x:20,y:40,w:160,h:40};
+  const fresh=[{id:'new',source:'ocr',x:21,y:41,w:158,h:40},{id:'other',source:'ocr',x:20,y:115,w:125,h:30}];
+  const result=preserveSelectedOcrCandidates(fresh,[approved,{id:'manual',source:'manual',x:5,y:5,w:8,h:8}]);
+  assert.deepEqual(result.map(box=>box.id),['approved','other']);
+  assert.deepEqual(preserveSelectedOcrCandidates([], [approved]).map(box=>box.id),['approved']);
 });

@@ -24,7 +24,7 @@
 .redactor-instruction{color:var(--muted);font-size:12px;margin:10px 0;}
 .redactor-stage-wrap{display:flex;align-items:center;justify-content:center;min-height:220px;background:var(--subtle);
   padding:12px;border:1px solid var(--line);overflow:hidden;}
-.redactor-stage {width:100%;max-width:900px;max-height:650px;position:relative;margin:auto;}
+.redactor-stage {width:100%;max-width:900px;position:relative;margin:auto;}
 .redactor-stage img{display:block;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none;}
 .redactor-stage svg{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;}
 .redactor-sidebar{padding:0 15px;max-height:760px;overflow-y:auto;}
@@ -53,12 +53,10 @@
 @media(max-width:870px){.redactor-tools{grid-template-columns:1fr;}
   .redactor-main{border-right:0;border-bottom:1px solid var(--line);}
   .redactor-sidebar{max-height:none;}
-  .redactor-stage{max-height:540px;}
 }
 @media(max-width:420px){.redactor-top,.redactor-main,.redactor-status{padding:12px;}
  .redactor-stage-wrap{padding:5px;min-height:150px;}
  .redactor-gallery{padding:8px;}
- .redactor-stage{max-height:450px;}
  .redactor-sidebar{padding:0 12px;}
 }
 
