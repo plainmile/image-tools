@@ -3,6 +3,11 @@ test('experimental Paddle scene text engine distinguishes actual words from patt
   test.skip(info.project.name!=='chromium','One browser is sufficient for initial engine feasibility');
   test.setTimeout(300000);
   const offsite=[];
+  const browserErrors=[];
+  page.on('pageerror',e=>browserErrors.push('pageerror: '+e.message));
+  page.on('console',m=>{if(m.type()==='error')browserErrors.push('console: '+m.text());});
+  page.on('requestfailed',r=>browserErrors.push('requestfailed '+r.url()+' '+r.failure()?.errorText));
+  page.on('response',r=>{if(r.status()>=400)browserErrors.push('HTTP '+r.status()+' '+r.url());});
   page.on('request',r=>{
     if(r.url().startsWith('http')&&
        new URL(r.url()).origin!==new URL(page.url()).origin)offsite.push(r.url());
@@ -28,7 +33,15 @@ test('experimental Paddle scene text engine distinguishes actual words from patt
   });
   await page.getByTestId('paddle-file').setInputFiles({name:'patterned-photo.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
   await page.getByTestId('paddle-run').click();
-  await expect.poll(()=>page.evaluate(()=>window.__paddleTestState),{timeout:240000}).toBe('complete');
+  await expect.poll(()=>page.evaluate(()=>window.__paddleTestState),
+    {timeout:240000,intervals:[500,1000,1500]})
+    .toMatch(/^(complete|failed)$/);
+  const state=await page.evaluate(()=>window.__paddleTestState);
+  if(state==='failed'){
+    const detail=await page.getByTestId('paddle-output').innerText();
+    throw new Error('PaddleOCR browser initialization/inference failed: '+detail+
+      '\\nBrowser errors: '+JSON.stringify(browserErrors));
+  }
   const result=await page.evaluate(()=>window.__paddleTestResult);
   expect(result.items?.length).toBeGreaterThan(0);
   const texts=result.items.map(i=>i.text).join(' ');
