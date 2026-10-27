@@ -4,7 +4,7 @@ Free, private image utilities — designed for **https://image.plainmile.com/** 
 
 **Status:** V0 runs on the existing netcup deployment. CI and public-HTTPS E2E must pass independently for each subsequent release.
 
-All image processing runs in your browser, not on our server. No AI models, uploads, accounts, or paid APIs.
+Image processing and OCR run in your browser, not on our server. The OCR engine uses self-hosted language and WebAssembly models, downloaded from this site only when the user requests recognition. No image uploads, accounts, cloud inference or paid APIs.
 
 ## First release
 
@@ -36,7 +36,7 @@ docker compose -f compose.selfhost.yaml up -d
 # http://127.0.0.1:8082
 ```
 
-Once GHCR package visibility is set to Public, users can pull `ghcr.io/plainmile/image-tools:latest`. This static website does not need databases, volumes or AI.
+Once GHCR package visibility is set to Public, users can pull `ghcr.io/plainmile/image-tools:latest`. This static website does not need databases, volumes or cloud inference.
 
 ## netcup production
 

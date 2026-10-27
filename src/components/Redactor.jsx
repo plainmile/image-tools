@@ -78,12 +78,14 @@ export default function Redactor({ lang='en' }) {
   const [ready, setReady] = useState(false);
   const [draft, setDraft] = useState(null);
   const workerRef = useRef(null);
+  const busyRef = useRef(false);
   const runIdRef = useRef(0);
   const counterRef = useRef(0);
   const dragStartRef = useRef(null);
   const urlRef = useRef([]);
   const current = items.find(item => item.id === activeId) || null;
   const busy = scanning || saving || loading;
+  busyRef.current = busy;
 
   useEffect(() => {
     setReady(true);
@@ -101,7 +103,7 @@ export default function Redactor({ lang='en' }) {
     };
   }, []);
   async function selectImages(files) {
-    if (busy) return;
+    if (busyRef.current) return;
     setMessage('');
     setLoading(true);
     try {

@@ -152,3 +152,25 @@ test('actual local OCR finds English text, permits unchecking a suggestion and n
   await expect(page.getByTestId('redact-count')).toHaveText(String(n));
   expect(offsite).toEqual([]);
 });
+
+
+test('mixed OCR loads the locally hosted Simplified Chinese model and detects screenshot text', async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='chromium','Exercise both local OCR language packs in Chromium');
+  test.setTimeout(180000);
+  const outside=[];
+  await page.goto('/zh/redact-image/');
+  const origin=new URL(page.url()).origin;
+  page.on('request',r=>{
+    if(r.url().startsWith('http')&&new URL(r.url()).origin!==origin)outside.push(r.url());
+  });
+  await synthetic(page);
+  await page.getByLabel('识别语言').selectOption('mixed');
+  await page.getByTestId('redact-ocr').click();
+  try{
+    await expect(page.getByTestId('redact-mark').first()).toBeVisible({timeout:120000});
+  }catch{
+    throw new Error('Mixed-language OCR status: '+await page.getByTestId('redact-status').innerText());
+  }
+  await expect(page.getByTestId('redact-count')).not.toHaveText('0');
+  expect(outside).toEqual([]);
+});
