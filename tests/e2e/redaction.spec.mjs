@@ -56,6 +56,7 @@ test('manual black box is flattened into new PNG pixels and leaves other pixels 
       masked:Array.from(x.getImageData(300,140,1,1).data),
       untouched:Array.from(x.getImageData(10,10,1,1).data)};
   });
+  await expect(page.getByTestId('redact-status')).toContainText('960×280');
   expect(result.mime).toBe('image/png');
   expect([result.width,result.height]).toEqual([960,280]);
   expect(result.masked.slice(0,3)).toEqual([0,0,0]);
@@ -401,4 +402,21 @@ test('mixed-language OCR genuinely reads Chinese glyphs, not just English text',
   await selected.locator('input').check();
   await expect(page.getByTestId('redact-count')).toHaveText('1');
   await expect(page.getByTestId('redact-mark').first()).toHaveAttribute('fill','#000');
+});
+
+test('portrait redaction preview retains correct aspect ratio',async({page})=>{
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const pixels=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');canvas.width=240;canvas.height=1200;
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('redact-upload').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer:Buffer.from(pixels)});
+  await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  const size=await page.locator('.redactor-stage').evaluate(element=>{
+    const box=element.getBoundingClientRect();return {width:box.width,height:box.height};
+  });
+  expect(Math.abs(size.width/size.height-0.2)).toBeLessThan(0.015);
+  expect(size.height).toBeLessThanOrEqual(651);
 });
