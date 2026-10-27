@@ -79,9 +79,9 @@ export function extractOcrBoxes(data, originalWidth, originalHeight, scanWidth, 
           if (!label || !b) continue;
           const confidence=Number(word.confidence ?? line.confidence);
           if (!Number.isFinite(confidence)) continue;
-          const readable=Array.from(label).filter(ch => /[\\p{L}\\p{N}]/u.test(ch));
+          const readable=Array.from(label).filter(ch => /[\p{L}\p{N}]/u.test(ch));
           if (!readable.length) continue;
-          const han=/[\\p{Script=Han}]/u.test(label);
+          const han=/[\p{Script=Han}]/u.test(label);
           const minConfidence=readable.length === 1 ? (han ? 85 : 92) :
             readable.length === 2 ? 77 : 65;
           if (confidence < minConfidence) continue;

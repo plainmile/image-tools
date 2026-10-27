@@ -143,21 +143,26 @@ test('actual local OCR finds English text, permits unchecking a suggestion and n
     }
   });
   await page.getByTestId('redact-ocr').click();
+  const c=page.locator('.redactor-recognized input[type=checkbox]').first();
   try{
-    await expect(page.getByTestId('redact-mark').first()).toBeVisible({timeout:90000});
+    await expect(c).toBeVisible({timeout:90000});
   }catch(error){
     const status=await page.getByTestId('redact-status').innerText();
-    throw new Error('Actual OCR did not detect text. Status: '+status+' Browser errors: '+
+    throw new Error('Actual OCR did not detect reviewable text. Status: '+status+' Browser errors: '+
       JSON.stringify(browserErrors)+'; '+error.message);
   }
-  const n=await page.getByTestId('redact-mark').count();
+  const n=await page.locator('.redactor-recognized input[type=checkbox]').count();
   expect(n).toBeGreaterThan(0);
-  await expect(page.getByTestId('redact-count')).toHaveText(String(n));
-  const c=page.locator('.redactor-recognized input[type=checkbox]').first();
-  await expect(c).toBeChecked();
+  await expect(page.getByTestId('redact-suggestion').first()).toBeVisible();
+  await expect(page.getByTestId('redact-mark')).toHaveCount(0);
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await expect(c).not.toBeChecked();
+  await c.check();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
   await c.uncheck();
-  await expect(page.getByTestId('redact-count')).toHaveText(String(n-1));
-  await page.getByRole('button',{name:'Select all detected'}).click();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Cover all candidates'}).click();
   await expect(page.getByTestId('redact-count')).toHaveText(String(n));
   expect(offsite).toEqual([]);
 });
@@ -175,12 +180,17 @@ test('mixed OCR loads the locally hosted Simplified Chinese model and detects sc
   await synthetic(page);
   await page.getByLabel('识别语言').selectOption('mixed');
   await page.getByTestId('redact-ocr').click();
+  const checkbox=page.locator('.redactor-recognized input[type=checkbox]').first();
   try{
-    await expect(page.getByTestId('redact-mark').first()).toBeVisible({timeout:120000});
+    await expect(checkbox).toBeVisible({timeout:120000});
   }catch{
     throw new Error('Mixed-language OCR status: '+await page.getByTestId('redact-status').innerText());
   }
-  await expect(page.getByTestId('redact-count')).not.toHaveText('0');
+  await expect(page.getByTestId('redact-mark')).toHaveCount(0);
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
   expect(outside).toEqual([]);
 });
 
@@ -222,4 +232,46 @@ test('downloaded redacted image does not reveal the source filename',async({page
   const result=await download;
   expect(result.suggestedFilename()).toBe('redacted-image.png');
   expect(result.suggestedFilename()).not.toContain('capture');
+});
+
+test('users can limit OCR scanning to a selected region and return to full picture',async({page})=>{
+  await page.goto('/zh/redact-image/');await synthetic(page);
+  await page.getByTestId('redact-region-mode').click();
+  await draw(page,[.04,.12],[.70,.80]);
+  await expect(page.getByTestId('redact-scan-region')).toBeVisible();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await page.getByTestId('redact-region-reset').click();
+  await expect(page.getByTestId('redact-scan-region')).toHaveCount(0);
+});
+test('industrial-style texture cannot cause automatic blackout during OCR',async({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='chromium','Real OCR test with synthetic noisy background');
+  test.setTimeout(180000);
+  await page.goto('/zh/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const image=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=960;c.height=460;
+    const x=c.getContext('2d');
+    x.fillStyle='#83a7ce';x.fillRect(0,0,960,460);
+    x.fillStyle='#6f7c81';x.fillRect(20,70,920,325);
+    for(let k=0;k<42;k++){
+      const xx=32+k*21;
+      x.fillStyle=k%2?'#c9d1d3':'#78898f';x.fillRect(xx,90,12,285);
+      x.strokeStyle='#374c52';x.beginPath();x.moveTo(xx+14,88);x.lineTo(xx+14,380);x.stroke();
+    }
+    x.fillStyle='#fff';x.font='bold 36px Arial';x.fillText('2026-08-28 12:10:32',450,49);
+    x.fillStyle='#fff';x.font='bold 44px Arial';x.fillText('110 kV TRANSFORMER',34,446);
+    const blob=await new Promise(ok=>c.toBlob(ok,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'synthetic-equipment.png',mimeType:'image/png',buffer:Buffer.from(image)
+  });
+  await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  await page.getByTestId('redact-ocr').click();
+  await expect(page.getByTestId('redact-ocr')).toBeDisabled();
+  await expect(page.getByTestId('redact-ocr')).toBeEnabled({timeout:120000});
+  await expect(page.getByTestId('redact-status')).toContainText('识别');
+  await expect(page.getByTestId('redact-mark')).toHaveCount(0);
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await expect(page.getByTestId('redact-download')).toBeDisabled();
 });
