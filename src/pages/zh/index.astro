@@ -1,0 +1,9 @@
+---
+import Base from '../../layouts/Base.astro';
+const entries=[['resize-image/','修改图片尺寸','指定像素并选择留白或裁剪。'],['compress-image-to-size/','压缩到指定 KB','尝试达到上传系统的文件大小要求。'],['signature-resizer/','签名图片调整','修改签名照片的像素和文件大小。'],['bulk-image-resizer/','批量修改图片','多张处理后打包 ZIP 下载。'],['passport-photo-print/','证件照打印排版','生成 4×6 英寸六张方形照片排版。']];
+---
+<Base lang="zh" title="免费图片工具 — 调整尺寸、压缩与打印 | PlainMile" description="在线调整图片尺寸、压缩到指定 KB、修改签名图片、批量图片处理。纯浏览器本地运行，不上传文件，不使用 AI。">
+<section class="hero"><div class="eyebrow">本地处理 · 免费工具</div><h1>让图片满足指定要求。</h1><p class="lead">精确修改图片像素、压缩到指定 KB、整理签名尺寸、批量处理和打印排版。所有文件都只在您的浏览器中处理。</p></section>
+<section aria-label="图片工具"><h2>选择工具</h2><div class="tool-grid">{entries.map(([path,title,desc])=><a class="tile" href={'/zh/'+path}><strong>{title}</strong><p>{desc}</p></a>)}</div></section>
+<section class="info"><h2>为什么使用浏览器本地工具？</h2><p>无需登录或上传文件，也不调用 AI。下载前可确认实际图片尺寸与文件大小。若目标过小且不能降低像素，工具会明确提示失败，不会假装已达到限制。</p><p>可以从<a href="/zh/compress-image-to-size/">压缩到指定 KB</a>或者<a href="/zh/resize-image/">调整尺寸</a>开始。也可以访问 <a href="https://plainmile.com/">PlainMile 主站（Check Your Paycheck）</a> 和 <a href="https://pdf.plainmile.com/">PlainMile PDF Tools</a>。</p></section>
+</Base>

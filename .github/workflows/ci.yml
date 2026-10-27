@@ -1,0 +1,67 @@
+name: Image Tools CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: image-tools-ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  test-build-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test and build in Docker
+        run: |
+          docker run --rm -v "$PWD:/app" -w /app node:22-bookworm-slim sh -lc 'npm install --no-audit --no-fund && npm run test:unit && npm run build'
+      - name: Verify public SEO routes and sitemap
+        run: |
+          set -euo pipefail
+          for route in resize-image compress-image-to-size signature-resizer bulk-image-resizer passport-photo-print privacy; do
+            test -f "dist/$route/index.html"
+            test -f "dist/zh/$route/index.html"
+          done
+          test -f dist/index.html
+          test -f dist/zh/index.html
+          test -f dist/sitemap-index.xml
+          grep -q 'hreflang="zh-CN"' dist/index.html
+          grep -q 'https://image.plainmile.com/zh/' dist/zh/index.html
+          test -f dist/404.html
+      - name: Check Docker Compose
+        run: |
+          docker compose -f compose.prod.yaml config --quiet
+          docker compose -f compose.selfhost.yaml config --quiet
+          ! grep -Eq '^    ports:' compose.prod.yaml
+      - name: Build production image
+        run: docker build -t plainmile-image-tools:e2e .
+      - name: Run production image
+        run: |
+          docker run -d --name plainmile-image-tools-e2e -p 18082:80 plainmile-image-tools:e2e
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:18082/healthz | grep -qx ok; then exit 0; fi; sleep 1; done
+          docker logs plainmile-image-tools-e2e
+          exit 1
+      - name: HTTP smoke test
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:18082/ | grep -q 'Make your images'
+          curl -fsS http://127.0.0.1:18082/zh/ | grep -q '图片'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18082/not-a-page)" = 404
+      - name: Real browser E2E in Chromium, Firefox, WebKit
+        run: |
+          docker run --rm --network host -v "$PWD:/work:ro" -e IMAGE_BASE_URL=http://127.0.0.1:18082 mcr.microsoft.com/playwright:v1.55.0-noble bash -lc '
+            set -eu
+            mkdir -p /tmp/test/tests/e2e
+            cp /work/tests/e2e/*.mjs /tmp/test/tests/e2e/
+            cp /work/playwright.config.mjs /tmp/test/
+            cd /tmp/test
+            npm init -y >/dev/null
+            npm install --no-audit --no-fund @playwright/test@1.55.0
+            npx playwright test
+          '
+      - name: Cleanup
+        if: always()
+        run: docker rm -f plainmile-image-tools-e2e || true

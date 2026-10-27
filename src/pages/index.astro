@@ -1,0 +1,9 @@
+---
+import Base from '../layouts/Base.astro';
+const entries=[['resize-image/','Resize Image Online','Choose exact pixel dimensions, fit or crop.'],['compress-image-to-size/','Compress Image to KB','Aim for an exact maximum KB size without uploads.'],['signature-resizer/','Signature Image Resizer','Resize signatures to application requirements.'],['bulk-image-resizer/','Bulk Image Resizer','Process multiple photos and download a ZIP.'],['passport-photo-print/','Passport Photo Print Sheet','Arrange six square photos for 4×6 printing.']];
+---
+<Base title="Free Image Tools — Resize, Compress & Print | PlainMile" description="Resize, compress to a target KB, adjust signatures and batch process images entirely in your browser. No upload or AI.">
+<section class="hero"><div class="eyebrow">Private by design · Free online tools</div><h1>Make your images fit the requirements.</h1><p class="lead">Resize photos to exact pixels, compress them below a KB limit, prepare signatures, and make print layouts. Everything runs locally in your browser—your photos never get uploaded.</p></section>
+<section aria-label="Image tools"><h2>Choose a task</h2><div class="tool-grid">{entries.map(([path,title,desc])=><a class="tile" href={'/'+path}><strong>{title}</strong><p>{desc}</p></a>)}</div></section>
+<section class="info"><h2>Why a browser-local editor?</h2><p>No account, file transfer or AI inference. You can compare the actual exported file dimensions and size before submitting it to another website. Some targets cannot be met without shrinking dimensions or sacrificing quality; we report such cases rather than claiming success.</p><p>Start with <a href="/compress-image-to-size/">compression to a KB limit</a> or <a href="/resize-image/">exact pixel resizing</a>. Other tools in the PlainMile family: <a href="https://plainmile.com/">PlainMile — Check Your Paycheck</a> and <a href="https://pdf.plainmile.com/">PlainMile PDF Tools</a>.</p></section>
+</Base>

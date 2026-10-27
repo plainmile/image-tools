@@ -1,0 +1,41 @@
+name: Publish Image
+on:
+  workflow_run:
+    workflows: ['Image Tools CI']
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  publish:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == 'plainmile/image-tools' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Verify published commit still on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/plainmile/image-tools/branches/main | jq -r '.commit.sha')"
+          test "$CURRENT" = "$EXPECTED"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/plainmile/image-tools:latest
+            ghcr.io/plainmile/image-tools:${{ github.event.workflow_run.head_sha }}

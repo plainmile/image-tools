@@ -1,0 +1,152 @@
+name: Deploy Image Tools to netcup
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: Full tested main commit SHA (leave blank to use current main)
+        required: false
+        type: string
+  workflow_run:
+    workflows: ['Publish Image']
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: image-tools-netcup-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    # Deploy only after a successful image publish from this repository/main,
+    # or through an explicit manual workflow dispatch.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main' &&
+           github.event.workflow_run.head_repository.full_name == 'plainmile/image-tools') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+      - name: Verify main SHA and required SSH secrets
+        id: release
+        env:
+          INPUT_SHA: ${{ inputs.image_sha }}
+          PUBLISHED_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          for v in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_HOST_KEY; do
+            test -n "${!v}" || { echo "Missing $v" >&2; exit 1; }
+          done
+          main_sha=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/plainmile/image-tools/branches/main | jq -r '.commit.sha')
+          release_sha="${PUBLISHED_SHA:-${INPUT_SHA:-$main_sha}}"
+          test "$release_sha" = "$main_sha" || { echo "Only current main can be deployed" >&2; exit 1; }
+          [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
+      - name: Configure pinned SSH host key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if [ "$DEPLOY_PORT" = 22 ]; then pattern="$DEPLOY_HOST"; else pattern="[$DEPLOY_HOST]:$DEPLOY_PORT"; fi
+          printf '%s %s\n' "$pattern" "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Copy production Compose to isolated directory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'test ! -L /opt/compose/image-tools && mkdir -p /opt/compose/image-tools && docker network inspect edge >/dev/null'
+          scp -P "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes compose.prod.yaml "$DEPLOY_USER@$DEPLOY_HOST:/opt/compose/image-tools/compose.prod.yaml"
+      - name: Log in to GHCR on netcup using temporary Docker credentials
+        # A newly published GHCR package can initially be private. The trusted
+        # workflow token has package read access; no personal token is stored.
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            'test ! -L /opt/compose/image-tools/.docker-auth && install -d -m 700 /opt/compose/image-tools/.docker-auth'
+          printf '%s\n' "$GHCR_TOKEN" | \
+            ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+              "DOCKER_CONFIG=/opt/compose/image-tools/.docker-auth docker login ghcr.io -u '$GHCR_USER' --password-stdin"
+      - name: Deploy immutable image and verify container health
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" "IMAGE_TAG=$RELEASE_SHA /bin/sh -s" <<'REMOTE'
+          set -eu
+          cd /opt/compose/image-tools
+          test ! -L .env
+          docker compose -f compose.prod.yaml config --quiet
+          umask 077
+          printf 'IMAGE_TAG=%s\n' "$IMAGE_TAG" > .env
+          export DOCKER_CONFIG=/opt/compose/image-tools/.docker-auth
+          docker compose -f compose.prod.yaml pull
+          docker compose -f compose.prod.yaml up -d
+          for i in $(seq 1 24); do
+            status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' plainmile-image-tools 2>/dev/null || true)
+            if [ "$status" = healthy ]; then
+              test "$(docker inspect -f '{{.Config.Image}}' plainmile-image-tools)" = "ghcr.io/plainmile/image-tools:$IMAGE_TAG"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose -f compose.prod.yaml ps
+          docker logs --tail 100 plainmile-image-tools || true
+          exit 1
+          REMOTE
+      - name: Public HTTPS smoke tests
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fsS https://image.plainmile.com/ | grep -q 'Make your images'
+          curl --retry 3 -fsS https://image.plainmile.com/zh/ | grep -q '图片'
+          curl --retry 3 -fsS https://image.plainmile.com/resize-image/ >/dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://image.plainmile.com/nonexistent-route)" = 404
+      - name: Public HTTPS browser E2E
+        run: |
+          docker run --rm --network host -v "$PWD:/work:ro" -e IMAGE_BASE_URL=https://image.plainmile.com mcr.microsoft.com/playwright:v1.55.0-noble bash -lc '
+            set -eu
+            mkdir -p /tmp/test/tests/e2e
+            cp /work/tests/e2e/*.mjs /tmp/test/tests/e2e/
+            cp /work/playwright.config.mjs /tmp/test/
+            cd /tmp/test
+            npm init -y >/dev/null
+            npm install --no-audit --no-fund @playwright/test@1.55.0
+            npx playwright test
+          '
+
+      - name: Erase temporary GHCR credentials
+        if: always()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+        run: |
+          if [ -n "$DEPLOY_HOST" ] && [ -n "$DEPLOY_USER" ]; then
+            ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+              'if [ -d /opt/compose/image-tools/.docker-auth ] && [ ! -L /opt/compose/image-tools/.docker-auth ]; then rm -rf /opt/compose/image-tools/.docker-auth; fi' || true
+          fi
