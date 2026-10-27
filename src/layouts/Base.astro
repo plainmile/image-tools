@@ -13,7 +13,7 @@ const jsonld=isHome
   : isPrivacy
     ? {'@context':'https://schema.org','@type':'WebPage',name:title,url:origin+current,inLanguage:lang==='zh'?'zh-CN':'en'}
     : {'@context':'https://schema.org','@type':'WebApplication',name:title,description,applicationCategory:'MultimediaApplication',operatingSystem:'Any modern browser',url:origin+current,offers:{'@type':'Offer',price:'0',priceCurrency:'USD'}};
-const links=lang==='zh'?[['/zh/','首页'],['/zh/resize-image/','调整尺寸'],['/zh/compress-image-to-size/','压缩到指定 KB'],['/zh/signature-resizer/','签名尺寸'],['/zh/bulk-image-resizer/','批量处理'],['/zh/passport-photo-print/','证件照排版']]:[['/','Home'],['/resize-image/','Resize'],['/compress-image-to-size/','Compress to KB'],['/signature-resizer/','Signature'],['/bulk-image-resizer/','Bulk resize'],['/passport-photo-print/','Photo print']];
+const links=lang==='zh'?[['/zh/','首页'],['/zh/resize-image/','调整尺寸'],['/zh/compress-image-to-size/','压缩到指定 KB'],['/zh/signature-resizer/','签名尺寸'],['/zh/bulk-image-resizer/','批量处理'],['/zh/passport-photo-print/','照片排版'],['/zh/redact-image/','图片打码']]:[['/','Home'],['/resize-image/','Resize'],['/compress-image-to-size/','Compress to KB'],['/signature-resizer/','Signature'],['/bulk-image-resizer/','Bulk resize'],['/passport-photo-print/','Photo print'],['/redact-image/','Redact']];
 ---
 <!doctype html>
 <html lang={lang==='zh'?'zh-CN':'en'}>

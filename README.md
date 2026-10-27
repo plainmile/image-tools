@@ -12,6 +12,7 @@ All image processing runs in your browser, not on our server. No AI models, uplo
 - Compress JPEG/WebP to a target KB, optionally reducing pixel dimensions when needed. Verify the **actual** output bytes.
 - Resize signatures by pixel size and target KB (application requirements vary).
 - Batch resize locally and download a ZIP. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; exact-size Fit and crop-to-fill remain available.
+- Redact pictures and screenshots in-browser: English/Chinese OCR proposes boxes, manually add/remove and batch ZIP export. Solid black/white boxes permanently replace the covered pixels; mosaic/blur are for appearance only and not guaranteed private.
 - Create a 4x6-inch 300-DPI JPEG print sheet with six 2x2-inch photos, by manually framing an existing photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
 - English/Chinese SEO pages and a non-indexed 404. UI can be used on mobile.
 
