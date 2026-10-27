@@ -2,28 +2,35 @@
 import Base from '../layouts/Base.astro';
 import Redactor from '../components/Redactor.jsx';
 ---
-<Base path="/redact-image/" title="Redact Images & Screenshots — OCR Text & Batch | PlainMile" description="Black out sensitive text in JPG, PNG and WebP images. Detect English or Chinese text in your browser, review each box, add manual covers, and download batches.">
-<section class="page-head">
-  <p class="breadcrumb"><a href="/">Image tools</a> / Redact images</p>
-  <h1>Redact text in images and screenshots</h1>
-  <p class="lead">Recognize text in screenshots, scanned pages and photographs with local OCR. Review detected words before covering and downloading.</p>
-</section>
-<Redactor client:load lang="en"/>
-<section class="reference">
-  <h2>How to redact a screenshot</h2>
-  <ol><li>Select JPG, PNG or WebP images. You can paste a screenshot or select up to 12 images.</li>
-  <li>Choose English or Simplified Chinese + English, optionally draw an OCR region around a subtitle or date, then select <strong>Find text candidates</strong>. Nothing is covered automatically.</li>
-  <li>Tick only candidate words you want to hide, or use Cover all candidates after reviewing them. Drag to add missing covers, use Remove boxes to delete one, and Undo/Redo to correct mistakes.</li>
-  <li>Choose a cover style, review every image and download a re-encoded image or ZIP.</li></ol>
-  <h2>Solid black, pixelation and blur</h2>
-  <p>Use opaque black or white blocks for passwords, addresses, access tokens and identification numbers. Pixelation and blur can still leak information, particularly if the original text is predictable. Exported images are newly encoded so the original text pixels inside solid masks and the original EXIF metadata are not included.</p>
-  <h2>Does OCR catch every word?</h2>
-  <p>No. On real photographs, machinery, cables, fences and patterns may look like letters to OCR. Uncertain matches are filtered, and all remaining matches are shown as blue outlines for review only. Select OCR area to scan just a date, subtitle or label. Small or diagonal text can still be missed. Inspect at full size and add rectangles manually; OCR is not a privacy guarantee.</p>
-  <h2>What about batch processing?</h2>
-  <p>Batch recognition processes one image at a time on your device, using a single OCR worker. Each file keeps its own masks and recognized words; switch between images to refine them. Exporting the ZIP requires at least one cover on every selected image to avoid accidentally including a completely unredacted original. Exported files use generic names so the source filenames are not shared.</p>
-  <h2>Privacy and file limits</h2>
-  <p>English and Simplified Chinese OCR files load from this website, not an outside text recognition service. Image pixels, detected text and exported files stay in your browser. Up to 12 files and 100 MB total are accepted, with a 32-megapixel per-image limit and 96-megapixel combined limit. See our <a href="/privacy/">privacy policy</a>.</p>
-  <h2>Related tools</h2>
-  <ul class="related-links"><li><a href="/resize-image/">Resize image</a></li><li><a href="/compress-image-to-size/">Compress to KB</a></li><li><a href="/bulk-image-resizer/">Bulk resize</a></li></ul>
-</section>
+<Base path="/redact-image/" title="Redact Images Online — Blackout, Pixelate & Blur | PlainMile"
+  description="Manually hide parts of JPG, PNG and WebP images with solid blocks, real pixelation or blur. Preview every change and export locally, including batch ZIP.">
+  <section class="page-head">
+    <p class="breadcrumb"><a href="/">Image tools</a> / Redact images</p>
+    <h1>Manually redact images and screenshots</h1>
+    <p class="lead">Draw a rectangle over text, faces, license plates or anything you want to hide. Choose solid color, pixelation or blur and preview the real effect before exporting.</p>
+  </section>
+  <Redactor client:load lang="en"/>
+  <section class="reference">
+    <h2>How to cover parts of an image</h2>
+    <ol>
+      <li>Choose JPG, PNG or WebP files, drag and drop them, or paste a screenshot. You can work on up to 12 images.</li>
+      <li>Choose a style: solid color (black, white or custom), pixelation or blur. Adjust intensity for pixelation and blur.</li>
+      <li>Drag a rectangle directly over the area to cover. Each new rectangle uses the currently selected style. Remove mistaken rectangles or use Undo and Redo.</li>
+      <li>Inspect the rendered preview, choose PNG, JPG or WebP, then download one image or a ZIP of your reviewed batch.</li>
+    </ol>
+    <h2>Blackout, pixelation or blur?</h2>
+    <p>Use a solid opaque color for passwords, addresses, IDs, access keys, account details and any information that must be hidden. Solid redaction replaces the underlying pixels. Pixelation and blur are visual effects that can still reveal or leak information. Their real results, not translucent placeholders, are shown in the editor.</p>
+    <h2>Is text detected automatically?</h2>
+    <p>No. This editor is intentionally manual-only. Photographs, technical equipment and patterned backgrounds can lead to unreliable automated suggestions. You choose every region. Review the result carefully before sharing; no recognition tool can guarantee that every secret is covered.</p>
+    <h2>Can I redact several images?</h2>
+    <p>Yes. Every image keeps its own rectangles and Undo/Redo history. Batch ZIP export requires at least one manually drawn cover on each image, to prevent accidentally including an unredacted file. ZIP members are named generically instead of using potentially sensitive source filenames.</p>
+    <h2>Privacy, sizes and formats</h2>
+    <p>All image editing and ZIP generation happens inside your browser. Images are not uploaded. Re-encoded exports discard source EXIF metadata. Supports JPEG, PNG and WebP; up to 12 images and 100 MB total, 32 megapixels per image and 96 megapixels per batch. Read the <a href="/privacy/">privacy policy</a>.</p>
+    <h2>Related tools</h2>
+    <ul class="related-links">
+      <li><a href="/resize-image/">Resize image</a></li>
+      <li><a href="/compress-image-to-size/">Compress to KB</a></li>
+      <li><a href="/bulk-image-resizer/">Bulk resize</a></li>
+    </ul>
+  </section>
 </Base>
