@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, drawRect, validateFile, sanitizeStem,
-  exportFilename, formatBytes, MAX_FILES
+  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -36,4 +36,40 @@ test('safe exported names and accurate file size', () => {
   assert.equal(sanitizeStem('../../a:bad?.png'), '..-..-a-bad-');
   assert.equal(exportFilename('scan.webp', 'jpeg'), 'scan-edited.jpg');
   assert.equal(formatBytes(1024), '1.0 KB');
+});
+
+test('browser batch memory limit is explicit', () => {
+  assert.equal(MAX_BATCH_BYTES, 160 * 1024 * 1024);
+});
+test('JPEG density is patched to 300 dpi for existing JFIF', () => {
+  const jpeg = Uint8Array.from([
+    0xff,0xd8,0xff,0xe0,0,16,0x4a,0x46,0x49,0x46,0,1,1,0,0,1,0,1,0,0,
+    0xff,0xd9
+  ]);
+  const result=jpegBytesWithDpi(jpeg,300);
+  assert.equal(result.length,jpeg.length);
+  assert.equal(result[13],1);
+  assert.deepEqual(Array.from(result.slice(14,18)),[1,44,1,44]);
+});
+test('JPEG density is inserted if the browser omitted the JFIF header', () => {
+  const jpeg=Uint8Array.from([0xff,0xd8,0xff,0xda,0,2,0xff,0xd9]);
+  const result=jpegBytesWithDpi(jpeg,300);
+  assert.equal(result.length,jpeg.length+18);
+  assert.deepEqual(Array.from(result.slice(2,6)),[0xff,0xe0,0,16]);
+  assert.deepEqual(Array.from(result.slice(14,18)),[1,44,1,44]);
+  assert.throws(()=>jpegBytesWithDpi(new Uint8Array([1,2,3])),/Invalid JPEG/);
+});
+
+test('fit within bounding box preserves aspect ratio and does not upscale small images', () => {
+  assert.deepEqual(fitWithin(120,80,55,35),{width:53,height:35});
+  assert.deepEqual(fitWithin(120,80,800,800),{width:120,height:80});
+  assert.deepEqual(fitWithin(800,1200,800,800),{width:533,height:800});
+  assert.deepEqual(fitWithin(10000,10000,10000,10000),{width:5656,height:5656});
+  assert.throws(()=>fitWithin(100,100,0,100),/Width/);
+});
+
+test('batch resource budget blocks multi-image megapixel explosions',()=>{
+  assert.equal(MAX_BATCH_OUTPUT_PIXELS,120_000_000);
+  assert.equal(validateBatchPixels([{width:120,height:80},{width:120,height:80}],55,35,'within'),3710);
+  assert.throws(()=>validateBatchPixels(Array.from({length:5},()=>({width:120,height:80})),8000,4000,'contain'),/120-megapixel/);
 });

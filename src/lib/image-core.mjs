@@ -1,5 +1,7 @@
 export const MAX_FILE_BYTES = 40 * 1024 * 1024;
 export const MAX_FILES = 30;
+export const MAX_BATCH_BYTES = 160 * 1024 * 1024;
+export const MAX_BATCH_OUTPUT_PIXELS = 120_000_000;
 export const MAX_SOURCE_PIXELS = 80_000_000;
 export const MAX_OUTPUT_PIXELS = 32_000_000;
 export const MAX_AXIS = 10_000;
@@ -35,6 +37,38 @@ export function aspectDimension(originalWidth, originalHeight, dimension, change
   const value = integer(dimension, changed === 'width' ? 'Width' : 'Height');
   const ratio = changed === 'width' ? originalHeight / originalWidth : originalWidth / originalHeight;
   return clamp(Math.round(value * ratio), 1, MAX_AXIS);
+}
+
+export function fitWithin(sourceWidth, sourceHeight, maxWidth, maxHeight) {
+  const w = integer(maxWidth, 'Width');
+  const h = integer(maxHeight, 'Height');
+  if (!Number.isInteger(sourceWidth) || !Number.isInteger(sourceHeight) || sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error('Invalid source dimensions.');
+  }
+  const scale = Math.min(1, w / sourceWidth, h / sourceHeight,
+    Math.sqrt(MAX_OUTPUT_PIXELS / (sourceWidth * sourceHeight)));
+  let width = Math.max(1, Math.round(sourceWidth * scale));
+  let height = Math.max(1, Math.round(sourceHeight * scale));
+  // Rounding may add one pixel per axis and exceed the safety pixel limit.
+  if (width * height > MAX_OUTPUT_PIXELS) {
+    width = Math.max(1, Math.floor(sourceWidth * scale));
+    height = Math.max(1, Math.floor(sourceHeight * scale));
+  }
+  return assertDimensions(width, height);
+}
+
+export function validateBatchPixels(images, width, height, mode) {
+  if (!Array.isArray(images) || images.length > MAX_FILES) throw new Error('Too many batch images.');
+  let total = 0;
+  const exact = mode === 'within' ? null : assertDimensions(width, height);
+  for (const image of images) {
+    const dim = exact || fitWithin(image.width, image.height, width, height);
+    total += dim.width * dim.height;
+    if (total > MAX_BATCH_OUTPUT_PIXELS) {
+      throw new Error('The batch exceeds the 120-megapixel output limit. Reduce dimensions or select fewer images.');
+    }
+  }
+  return total;
 }
 
 export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, mode = 'contain', zoom = 1, x = 0, y = 0) {
@@ -120,9 +154,10 @@ function makeCanvas(image, opts, width, height) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  const context = canvas.getContext('2d', { alpha: opts.format === 'png' && opts.background === 'transparent' });
+  // PNG/WebP can retain alpha. JPEG cannot, so use white rather than black.
+  const context = canvas.getContext('2d', { alpha: opts.format !== 'jpeg' });
   if (!context) throw new Error('The browser cannot create an image canvas.');
-  if (opts.format !== 'png' || opts.background !== 'transparent') {
+  if (opts.format === 'jpeg') {
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, w, h);
   }
@@ -176,7 +211,9 @@ export async function processImage(file, options = {}) {
   validateFile(file);
   const format = options.format || 'jpeg';
   if (!MIME[format]) throw new Error('Unsupported output format.');
-  let { width, height } = assertDimensions(options.width, options.height);
+  let { width, height } = options.mode === 'within'
+    ? { width: integer(options.width, 'Width'), height: integer(options.height, 'Height') }
+    : assertDimensions(options.width, options.height);
   const targetKb = Number(options.targetKb || 0);
   if (!Number.isFinite(targetKb) || targetKb < 0 || targetKb > 20_000) {
     throw new Error('Target size must be between 0 and 20,000 KB.');
@@ -184,8 +221,9 @@ export async function processImage(file, options = {}) {
   const targetBytes = targetKb ? Math.floor(targetKb * 1024) : 0;
   const preferredQuality = clamp(Number(options.quality ?? 0.9), 0.05, 0.95);
   const image = await readImage(file);
+  if (options.mode === 'within') ({ width, height } = fitWithin(image.naturalWidth, image.naturalHeight, width, height));
   for (let attempt = 0; attempt < (options.allowDownscale ? 15 : 1); attempt += 1) {
-    const canvas = makeCanvas(image, { ...options, format }, width, height);
+    const canvas = makeCanvas(image, { ...options, mode: options.mode === 'within' ? 'contain' : options.mode, format }, width, height);
     const result = await encodeWithTarget(canvas, format, targetBytes, preferredQuality);
     canvas.width = 0;
     canvas.height = 0;
@@ -201,6 +239,48 @@ export async function processImage(file, options = {}) {
     height = nextHeight;
   }
   throw new Error('Could not reach the file-size target at the chosen dimensions. Raise the KB limit or allow smaller dimensions.');
+}
+
+
+/**
+ * Set JFIF density in a JPEG to 300 dpi (or another explicit DPI).
+ * Pixels alone do not encode print size: a 1200x1800 raster is 4x6 inches
+ * only if the print software uses 300 pixels/inch or the user selects that size.
+ * If a browser omits the JFIF segment, insert one immediately after SOI.
+ */
+export function jpegBytesWithDpi(bytes, dpi = 300) {
+  const source = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const density = integer(dpi, 'DPI', 65535);
+  if (source.length < 4 || source[0] !== 0xff || source[1] !== 0xd8) {
+    throw new Error('Invalid JPEG data.');
+  }
+  let p = 2;
+  while (p + 17 < source.length && source[p] === 0xff) {
+    const marker = source[p + 1];
+    if (marker === 0xd9 || marker === 0xda) break;
+    const segmentLength = source[p + 2] * 256 + source[p + 3];
+    if (segmentLength < 2 || p + segmentLength + 2 > source.length) break;
+    if (marker === 0xe0 && segmentLength >= 16 &&
+        source[p+4] === 0x4a && source[p+5] === 0x46 &&
+        source[p+6] === 0x49 && source[p+7] === 0x46 && source[p+8] === 0) {
+      const patched = new Uint8Array(source);
+      patched[p+11] = 1; // pixels per inch
+      patched[p+12] = density >> 8; patched[p+13] = density & 255;
+      patched[p+14] = density >> 8; patched[p+15] = density & 255;
+      return patched;
+    }
+    p += 2 + segmentLength;
+  }
+  // APP0 JFIF marker with version 1.01, units=dpi and no thumbnail.
+  const jfif = Uint8Array.from([
+    0xff,0xe0,0x00,0x10,0x4a,0x46,0x49,0x46,0x00,0x01,0x01,0x01,
+    density >> 8,density & 255,density >> 8,density & 255,0x00,0x00,
+  ]);
+  const patched = new Uint8Array(source.length + jfif.length);
+  patched.set(source.subarray(0,2), 0);
+  patched.set(jfif, 2);
+  patched.set(source.subarray(2), 2 + jfif.length);
+  return patched;
 }
 
 export async function makePassportSheet(file, opts = {}) {
@@ -221,8 +301,9 @@ export async function makePassportSheet(file, opts = {}) {
       ctx.drawImage(image, rect.sx, rect.sy, rect.sw, rect.sh, col * 600, row * 600, 600, 600);
     }
   }
-  const blob = await canvasToBlob(canvas, MIME.jpeg, 0.93);
+  const rawBlob = await canvasToBlob(canvas, MIME.jpeg, 0.93);
   canvas.width = 0;
   canvas.height = 0;
+  const blob = new Blob([jpegBytesWithDpi(await rawBlob.arrayBuffer(), 300)], { type: MIME.jpeg });
   return { blob, width: 1200, height: 1800, format: 'jpeg', bytes: blob.size, quality: 0.93 };
 }

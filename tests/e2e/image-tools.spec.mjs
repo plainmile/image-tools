@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 async function uploadSynthetic(page, count=1){
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   const png=await page.evaluate(async()=>{
     const c=document.createElement('canvas');c.width=120;c.height=80;
     const x=c.getContext('2d');x.fillStyle='#cf3d4e';x.fillRect(0,0,120,80);
@@ -75,4 +76,119 @@ test('sibling websites appear on both language versions', async({page}) => {
     await expect(page.locator('footer a[href="https://plainmile.com/"]')).toBeVisible();
     await expect(page.locator('footer a[href="https://pdf.plainmile.com/"]')).toBeVisible();
   }
+});
+
+test('plain tool-first layout and localized labels',async({page})=>{
+  for(const route of ['/','/zh/']){
+    await page.goto(route);
+    await expect(page.locator('.tool-list .tool-link')).toHaveCount(5);
+    await expect(page.locator('.brandmark,.eyebrow,.tile')).toHaveCount(0);
+    await expect(page.locator('main')).not.toContainText(/No uploads, accounts, or AI|无需上传、账号或 AI/);
+  }
+  await page.goto('/zh/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'参数设置'})).toBeVisible();
+  await uploadSynthetic(page);
+  await expect(page.locator('.preview-frame canvas')).toBeVisible();
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+});
+test('375px layout has no horizontal page overflow',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  for(const route of ['/zh/','/zh/resize-image/','/passport-photo-print/']){
+    await page.goto(route);
+    if(route!=='/zh/') await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+    const layout=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
+    expect(layout.scroll).toBeLessThanOrEqual(layout.width+1);
+  }
+});
+
+test('transparent PNG retains alpha; JPEG gets white background',async({page})=>{
+  await page.goto('/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const bytes=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=24;c.height=24;
+    const ctx=c.getContext('2d');ctx.clearRect(0,0,24,24);
+    ctx.fillStyle='red';ctx.fillRect(8,8,8,8);
+    return Array.from(new Uint8Array(await (await new Promise(r=>c.toBlob(r,'image/png'))).arrayBuffer()));
+  });
+  await page.getByTestId('upload').setInputFiles({name:'transparent.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
+  await page.getByTestId('width').fill('24');await page.getByTestId('height').fill('24');
+  await page.getByTestId('format').selectOption('png');await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+  const a=await page.evaluate(async()=>{
+    const b=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+    const i=await createImageBitmap(b);const c=document.createElement('canvas');c.width=24;c.height=24;
+    const ctx=c.getContext('2d');ctx.drawImage(i,0,0);return ctx.getImageData(0,0,1,1).data[3];
+  });
+  expect(a).toBe(0);
+  await page.getByTestId('format').selectOption('jpeg');
+  await expect(page.getByTestId('download')).toHaveCount(0);
+  await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
+  const rgb=await page.evaluate(async()=>{
+    const b=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+    const i=await createImageBitmap(b);const c=document.createElement('canvas');c.width=24;c.height=24;
+    const ctx=c.getContext('2d');ctx.drawImage(i,0,0);return Array.from(ctx.getImageData(0,0,1,1).data);
+  });
+  expect(rgb[0]).toBeGreaterThan(240);expect(rgb[1]).toBeGreaterThan(240);expect(rgb[2]).toBeGreaterThan(240);
+});
+test('clearing a pixel input with lock aspect ratio does not crash',async({page})=>{
+  await page.goto('/resize-image/');await uploadSynthetic(page);
+  await page.getByLabel('Keep aspect ratio').check();
+  await page.getByTestId('width').fill('');
+  await expect(page.getByTestId('width')).toHaveValue('');
+  await page.getByTestId('width').fill('60');
+  await expect(page.getByTestId('height')).toHaveValue('40');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('result-meta')).toContainText('60×40');
+});
+test('print sheet JPEG declares 300 pixels per inch in JFIF',async({page})=>{
+  await page.goto('/passport-photo-print/');await uploadSynthetic(page);
+  await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
+  const marker=await page.evaluate(async()=>{
+    const b=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+    const v=new Uint8Array(await b.arrayBuffer());
+    return {identifier:Array.from(v.slice(6,11)),units:v[13],x:v[14]*256+v[15],y:v[16]*256+v[17]};
+  });
+  expect(marker).toEqual({identifier:[74,70,73,70,0],units:1,x:300,y:300});
+});
+test('single-image tools reject multiple uploads and expose real crop preview',async({page})=>{
+  await page.goto('/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.getByTestId('upload')).not.toHaveAttribute('multiple');
+  await uploadSynthetic(page,1);
+  await page.getByLabel('Fitting').selectOption('cover');
+  await expect(page.locator('.preview-frame canvas')).toBeVisible();
+});
+
+test('batch maximum dimensions do not add padding or enlarge small images',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,2);
+  await expect(page.getByLabel('Fitting')).toHaveValue('within');
+  await page.getByTestId('width').fill('55');
+  await page.getByTestId('height').fill('35');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('result-meta')).toContainText('53×35');
+  await expect(page.getByTestId('download')).toBeVisible();
+});
+test('batch limit reports a clear error without processing',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,31);
+  await expect(page.getByTestId('status')).toContainText('Maximum 30 files');
+  await expect(page.getByTestId('process')).toBeDisabled();
+});
+
+test('batch blocks excessive output pixels before allocating a giant canvas',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,5);
+  await page.getByLabel('Fitting').selectOption('contain');
+  await page.getByTestId('width').fill('8000');
+  await page.getByTestId('height').fill('4000');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('status')).toContainText('120-megapixel');
+  await expect(page.getByTestId('download')).toHaveCount(0);
+});
+test('uploaded image data stays local; processing sends no POST requests',async({page})=>{
+  const posts=[];
+  page.on('request',request=>{if(request.method()!=='GET'&&request.method()!=='HEAD')posts.push(request.url());});
+  await page.goto('/resize-image/');await uploadSynthetic(page);
+  await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
+  expect(posts).toEqual([]);
 });

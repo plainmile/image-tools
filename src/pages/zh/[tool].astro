@@ -2,17 +2,24 @@
 import Base from '../../layouts/Base.astro';
 import Editor from '../../components/Editor.jsx';
 const pages={
-'resize-image':['免费修改图片尺寸和像素 | PlainMile','浏览器内修改 JPG、PNG、WebP 图片的精确宽高像素，不上传文件。','精确修改图片像素尺寸','输入目标宽度和高度，完整保留图片或裁剪填充。支持 JPG、PNG、WebP。','适合需要精确宽高的表单、头像、上传系统。保留完整图片时会有留白，裁剪模式可能去掉边缘内容。'],
-'compress-image-to-size':['在线压缩图片到指定 KB | PlainMile','在浏览器中将图片压缩到指定最大 KB，确认实际输出字节。','将图片压缩到指定 KB 以下','设置最大文件大小，例如 50KB、100KB 或 200KB。下载前会检测真实输出文件大小。','JPG/WebP 可以调低质量，PNG 很难缩小。必要时允许减小像素。没有达到限制时会明确提示失败。'],
-'signature-resizer':['签名图片尺寸和 KB 调整 | PlainMile','修改电子签名图片的像素尺寸与文件大小，纯浏览器处理。','修改电子签名图片','按照申请要求输入宽高像素和 KB 限制，处理后下载。','请按照实际申请系统的规定操作。本工具不验证签名真实性，也不保证申请通过。'],
-'bulk-image-resizer':['在线批量修改图片尺寸 | PlainMile','最多同时处理 30 张 JPG、PNG、WebP 图片，在本地导出 ZIP。','批量调整图片尺寸','为多张照片应用统一的尺寸和格式，直接下载 ZIP。无需登录或上传。','所有图片采用相同的输出宽高和适配方式，建议保留原图。'],
-'passport-photo-print':['4×6 英寸证件照打印排版 | PlainMile','在浏览器中将六张 2×2 英寸照片排版为 4×6 英寸 JPG 图片。','制作 4×6 英寸照片打印排版','手动选择和调整原始照片取景，生成六张方形照片的 1200×1800 打印图片。','这只是排版工具，不保证任何官方证件照申请要求；很多机构禁止对照片进行数字修改。请核对官方规定。']
+'resize-image':['免费修改图片尺寸和像素 | PlainMile','输入宽高像素，浏览器内修改 JPG、PNG、WebP 图片尺寸。支持保持比例、完整显示和裁剪，下载前检查实际输出大小。','精确修改图片像素尺寸','输入目标宽度和高度，完整保留图片或裁剪填充。支持 JPG、PNG、WebP。','适合需要精确宽高的表单、头像、上传系统。保留完整图片时会有留白，裁剪模式可能去掉边缘内容。'],
+'compress-image-to-size':['在线压缩图片到指定 KB | PlainMile','在浏览器中把 JPG、WebP 图片压缩到指定最大 KB，查看实际文件大小；必要时调整画质或允许缩小像素。','将图片压缩到指定 KB 以下','设置最大文件大小，例如 50KB、100KB 或 200KB。下载前会检测真实输出文件大小。','JPG/WebP 可以调低质量，PNG 很难缩小。必要时允许减小像素。没有达到限制时会明确提示失败。'],
+'signature-resizer':['签名图片尺寸和 KB 调整 | PlainMile','为在线申请表调整电子签名的宽高像素、图片格式与最大 KB。文件在浏览器中处理，下载后可核对结果。','修改电子签名图片','按照申请要求输入宽高像素和 KB 限制，处理后下载。','请按照实际申请系统的规定操作。本工具不验证签名真实性，也不保证申请通过。'],
+'bulk-image-resizer':['在线批量修改图片尺寸 | PlainMile','浏览器内批量修改最多 30 张 JPG、PNG、WebP 图片，统一宽高、格式和裁剪方式，完成后打包 ZIP 下载。','批量调整图片尺寸','为多张照片应用统一的尺寸和格式，直接下载 ZIP。无需登录或上传。','所有图片采用相同的输出宽高和适配方式，建议保留原图。'],
+'passport-photo-print':['4×6 英寸证件照打印排版 | PlainMile','将六张 2×2 英寸的方形照片排版为 4×6 英寸 JPEG 打印文件，支持手动裁剪和位置调整，打印前核对官方照片要求。','制作 4×6 英寸照片打印排版','手动选择和调整原始照片取景，生成六张方形照片的 1200×1800 打印图片。','这只是排版工具，不保证任何官方证件照申请要求；很多机构禁止对照片进行数字修改。请核对官方规定。']
 };
 export function getStaticPaths(){return ['resize-image','compress-image-to-size','signature-resizer','bulk-image-resizer','passport-photo-print'].map(tool=>({params:{tool}}));}
 const tool=Astro.params.tool;const [title,description,heading,lead,hint]=pages[tool];
+const guide={"resize-image":{"heading":"完整显示、填满裁剪有什么区别？","intro":"目标宽高表示下载文件的实际像素。如果上传系统要求 600 × 400 像素，就直接填写这两个数字。完整显示会保留整张照片，不足部分留空；填满裁剪会切去边缘，不会把原图强行拉伸。","q":[["怎样保持原图比例？","勾选保持宽高比例后，修改宽度或高度会自动计算另一个数值。如果申请要求不同的比例，再选择完整显示或填满裁剪。"],["放大图片会更清晰吗？","不会。放大不能补足原始图片缺少的细节，建议尽量使用清晰的原始照片。"]],"links":[["/zh/compress-image-to-size/","压缩到指定 KB"],["/zh/bulk-image-resizer/","批量调整图片"]]},"compress-image-to-size":{"heading":"怎样符合上传文件大小的限制？","intro":"最大 KB 请填写上传网站给出的实际要求，比如 50 或 100。工具编码后会检查真实文件大小；降低 JPG、WebP 画质可以减少字节数。如果限制太小，可能还需要允许缩小像素。","q":[["上传要求小于 100 KB，应该怎么设置？","最大大小填写 100，必要时勾选允许缩小像素。下载前还需检查接收网站对最小像素、图片格式的要求。"],["为什么 PNG 不容易压缩？","PNG 是无损编码，复杂照片通常较大。如果接收网站允许，可改用 JPG 或 WebP。"]],"links":[["/zh/resize-image/","修改图片像素"],["/zh/signature-resizer/","签名图片调整"]]},"signature-resizer":{"heading":"按照申请系统的要求准备签名","intro":"在线申请系统可能同时限制签名图片的像素、文件格式和 KB 大小。请按照页面实际规定输入，不要使用未经核实的通用模板。本工具不自动去除签名背景，也不能判断签名是否有效。","q":[["签名应该选择白色还是透明背景？","应以接收系统要求为准。JPG 导出时背景为白色；PNG、WebP 可以保留原图透明区域。"],["处理完就一定符合官方要求吗？","不一定。工具仅改变图片尺寸和编码，签名真实性及申请条件由接收机构判定。"]],"links":[["/zh/compress-image-to-size/","减小文件大小"],["/zh/resize-image/","修改图片尺寸"]]},"bulk-image-resizer":{"heading":"同一批图片的尺寸如何统一？","intro":"一次最多选择 30 张图片，文件总大小上限 160 MB。默认按最大宽高等比例缩小每张照片，不放大小图，也不会添加白边。如果需要每张图片都具有相同的像素画布，再选择完整显示或填满裁剪。","q":[["不同长宽比例的图片会变形吗？","默认的不超过最大尺寸模式会保持各张图片比例、不留白；完整显示会留白，填满裁剪可能切去边缘。"],["为什么下载的是 ZIP 文件？","为了将多张结果一次性下载并保留各自文件名。原图不会被覆盖。"]],"links":[["/zh/resize-image/","单张修改尺寸"],["/zh/compress-image-to-size/","压缩图片"]]},"passport-photo-print":{"heading":"打印尺寸与证件照申请须知","intro":"输出是 1200 × 1800 像素的 JPG，内含六张相同的 600 × 600 像素方形照片，并设置 JPEG 密度为 300 DPI。实际打印时仍需选择 4 × 6 英寸相纸和 100% 比例，避免打印软件自动放大裁剪。","q":[["会自动检查护照或签证照片是否合格吗？","不会。本工具只负责裁剪和排版，不验证姿势、光线、背景或官方接受条件。部分机构禁止数字修改照片。"],["打印出来的尺寸不对怎么办？","请检查纸张尺寸、无边距打印以及自动适应纸张等设置，避免印刷软件再次缩放。"]],"links":[["/zh/resize-image/","修改电子照片"],["/zh/compress-image-to-size/","压缩照片"]]}}[tool];
 ---
 <Base lang="zh" path={'/zh/'+tool+'/'} title={title} description={description}>
-<section class="hero"><div class="eyebrow">免费 · 隐私 · 浏览器本地处理</div><h1>{heading}</h1><p class="lead">{lead}</p></section>
+<section class="page-head"><p class="breadcrumb"><a href="/zh/">图片工具</a> / {heading}</p><h1>{heading}</h1><p class="lead">{lead}</p></section>
 <Editor client:load lang="zh" tool={tool}/>
-<section class="info"><h2>适用场景与注意事项</h2><p>{hint}</p><h2>如何使用？</h2><ol><li>从您的设备选择 JPG、PNG 或 WebP 图片。</li><li>调整参数并点击处理。</li><li>查看真实文件大小、图片尺寸，然后下载。</li></ol><h2>隐私保护</h2><p>所有图片内容只在浏览器中处理，不会上传到 PlainMile 服务器。详情请阅读<a href="/zh/privacy/">隐私政策</a>。</p></section>
+<section class="reference" aria-label="工具使用说明">
+<h2>{guide.heading}</h2><p>{guide.intro}</p><p>{hint}</p>
+<h2>常见问题</h2>
+{guide.q.map(([question,answer])=><div class="qa"><h3>{question}</h3><p>{answer}</p></div>)}
+<h2>相关工具</h2><ul class="related-links">{guide.links.map(([href,label])=><li><a href={href}>{label}</a></li>)}</ul>
+<p class="editor-disclosure">图片仅在浏览器标签页中处理。详见<a href="/zh/privacy/">隐私说明</a>。</p>
+</section>
 </Base>
