@@ -122,9 +122,11 @@ jobs:
       - name: Public HTTPS smoke tests
         run: |
           set -euo pipefail
-          curl --retry 3 -fsS https://image.plainmile.com/ | grep -q 'Make your images'
-          curl --retry 3 -fsS https://image.plainmile.com/zh/ | grep -q '图片'
+          curl --retry 3 -fsS https://image.plainmile.com/ | grep -q 'href="/resize-image/"'
+          curl --retry 3 -fsS https://image.plainmile.com/zh/ | grep -q 'href="/zh/resize-image/"'
           curl --retry 3 -fsS https://image.plainmile.com/resize-image/ >/dev/null
+          curl --retry 3 -fsS https://image.plainmile.com/robots.txt | grep -q 'Sitemap: https://image.plainmile.com/sitemap-index.xml'
+          curl --retry 3 -fsS https://image.plainmile.com/sitemap-index.xml | grep -q 'sitemap-0.xml'
           test "$(curl -s -o /dev/null -w '%{http_code}' https://image.plainmile.com/nonexistent-route)" = 404
       - name: Public HTTPS browser E2E
         run: |
