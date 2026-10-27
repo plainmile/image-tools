@@ -8,11 +8,11 @@ zh:{upload:'选择图片',hint:'图片只在浏览器中处理。支持 JPEG、P
 };
 function downloadBlob(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
 export default function Editor({lang='en',tool='resize'}) {
-  const t=dict[lang],sheet=tool==='passport',batch=tool==='bulk';
+  const t=dict[lang],sheet=tool==='passport-photo-print',batch=tool==='bulk-image-resizer';
   const [files,setFiles]=useState([]),[width,setWidth]=useState(sheet?600:800),[height,setHeight]=useState(sheet?600:800);
   const [keep,setKeep]=useState(false),[mode,setMode]=useState(sheet?'cover':'contain');
-  const [format,setFormat]=useState('jpeg'),[target,setTarget]=useState(tool==='compress'||tool==='signature'?100:0);
-  const [quality,setQuality]=useState(90),[downscale,setDownscale]=useState(tool==='compress');
+  const [format,setFormat]=useState('jpeg'),[target,setTarget]=useState(tool==='compress-image-to-size'||tool==='signature-resizer'?100:0);
+  const [quality,setQuality]=useState(90),[downscale,setDownscale]=useState(tool==='compress-image-to-size');
   const [zoom,setZoom]=useState(100),[cropX,setCropX]=useState(0),[cropY,setCropY]=useState(0);
   const [status,setStatus]=useState(''),[busy,setBusy]=useState(false),[output,setOutput]=useState(null);
   useEffect(()=>()=>{if(output?.url)URL.revokeObjectURL(output.url);},[output]);
