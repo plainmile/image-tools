@@ -8,8 +8,8 @@ const pages={
 'bulk-image-resizer':['在线批量修改图片尺寸 | PlainMile','最多同时处理 30 张 JPG、PNG、WebP 图片，在本地导出 ZIP。','批量调整图片尺寸','为多张照片应用统一的尺寸和格式，直接下载 ZIP。无需登录或上传。','所有图片采用相同的输出宽高和适配方式，建议保留原图。'],
 'passport-photo-print':['4×6 英寸证件照打印排版 | PlainMile','在浏览器中将六张 2×2 英寸照片排版为 4×6 英寸 JPG 图片。','制作 4×6 英寸照片打印排版','手动选择和调整原始照片取景，生成六张方形照片的 1200×1800 打印图片。','这只是排版工具，不保证任何官方证件照申请要求；很多机构禁止对照片进行数字修改。请核对官方规定。']
 };
-export function getStaticPaths(){return Object.keys(pages).map(tool=>({params:{tool},props:{page:pages[tool]}}));}
-const tool=Astro.params.tool;const [title,description,heading,lead,hint]=Astro.props.page;
+export function getStaticPaths(){return ['resize-image','compress-image-to-size','signature-resizer','bulk-image-resizer','passport-photo-print'].map(tool=>({params:{tool}}));}
+const tool=Astro.params.tool;const [title,description,heading,lead,hint]=pages[tool];
 ---
 <Base lang="zh" path={'/zh/'+tool+'/'} title={title} description={description}>
 <section class="hero"><div class="eyebrow">免费 · 隐私 · 浏览器本地处理</div><h1>{heading}</h1><p class="lead">{lead}</p></section>
