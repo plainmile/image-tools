@@ -129,3 +129,13 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
   .field-grid input:not([type=checkbox]):not([type=range]), .field-grid select { border-color: #68788a; }
   button.secondary, .upload input::file-selector-button { border-color: #68788a; }
 }
+
+.breadcrumb { margin: 0 0 12px; font-size: 12px; color: var(--muted); }
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.qa { margin: 14px 0 18px; }
+.qa h3 { margin: 0 0 5px; font-size: 15px; font-weight: 600; }
+.qa p { margin: 0; }
+.related-links { display: flex; flex-wrap: wrap; gap: 6px 28px; padding-left: 20px; }
+.related-links li { margin: 0; }
+.editor-disclosure { border-top: 1px solid var(--line); padding-top: 14px; }

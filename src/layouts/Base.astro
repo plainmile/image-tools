@@ -16,6 +16,14 @@ const links=lang==='zh'?[['/zh/','首页'],['/zh/resize-image/','调整尺寸'],
   <meta name="theme-color" content="#ffffff"/>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
   <title>{title}</title><meta name="description" content={description}/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="PlainMile Image Tools"/>
+  <meta property="og:title" content={title}/>
+  <meta property="og:description" content={description}/>
+  <meta property="og:url" content={origin+current}/>
+  <meta property="og:locale" content={lang==='zh'?'zh_CN':'en_US'}/>
+  <meta name="twitter:card" content="summary"/>
+
   {noindex?<meta name="robots" content="noindex,follow"/>:<>
     <link rel="canonical" href={origin+current}/>
     <link rel="alternate" hreflang="en" href={origin+english}/>
