@@ -8,10 +8,10 @@ Image processing and manual redaction run entirely in your browser. There is no 
 
 ## First release
 
-- Resize proportionally without padding, borders or cropping by default (fit within maximum dimensions, no upscaling); exact-size fit-with-padding and crop-to-fill remain explicit choices. PNG/WebP preserve alpha; JPEG has a white background.
-- Compress JPEG/WebP to a target KB, optionally reducing pixel dimensions when needed. Verify the **actual** output bytes.
+- Resize proportionally without padding, borders or cropping by default (fit within maximum dimensions, no upscaling); exact-size fit-with-padding and crop-to-fill remain explicit choices. By default, regular resize and bulk resize retain the original JPG, PNG or WebP format (including existing alpha). Explicit JPEG output converts transparency to white; this is disclosed in the editor.
+- Compress an image to a target KB (default JPG), optionally reducing pixel dimensions when needed. JPEG cannot retain PNG/WebP transparency, so the editor warns before export. PNG is lossless and may fail strict size targets. Verify the **actual** output bytes.
 - Resize signatures by pixel size and target KB (application requirements vary).
-- Batch resize locally and download a ZIP. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; exact-size Fit and crop-to-fill remain available.
+- Batch resize locally and **always** download a ZIP, even when one file is selected. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; original formats are retained by default; exact-size Fit and crop-to-fill remain available.
 - Redact images manually in-browser using solid black, real pixelation or blur with live preview, undo/redo and ZIP export.
 - Create a 4x6-inch 300-DPI JPEG print sheet with six 2x2-inch photos, by manually framing an existing photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
 - English/Chinese SEO pages and a non-indexed 404. UI can be used on mobile.
