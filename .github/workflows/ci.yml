@@ -21,7 +21,7 @@ jobs:
       - name: Verify public SEO routes and sitemap
         run: |
           set -euo pipefail
-          for route in resize-image convert-image compress-image-to-size signature-resizer bulk-image-resizer passport-photo-print redact-image privacy; do
+          for route in resize-image convert-image crop-image rotate-image compress-image-to-size signature-resizer bulk-image-resizer passport-photo-print redact-image privacy; do
             test -f "dist/$route/index.html"
             test -f "dist/zh/$route/index.html"
           done
