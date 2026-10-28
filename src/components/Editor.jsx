@@ -6,8 +6,9 @@ const dict = {
   en: {
     upload:'Choose image', hint:'JPG, PNG or WebP · up to 40 MB each',
     width:'Width (px)',height:'Height (px)',keep:'Sync width and height',
-    mode:'Resize method',within:'Proportional (no borders)',contain:'Exact size: add padding if needed',cover:'Exact size: fill and crop',format:'Format',originalFormat:'Same as original',
+    mode:'Resize method',within:'Keep proportions (recommended)',contain:'Keep whole image, add space',cover:'Crop edges to fit',format:'Format',originalFormat:'Same as original',
     target:'Maximum size (KB; 0 = no limit)',quality:'Quality',
+    modeWithinHelp:'Keep the whole picture without cropping or borders. Width and height are limits, not exact output dimensions.',modeContainHelp:'Keep everything and use the exact width and height you entered. Empty space may appear around the picture.',modeCoverHelp:'Fill the exact width and height you entered without empty borders. Some edges of the picture may be cut off.',
     downscale:'Allow smaller dimensions if needed',
     run:'Convert',working:'Processing…',download:'Download file',
     done:'Ready to download',error:'Could not process image',
@@ -24,8 +25,9 @@ const dict = {
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
     width:'宽度（像素）',height:'高度（像素）',keep:'同步修改宽高',
-    mode:'缩放方式',within:'等比例缩放（无白边）',contain:'固定尺寸：完整显示（可能留白）',cover:'固定尺寸：填满裁剪',format:'输出格式',originalFormat:'保持原始格式',
+    mode:'缩放方式',within:'按比例缩放（推荐）',contain:'保留整张图，空白补齐',cover:'裁剪边缘，填满尺寸',format:'输出格式',originalFormat:'保持原始格式',
     target:'最大大小（KB；0 表示不限）',quality:'画质',
+    modeWithinHelp:'不裁剪、不加白边，整张图都在。填写的宽高是上限，实际尺寸可能更小。',modeContainHelp:'完整保留图片，并补齐到填写的宽高。四周可能出现空白（PNG 可能是透明的）。',modeCoverHelp:'裁成填写的宽高，不会有白边，但图片边缘可能被裁掉。',
     downscale:'必要时允许减小像素',
     run:'开始处理',working:'正在处理…',download:'下载文件',
     done:'可以下载',error:'图片处理失败',
@@ -201,7 +203,8 @@ export default function Editor({lang='en',tool='resize'}) {
               if(e.target.checked&&files[0]&&Number(width)>0&&Number(width)<=MAX_AXIS)
                 setHeight(aspectDimension(files[0].width,files[0].height,width,'width'));
             }}/>{t.keep}</label>}
-            <label>{t.mode}<select value={mode} disabled={busy||inspecting} onChange={e=>{setMode(e.target.value);if(e.target.value==='within')setKeep(false);}}><option value="within">{t.within}</option><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
+            <label className="wide">{t.mode}<select data-testid="resize-mode" value={mode} disabled={busy||inspecting} onChange={e=>{setMode(e.target.value);if(e.target.value==='within')setKeep(false);}}><option value="within">{t.within}</option><option value="cover">{t.cover}</option><option value="contain">{t.contain}</option></select></label>
+            <p className="resize-mode-help wide" data-testid="resize-mode-help">{mode==='within'?t.modeWithinHelp:mode==='cover'?t.modeCoverHelp:t.modeContainHelp}</p>
             <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}>
               <option value="original">{t.originalFormat}</option><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option>
             </select></label>

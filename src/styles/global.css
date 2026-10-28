@@ -144,3 +144,6 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .mode-explain{grid-column:1/-1;margin:0;padding:9px 11px;background:var(--subtle);border:1px solid var(--line);border-radius:4px;font-size:12px;color:var(--muted);}
 .mode-explain strong{font-weight:650;color:var(--text);}
 .mode-explain span{display:block;margin-top:2px;}
+
+/* Explain the three resizing choices in everyday language, including before a file is uploaded. */
+.resize-mode-help { margin: -9px 0 1px; font-size: 12px; line-height: 1.6; color: var(--muted); }

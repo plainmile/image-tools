@@ -366,3 +366,30 @@ test('choosing the same image after output resets the stale download',async({pag
   await expect(page.getByTestId('download')).toHaveCount(0);
   await expect(page.locator('.file-summary')).toContainText('sample-0.png');
 });
+
+test('Chinese resizing choices use plain words and explain what happens before upload',async({page})=>{
+  await page.goto('/zh/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const mode=page.getByTestId('resize-mode');
+  await expect(mode).toHaveValue('within');
+  await expect(mode.locator('option[value="within"]')).toHaveText('按比例缩放（推荐）');
+  await expect(mode.locator('option[value="cover"]')).toHaveText('裁剪边缘，填满尺寸');
+  await expect(mode.locator('option[value="contain"]')).toHaveText('保留整张图，空白补齐');
+  await expect(page.getByTestId('resize-mode-help')).toContainText('不加白边');
+  await mode.selectOption('cover');
+  await expect(page.getByTestId('resize-mode-help')).toContainText('可能被裁掉');
+  await mode.selectOption('contain');
+  await expect(page.getByTestId('resize-mode-help')).toContainText('可能出现空白');
+});
+test('English resizing choices explain proportional, crop and padding modes',async({page})=>{
+  await page.goto('/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const mode=page.getByTestId('resize-mode');
+  await expect(mode).toHaveValue('within');
+  await expect(mode.locator('option[value="within"]')).toHaveText('Keep proportions (recommended)');
+  await expect(page.getByTestId('resize-mode-help')).toContainText('without cropping or borders');
+  await mode.selectOption('cover');
+  await expect(page.getByTestId('resize-mode-help')).toContainText('may be cut off');
+  await mode.selectOption('contain');
+  await expect(page.getByTestId('resize-mode-help')).toContainText('Empty space may appear');
+});
