@@ -213,7 +213,8 @@ export default function Transform({lang='en',tool='crop'}) {
   async function exportFile(event){
     event.preventDefault();
     if(!selected||busy||checking||!edited)return;
-    setBusy(true);setResult(null);setStatus(t.working);
+    // Keep the last successful export downloadable until a new one succeeds.
+    setBusy(true);setStatus(t.working);
     try{
       const output=await exportTransform(selected.file,{
         tool:isCrop?'crop':'rotate',crop,degrees,flipH,flipV,
@@ -222,7 +223,7 @@ export default function Transform({lang='en',tool='crop'}) {
       const suffix=isCrop?'cropped':'rotated';
       setResult({...output,url:URL.createObjectURL(output.blob),name:exportFilename(selected.file.name,output.format,suffix)});
       setStatus(t.finished);
-    }catch(error){setStatus(errorMessage(error,lang));}
+    }catch(error){setStatus(errorMessage(error,lang)+(result?.url?t.kept:''));}
     finally{setBusy(false);}
   }
   const cropStyle=selected&&crop?{

@@ -67,11 +67,12 @@ export default function Converter({lang='en'}) {
   const [format,setFormat]=useState('jpeg'),[quality,setQuality]=useState(90);
   const [preview,setPreview]=useState(null),[result,setResult]=useState(null);
   const [status,setStatus]=useState(''),[phase,setPhase]=useState(''),[processed,setProcessed]=useState(0);
+  const [failedAttempt,setFailedAttempt]=useState([]);
   const cancelled=useRef(false),sequence=useRef(0);
   useEffect(()=>{setReady(true);return()=>{sequence.current+=1;};},[]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
   useEffect(()=>()=>{if(result?.url)URL.revokeObjectURL(result.url);},[result]);
-  useEffect(()=>{setResult(null);setStatus(prev=>prev.startsWith(t.done)?t.selected:prev);},[format,quality]);
+  useEffect(()=>{setResult(null);setFailedAttempt([]);setStatus(prev=>prev.startsWith(t.done)?t.selected:prev);},[format,quality]);
 
   async function choose(chosen) {
     if(busy||inspecting||!chosen.length)return;
@@ -97,7 +98,7 @@ export default function Converter({lang='en'}) {
         setStatus(t.noOutput+' '+t.check+(files.length?t.kept:''));
         return;
       }
-      setFiles(valid);setResult(null);setPreview(URL.createObjectURL(valid[0].file));
+      setFiles(valid);setResult(null);setFailedAttempt([]);setPreview(URL.createObjectURL(valid[0].file));
       setWasBatch(chosen.length>1);setProcessed(0);
       setStatus(t.selected+(invalid.length?' '+t.check:''));
     }catch(error){
@@ -119,19 +120,19 @@ export default function Converter({lang='en'}) {
   },[busy,inspecting,files,lang]);
   function reset(){
     if(busy||inspecting)return;
-    sequence.current+=1;setFiles([]);setRejected([]);setResult(null);
+    sequence.current+=1;setFiles([]);setRejected([]);setResult(null);setFailedAttempt([]);
     setPreview(null);setStatus('');setProcessed(0);setWasBatch(false);
   }
   async function convert(event){
     event.preventDefault();
     if(!files.length||busy||inspecting)return;
-    cancelled.current=false;setBusy(true);setResult(null);
+    cancelled.current=false;setBusy(true);setFailedAttempt([]);
     setPhase('processing');setProcessed(0);setStatus(t.working+'…');
     try{
       let totalPixels=0,totalBytes=0;
       const succeeded=[],failed=[];
       for(const [index,item] of files.entries()){
-        if(cancelled.current){setStatus(t.cancelled);return;}
+        if(cancelled.current){setStatus(t.cancelled+(result?.url?t.kept:''));return;}
         try{
           const area=item.width*item.height;
           if(totalPixels+area>MAX_BATCH_OUTPUT_PIXELS)
@@ -148,8 +149,11 @@ export default function Converter({lang='en'}) {
         }
         setProcessed(index+1);
       }
-      if(cancelled.current){setStatus(t.cancelled);return;}
-      if(!succeeded.length){setResult({failed});setStatus(t.noOutput+' '+t.check);return;}
+      if(cancelled.current){setStatus(t.cancelled+(result?.url?t.kept:''));return;}
+      if(!succeeded.length){
+        setFailedAttempt(failed);
+        setStatus(t.noOutput+' '+t.check+(result?.url?t.kept:''));return;
+      }
       let blob,name;
       if(!wasBatch&&succeeded.length===1){
         blob=succeeded[0].blob;name=succeeded[0].name;
@@ -160,10 +164,11 @@ export default function Converter({lang='en'}) {
         blob=await zip.generateAsync({type:'blob',compression:'STORE'});
         name='plainmile-converted-images.zip';
       }
+      setFailedAttempt([]);
       setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded});
       setStatus(t.done+(failed.length?' '+t.check:''));
     }catch(error){
-      setStatus(localizedError(error,lang));
+      setStatus(localizedError(error,lang)+(result?.url?t.kept:''));
     }finally{setBusy(false);setPhase('');}
   }
   const nonJpeg=files.some(item=>inputImageFormat(item.file)!=='jpeg');
@@ -228,7 +233,7 @@ export default function Converter({lang='en'}) {
         {result?.url&&<div className="result">
           <strong>{t.output}</strong>
           <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)} · {result.blob.size} {lang==='zh'?'字节':'bytes'}</p>
-          {result.failed.length>0&&<details open className="batch-errors" data-testid="convert-failed-output">
+          {result.failed.length>0&&!failedAttempt.length&&<details open className="batch-errors" data-testid="convert-failed-output">
             <summary>{t.failed} ({result.failed.length})</summary>
             <ul>{result.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
           </details>}
@@ -236,9 +241,9 @@ export default function Converter({lang='en'}) {
             {wasBatch?t.zip:t.download} · {formatBytes(result.blob.size)}
           </a>
         </div>}
-        {result?.failed?.length>0&&!result?.url&&<details open className="batch-errors" data-testid="convert-failed-output">
-          <summary>{t.failed} ({result.failed.length})</summary>
-          <ul>{result.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
+        {failedAttempt.length>0&&<details open className="batch-errors" data-testid="convert-failed-output">
+          <summary>{t.failed} ({failedAttempt.length})</summary>
+          <ul>{failedAttempt.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
         </details>}
       </aside>
     </div>

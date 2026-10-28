@@ -170,7 +170,8 @@ export default function Editor({lang='en',tool='resize'}) {
   async function run(e){
     e.preventDefault();if(!files.length||busy||inspecting)return;
     cancelRequested.current=false;
-    setBusy(true);setOutput(null);setStatus(t.working);
+    // Retain the previous usable download until this reprocessing attempt succeeds.
+    setBusy(true);setStatus(t.working);
     if(batch){setProgress(0);setPhase('processing');}
     try{
       const options={width:Number(width),height:Number(height),mode,format,targetKb:Number(target),
@@ -179,7 +180,7 @@ export default function Editor({lang='en',tool='resize'}) {
       const results=[],failed=[];
       let totalOutputBytes=0;
       for(const [index,item] of files.entries()){
-        if(batch&&cancelRequested.current){setStatus(t.cancelled);return;}
+        if(batch&&cancelRequested.current){setStatus(t.cancelled+(output?.url?t.kept:''));return;}
         try{
           const result=sheet?await makePassportSheet(item.file,options):await processImage(item.file,options);
           if(batch)totalOutputBytes=addBatchOutputBytes(totalOutputBytes,result.bytes);
@@ -190,7 +191,7 @@ export default function Editor({lang='en',tool='resize'}) {
         }
         if(batch)setProgress(index+1);
       }
-      if(batch&&cancelRequested.current){setStatus(t.cancelled);return;}
+      if(batch&&cancelRequested.current){setStatus(t.cancelled+(output?.url?t.kept:''));return;}
       if(!results.length)throw new Error(t.noExport+(failed[0]?' '+failed[0].reason:''));
       let blob,name;
       if(!batch&&results.length===1){blob=results[0].blob;name=results[0].name;}
@@ -201,7 +202,7 @@ export default function Editor({lang='en',tool='resize'}) {
       }
       const url=URL.createObjectURL(blob);
       setOutput({url,blob,name,results,failed});setStatus(failed.length?t.done+' '+t.someSkipped:t.done);
-    }catch(err){setStatus(err.message||t.error);}
+    }catch(err){setStatus((err.message||t.error)+(output?.url?t.kept:''));}
     finally{setBusy(false);setPhase('');}
   }
   const sourceFormats=files.map(item=>inputImageFormat(item.file));
