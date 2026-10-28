@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import Transform from '../components/Transform.jsx';
+---
+<Base path="/rotate-image/" title="Rotate & Flip Images 90° Online — JPG, PNG, WebP | PlainMile" description="Rotate photos 90 degrees left or right, or flip images horizontally and vertically. Preview JPG, PNG or WebP results locally, then download without uploading files.">
+  <section class="page-head">
+    <p class="breadcrumb"><a href="/">Image tools</a> / Rotate and flip</p>
+    <h1>Rotate and flip an image</h1>
+    <p class="lead">Correct a sideways picture or mirror a screenshot. Rotate left or right by 90 degrees, flip horizontally or vertically, then save.</p>
+  </section>
+  <Transform client:load lang="en" tool="rotate"/>
+  <section class="reference" aria-label="Image rotation help">
+    <h2>Fix the direction of an image</h2>
+    <p>Choose a JPG, PNG or WebP file, then select a 90-degree rotation or a horizontal/vertical flip. Repeat 90-degree rotation to turn the image 180 degrees. You can combine rotation and flipping. The live preview uses the same transformation as the exported file.</p>
+    <p>A 90-degree turn swaps width and height: a 1200 × 800 image becomes 800 × 1200. A flip mirrors the pixels while keeping their dimensions. No original files are overwritten, and original EXIF metadata is not included in the new export.</p>
+    <h2>Steps</h2>
+    <ol><li>Choose one image.</li><li>Click Rotate left, Rotate right, Flip horizontally or Flip vertically until the preview is correct.</li><li>Save the image directly to your device.</li></ol>
+    <h2>Common questions</h2>
+    <div class="qa"><h3>How do I turn a photo upside down?</h3><p>Press either rotate button twice for a 180-degree turn. The preview displays the exact resulting orientation.</p></div>
+    <div class="qa"><h3>Does a 90-degree rotation change image quality?</h3><p>Pixel width and height are swapped, and the file is re-encoded. JPG/WebP lossy exports can change file size or quality; use PNG if a lossless re-encoding is needed and the recipient accepts it.</p></div>
+    <div class="qa"><h3>Why does my transparent background turn white?</h3><p>You selected JPG, which does not support alpha transparency. Keep PNG or WebP for transparent images.</p></div>
+    <h2>Related tools</h2>
+    <ul class="related-links"><li><a href="/crop-image/">Crop an image</a></li><li><a href="/resize-image/">Resize pixel dimensions</a></li><li><a href="/convert-image/">Change image format</a></li></ul>
+    <p class="editor-disclosure">Rotations happen locally. See the <a href="/privacy/">privacy policy</a>.</p>
+  </section>
+</Base>
