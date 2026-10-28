@@ -22,6 +22,7 @@ test('English and Chinese pages contain valid static SEO metadata',async({page})
 });
 test('real JPG is generated at exact requested dimensions with correct decoded pixel data',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
+  await page.getByLabel('Resize method').selectOption('cover');
   await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
   await page.getByTestId('process').click();
   await expect(page.getByTestId('result-meta')).toContainText('64×64');
@@ -65,6 +66,7 @@ test('mobile remains usable and navigation works',async({page})=>{
 });
 test('invalid and oversized dimensions report error without false download',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
+  await page.getByLabel('Resize method').selectOption('contain');
   await page.getByTestId('width').fill('9000');await page.getByTestId('height').fill('9000');
   await page.getByTestId('process').click();await expect(page.getByTestId('status')).toContainText('32-megapixel');
   await expect(page.getByTestId('download')).toHaveCount(0);
@@ -134,7 +136,8 @@ test('transparent PNG retains alpha; JPEG gets white background',async({page})=>
 });
 test('clearing a pixel input with lock aspect ratio does not crash',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
-  await page.getByLabel('Keep aspect ratio').check();
+  await page.getByLabel('Resize method').selectOption('contain');
+  await page.getByLabel('Sync width and height').check();
   await page.getByTestId('width').fill('');
   await expect(page.getByTestId('width')).toHaveValue('');
   await page.getByTestId('width').fill('60');
@@ -157,13 +160,13 @@ test('single-image tools reject multiple uploads and expose real crop preview',a
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   await expect(page.getByTestId('upload')).not.toHaveAttribute('multiple');
   await uploadSynthetic(page,1);
-  await page.getByLabel('Fitting').selectOption('cover');
+  await page.getByLabel('Resize method').selectOption('cover');
   await expect(page.locator('.preview-frame canvas')).toBeVisible();
 });
 
 test('batch maximum dimensions do not add padding or enlarge small images',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,2);
-  await expect(page.getByLabel('Fitting')).toHaveValue('within');
+  await expect(page.getByLabel('Resize method')).toHaveValue('within');
   await page.getByTestId('width').fill('55');
   await page.getByTestId('height').fill('35');
   await page.getByTestId('process').click();
@@ -178,7 +181,7 @@ test('batch limit reports a clear error without processing',async({page})=>{
 
 test('batch blocks excessive output pixels before allocating a giant canvas',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,5);
-  await page.getByLabel('Fitting').selectOption('contain');
+  await page.getByLabel('Resize method').selectOption('contain');
   await page.getByTestId('width').fill('8000');
   await page.getByTestId('height').fill('4000');
   await page.getByTestId('process').click();
@@ -191,4 +194,77 @@ test('uploaded image data stays local; processing sends no POST requests',async(
   await page.goto('/resize-image/');await uploadSynthetic(page);
   await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
   expect(posts).toEqual([]);
+});
+
+test('proportional resize without borders is default for English and Chinese and exports exact pixels',async({page})=>{
+  for(const [route,label] of [['/resize-image/','Resize method'],['/zh/resize-image/','缩放方式']]){
+    await page.goto(route);await uploadSynthetic(page);
+    await expect(page.getByLabel(label)).toHaveValue('within');
+    await page.getByTestId('width').fill('64');
+    await page.getByTestId('height').fill('64');
+    await expect(page.getByTestId('expected-dimensions')).toContainText('64×43');
+    await page.getByTestId('process').click();
+    await expect(page.getByTestId('result-meta')).toContainText('64×43');
+    const output=await page.evaluate(async()=>{
+      const blob=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+      const bitmap=await createImageBitmap(blob),c=document.createElement('canvas');
+      c.width=bitmap.width;c.height=bitmap.height;
+      const ctx=c.getContext('2d');ctx.drawImage(bitmap,0,0);
+      const corner=Array.from(ctx.getImageData(2,2,1,1).data);
+      const dims=[bitmap.width,bitmap.height];
+      bitmap.close();return {dims,corner};
+    });
+    expect(output.dims).toEqual([64,43]);
+    expect(output.corner[0]).toBeGreaterThan(135);
+    expect(output.corner[1]).toBeLessThan(115);
+    expect(output.corner[2]).toBeLessThan(155);
+  }
+});
+test('portrait landscape and square outputs have no automatic white margins',async({page})=>{
+  await page.goto('/resize-image/');
+  for(const [width,height,expected] of [[240,120,[64,32]],[120,240,[32,64]],[200,200,[64,64]]]){
+    const bytes=await page.evaluate(async({width,height})=>{
+      const c=document.createElement('canvas');c.width=width;c.height=height;
+      const ctx=c.getContext('2d');ctx.fillStyle='#c72d41';ctx.fillRect(0,0,width,height);
+      const blob=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    },{width,height});
+    await page.getByTestId('upload').setInputFiles({name:'test.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
+    await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
+    await expect(page.getByTestId('expected-dimensions')).toContainText(expected.join('×'));
+    await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
+    const result=await page.evaluate(async()=>{
+      const blob=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+      const bitmap=await createImageBitmap(blob);
+      const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+      const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0);
+      const corners=[[1,1],[canvas.width-2,1],[1,canvas.height-2],[canvas.width-2,canvas.height-2]]
+        .map(([x,y])=>Array.from(ctx.getImageData(x,y,1,1).data));
+      const dims=[bitmap.width,bitmap.height];bitmap.close();return {dims,corners};
+    });
+    expect(result.dims).toEqual(expected);
+    for(const rgb of result.corners){
+      expect(rgb[0]).toBeGreaterThan(145);
+      expect(rgb[1]).toBeLessThan(120);
+      expect(rgb[2]).toBeLessThan(135);
+    }
+  }
+});
+test('white letterboxing requires selecting explicit exact-size Fit',async({page})=>{
+  await page.goto('/resize-image/');await uploadSynthetic(page);
+  await page.getByLabel('Resize method').selectOption('contain');
+  await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
+  await expect(page.getByTestId('expected-dimensions')).toContainText('64×64');
+  await page.getByTestId('process').click();await expect(page.getByTestId('result-meta')).toContainText('64×64');
+  const result=await page.evaluate(async()=>{
+    const blob=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+    const bitmap=await createImageBitmap(blob),c=document.createElement('canvas');
+    c.width=bitmap.width;c.height=bitmap.height;const ctx=c.getContext('2d');ctx.drawImage(bitmap,0,0);
+    const top=Array.from(ctx.getImageData(2,2,1,1).data);
+    const middle=Array.from(ctx.getImageData(2,32,1,1).data);
+    bitmap.close();return {top,middle};
+  });
+  expect(result.top.slice(0,3).every(x=>x>230)).toBe(true);
+  expect(result.middle[0]).toBeGreaterThan(130);
+  expect(result.middle[1]).toBeLessThan(120);
 });
