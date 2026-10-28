@@ -20,6 +20,8 @@ a { color: var(--link); }
 button, input, select { font-family: inherit; }
 button, a, input, select { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.skip-link { position: fixed; left: 12px; top: -100px; z-index: 100; padding: 8px 14px; background: var(--surface); color: var(--text); border: 2px solid var(--accent); border-radius: 4px; }
+.skip-link:focus { top: 8px; }
 .shell { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
 .site-header { border-bottom: 1px solid var(--line); }
 .header-row { min-height: 64px; display: flex; justify-content: space-between; gap: 20px; align-items: center; }
