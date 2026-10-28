@@ -62,3 +62,28 @@ test('redaction exposes a repeatable download link and invalidates it after chan
   await page.getByTestId('redact-undo').click();
   await expect(link).toHaveCount(0);
 });
+
+
+test('partial batch conversion compares bytes only for successful outputs',async({page})=>{
+  await page.goto('/convert-image/');
+  await expect(page.locator('[data-converter-ready=true]')).toBeVisible();
+  const first=await sample(page);
+  const second={...first,name:'will-fail.png'};
+  await page.getByTestId('convert-upload').setInputFiles([first,second]);
+  await expect(page.locator('.file-summary')).toContainText('2');
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    let attempts=0;
+    HTMLCanvasElement.prototype.toBlob=function(callback,mime,quality){
+      attempts++;
+      if(attempts===2){callback(null);return;}
+      return original.call(this,callback,mime,quality);
+    };
+  });
+  await page.getByTestId('convert-process').click();
+  await expect(page.getByTestId('convert-download')).toBeVisible();
+  await expect(page.getByTestId('convert-failed-output')).toContainText('will-fail.png');
+  const bytes=first.buffer.byteLength;
+  const size=bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(2)+' MB';
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('Original (exported images): '+size);
+});
