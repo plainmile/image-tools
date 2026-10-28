@@ -1,4 +1,4 @@
-import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage } from './image-core.mjs';
+import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, inputImageFormat } from './image-core.mjs';
 
 export const REDACT_MAX_FILES = 12;
 export const REDACT_MAX_BYTES = 100 * 1024 * 1024;
@@ -24,9 +24,11 @@ export function validateRedactionFiles(files) {
   }
   for (const f of files) {
     if (!f || f.size <= 0 || f.size > MAX_FILE_BYTES) throw new Error('Each image must be at most 40 MB.');
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
-      throw new Error('Only JPEG, PNG and WebP are supported.');
-    }
+    // Some operating systems and clipboard sources leave File.type empty.
+    // Use the same conservative extension fallback as every other image tool.
+    // A mismatched explicit MIME (e.g. SVG renamed .png) is still rejected.
+    try { inputImageFormat(f); }
+    catch { throw new Error('Only JPEG, PNG and WebP are supported.'); }
   }
 }
 export function verifyImageSize(width, height) {
@@ -67,9 +69,8 @@ export function boxBetween(a, b, width, height) {
   }, width, height);
 }
 export async function decodeBitmap(file) {
-  if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    throw new Error('Unsupported image format.');
-  }
+  try { inputImageFormat(file); }
+  catch { throw new Error('Unsupported image format.'); }
   // createImageBitmap only decodes a still frame. Accepting animated PNG/WebP
   // here would silently discard other frames and misrepresent privacy redaction.
   if (await isAnimatedImage(file)) {
