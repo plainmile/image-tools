@@ -3,17 +3,17 @@ import Base from '../../layouts/Base.astro';
 const entries = [
   ['resize-image/', '修改图片尺寸', '默认等比例缩放无白边，并保留 JPG、PNG 或 WebP 格式；需要固定尺寸时再选择留白或裁剪。'],
   ['compress-image-to-size/', '压缩到指定 KB', '将 JPG、WebP 压缩到规定的文件大小。'],
-  ['signature-resizer/', '调整签名图片', '设置签名图片的尺寸和文件大小。'],
   ['convert-image/', '图片格式转换', 'JPG、PNG、WebP 相互转换，不改变原图像素尺寸；支持批量 ZIP 下载。'],
   ['bulk-image-resizer/', '批量修改图片', '支持一张或多张，默认保留各自格式，统一打包下载 ZIP。'],
-  ['passport-photo-print/', '4×6 英寸照片排版', '将同一张 2×2 英寸照片重复六份，排版在 4×6 英寸相纸上。'],
-  ['redact-image/', '图片打码与批量遮挡', '手动画框打码，支持黑色遮挡、马赛克、模糊和批量导出。']
+  ['redact-image/', '图片打码与批量遮挡', '手动画框打码，支持黑色遮挡、马赛克、模糊和批量导出。'],
+  ['signature-resizer/', '调整签名图片', '设置签名图片的尺寸和文件大小。'],
+  ['passport-photo-print/', '4×6 英寸照片排版', '将同一张 2×2 英寸照片重复六份，排版在 4×6 英寸相纸上。']
 ];
 ---
-<Base lang="zh" title="免费图片工具 — 尺寸、压缩和图片打码 | PlainMile" description="在线转换 JPG、PNG、WebP、修改图片尺寸、压缩到指定 KB、图片手动打码、马赛克、模糊、批量处理与照片打印排版。文件在浏览器中处理，不上传图片内容。">
+<Base lang="zh" title="免费图片工具 — 格式转换、压缩和调整尺寸 | PlainMile" description="在线转换 JPG、PNG、WebP、修改图片尺寸、压缩到指定 KB、图片手动打码、马赛克、模糊、批量处理与照片打印排版。文件在浏览器中处理，不上传图片内容。">
   <section class="home-head"><h1>图片工具</h1><p class="lead">转换格式、调整图片尺寸、压缩大小、打码遮挡文字或准备打印照片。选择需要的功能即可开始。</p></section>
   <section class="home-tools" aria-label="图片工具">
     <div class="tool-list">{entries.map(([path,title,detail])=><a class="tool-link" href={'/zh/'+path}><span><strong>{title}</strong><small>{detail}</small></span><span class="arrow" aria-hidden="true">›</span></a>)}</div>
   </section>
-  <section class="reference"><h2>支持的格式</h2><p>目前支持 JPG、PNG 和 WebP。普通缩放和批量处理默认保留原格式与 PNG 透明背景。按 KB 压缩默认输出 JPG，如果源图有透明区域会提示转白风险。全部在浏览器本地处理，结果显示实际宽高和文件大小。</p><p>其他 PlainMile 工具：<a href="https://plainmile.com/">PlainMile 主站</a>、<a href="https://pdf.plainmile.com/">PDF 工具</a>。</p></section>
+  <section class="reference"><h2>支持的格式</h2><p>目前支持 JPG、PNG 和 WebP。格式转换保持原有像素尺寸。普通缩放和批量处理默认保留原格式与 PNG 透明背景。按 KB 压缩默认输出 JPG，如果源图有透明区域会提示转白风险。全部在浏览器本地处理，结果显示实际宽高和文件大小。</p><p>其他 PlainMile 工具：<a href="https://plainmile.com/">PlainMile 主站</a>、<a href="https://pdf.plainmile.com/">PDF 工具</a>。</p></section>
 </Base>
