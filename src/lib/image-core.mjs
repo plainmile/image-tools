@@ -243,7 +243,7 @@ function canvasToBlob(canvas, mime, quality) {
   });
 }
 
-async function encodeWithTarget(canvas, format, targetBytes, preferredQuality) {
+export async function encodeWithTarget(canvas, format, targetBytes, preferredQuality) {
   const mime = MIME[format];
   if (!targetBytes) {
     const blob = await canvasToBlob(canvas, mime, preferredQuality);
@@ -255,7 +255,13 @@ async function encodeWithTarget(canvas, format, targetBytes, preferredQuality) {
   }
   const first = await canvasToBlob(canvas, mime, preferredQuality);
   if (first.size <= targetBytes) return { blob: first, quality: preferredQuality };
-  let low = 0.05, high = preferredQuality, best = null;
+  // The binary search never checks its lower endpoint. A size limit that is
+  // only achievable at quality=0.05 must succeed rather than be called impossible.
+  const minQuality = 0.05;
+  const smallest = await canvasToBlob(canvas, mime, minQuality);
+  if (smallest.size > targetBytes) return null;
+  let low = minQuality, high = preferredQuality;
+  let best = { blob: smallest, quality: minQuality };
   for (let i = 0; i < 11; i += 1) {
     const quality = (low + high) / 2;
     const blob = await canvasToBlob(canvas, mime, quality);
@@ -289,9 +295,14 @@ export async function processImage(file, options = {}) {
   const canDownscale = options.mode === 'within' && options.allowDownscale;
   for (let attempt = 0; attempt < (canDownscale ? 15 : 1); attempt += 1) {
     const canvas = makeCanvas(image, { ...options, format }, width, height);
-    const result = await encodeWithTarget(canvas, format, targetBytes, preferredQuality);
-    canvas.width = 0;
-    canvas.height = 0;
+    let result;
+    try {
+      result = await encodeWithTarget(canvas, format, targetBytes, preferredQuality);
+    } finally {
+      // Releasing the canvas is essential even when encoding rejects a format.
+      canvas.width = 0;
+      canvas.height = 0;
+    }
     if (result) {
       if (targetBytes && result.blob.size > targetBytes) throw new Error('Actual file size exceeds the target.');
       return { ...result, width, height, format, bytes: result.blob.size };

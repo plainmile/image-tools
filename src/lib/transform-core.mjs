@@ -3,6 +3,17 @@ import {
   isAnimatedImage, validateFile
 } from './image-core.mjs';
 
+// Keep an interactive selection within browser canvas safety limits.
+// A too-large drag should yield a valid crop, never a stuck disabled editor.
+function safeCropSize(width, height) {
+  const scale = Math.min(1, MAX_AXIS / width, MAX_AXIS / height,
+    Math.sqrt(MAX_OUTPUT_PIXELS / (width * height)));
+  return {
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale))
+  };
+}
+
 export function cropPreset(sourceWidth, sourceHeight, aspect = 'free') {
   const width = Number(sourceWidth), height = Number(sourceHeight);
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1)
@@ -17,13 +28,10 @@ export function cropPreset(sourceWidth, sourceHeight, aspect = 'free') {
     // Preserve an exact 1:1 crop for a square where practical.
     if (ratio === 1) w = h = Math.min(w, h);
   }
-  // Make the initial suggested crop immediately exportable even for giant photos.
-  const scale = Math.min(1, MAX_AXIS / w, MAX_AXIS / h, Math.sqrt(MAX_OUTPUT_PIXELS / (w * h)));
-  if (scale < 1) {
-    w = Math.max(1, Math.floor(w * scale));
-    h = ratio === null ? Math.max(1, Math.floor(h * scale)) : Math.max(1, Math.round(w / ratio));
-    h = Math.min(h, MAX_AXIS);
-  }
+  // Initial selections and later drag/resize operations obey the same output limit.
+  const safe = safeCropSize(w, h);
+  w = safe.width;
+  h = safe.height;
   return { x: Math.floor((width - w) / 2), y: Math.floor((height - h) / 2), width: w, height: h };
 }
 
@@ -64,7 +72,7 @@ export function resizeCrop(rect, desiredWidth, desiredHeight, sw, sh, aspect = '
     height = Math.max(1, Math.round(width / ratio));
     if (height > sh - rect.y) { height = sh - rect.y; width = Math.max(1, Math.round(height * ratio)); }
   }
-  return { ...rect, width, height };
+  return { ...rect, ...safeCropSize(width, height) };
 }
 
 export function drawCrop(start, end, sw, sh, aspect = 'free') {
@@ -85,6 +93,10 @@ export function drawCrop(start, end, sw, sh, aspect = 'free') {
     width = Math.min(width, Math.max(1, maxWidth));
     height = Math.min(height, Math.max(1, maxHeight));
   }
+  // Pointer dragging can otherwise create a >32 MP or >10,000 px crop.
+  // Such a crop cannot be exported and cannot subsequently be resized because
+  // resizeCrop validates the existing rectangle before applying new dimensions.
+  ({width, height} = safeCropSize(width, height));
   const x = clamp(signX > 0 ? a.x : a.x - width, 0, sw - width);
   const y = clamp(signY > 0 ? a.y : a.y - height, 0, sh - height);
   return { x, y, width, height };

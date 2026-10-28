@@ -42,3 +42,25 @@ test('quarter turns swap pixel dimensions, while 180 and 360 degrees preserve th
   assert.throws(()=>rotationDimensions(640,480,25),/90-degree/);
   assert.throws(()=>rotationDimensions(8000,8000,90),/32-megapixel/);
 });
+
+test('dragging and resizing huge crops always keeps an exportable selection',()=>{
+  const fromCorner=drawCrop({x:0,y:0},{x:9000,y:8000},9000,8000);
+  assert.ok(fromCorner.width*fromCorner.height<=32_000_000);
+  assert.deepEqual(validateCrop(fromCorner,9000,8000),{width:fromCorner.width,height:fromCorner.height});
+  const resized=resizeCrop(fromCorner,9000,8000,9000,8000);
+  assert.ok(resized.width*resized.height<=32_000_000);
+  assert.deepEqual(validateCrop(resized,9000,8000),{width:resized.width,height:resized.height});
+  assert.deepEqual(validateCrop(moveCrop(resized,9000,8000,9000,8000),9000,8000),
+    {width:resized.width,height:resized.height});
+
+  // A very wide original is valid input but a crop wider than 10,000px is not valid output.
+  const panoramic=drawCrop({x:0,y:0},{x:18000,y:1600},20000,2000);
+  assert.ok(panoramic.width<=10_000 && panoramic.height<=10_000);
+  assert.deepEqual(validateCrop(panoramic,20000,2000),{width:panoramic.width,height:panoramic.height});
+
+  const square=drawCrop({x:0,y:0},{x:8000,y:8000},8000,8000,'1');
+  assert.equal(square.width,square.height);
+  assert.deepEqual(validateCrop(square,8000,8000),{width:square.width,height:square.height});
+  const ratio=drawCrop({x:8000,y:6000},{x:0,y:0},9000,7000,String(16/9));
+  assert.deepEqual(validateCrop(ratio,9000,7000),{width:ratio.width,height:ratio.height});
+});

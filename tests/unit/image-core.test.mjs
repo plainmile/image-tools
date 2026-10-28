@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, drawRect, validateFile, inputImageFormat, sanitizeStem,
-  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage
+  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -125,4 +125,19 @@ test('WebP VP8X animation flag is recognized; ordinary still WebP is accepted', 
   assert.equal(await isAnimatedImage(fakeWebp(0)),false);
   assert.equal(await isAnimatedImage(fakeWebp(2)),true);
   assert.equal(await isAnimatedImage(fakeWebp(0x12)),true);
+});
+
+test('KB encoding checks minimum JPEG/WebP quality instead of reporting an impossible limit',async()=>{
+  // Only exactly quality=0.05 can produce 350 bytes: all 11 intermediate
+  // binary-search points produce 351+ bytes.
+  const canvas={toBlob:(callback,mime,quality)=>
+    callback(new Blob([new Uint8Array(Math.ceil(300 + Number(quality||0)*1000))],{type:mime}))};
+  for(const format of ['jpeg','webp']){
+    const result=await encodeWithTarget(canvas,format,350,0.9);
+    assert.equal(result.blob.size,350);
+    assert.equal(result.quality,0.05);
+    assert.equal(await encodeWithTarget(canvas,format,349,0.9),null);
+    const normal=await encodeWithTarget(canvas,format,1300,0.9);
+    assert.equal(normal.quality,0.9);
+  }
 });

@@ -78,6 +78,43 @@ test('crop exports only selected original pixels, without stretching or uploadin
   await expect(page.getByTestId('transform-download')).toHaveCount(0);
 });
 
+test('crop stays adjustable after first export and regenerates only on demand',async({page})=>{
+  await page.goto('/crop-image/');
+  await expect(page.locator('[data-transform-ready=true]')).toBeVisible();
+  await page.getByTestId('transform-upload').setInputFiles({
+    name:'refine.png',mimeType:'image/png',buffer:await testPng(page,80,60)
+  });
+  await page.locator('.transform-coordinates summary').click();
+  await page.getByTestId('transform-process').click();
+  await expect(page.getByTestId('transform-download')).toBeVisible();
+  await expect(page.getByTestId('crop-stage')).toBeVisible();
+  await expect(page.getByTestId('transform-crop-result-preview')).toBeVisible();
+  const first=await page.evaluate(async()=>{
+    const url=document.querySelector('[data-testid=transform-download]').href;
+    return [...new Uint8Array(await(await fetch(url)).arrayBuffer())];
+  });
+  const before=Number(await page.getByTestId('crop-x').inputValue());
+  // Clicking Apply changes can scroll the controls into view; scroll the
+  // actual frame back into the viewport before sending mouse coordinates.
+  await page.getByTestId('crop-selection').scrollIntoViewIfNeeded();
+  const frame=await page.getByTestId('crop-selection').boundingBox();
+  const x=frame.x+frame.width/2,y=frame.y+frame.height/2;
+  await page.mouse.move(x,y);
+  await page.mouse.down();
+  await page.mouse.move(x+26,y,{steps:8});
+  await page.mouse.up();
+  await expect.poll(async()=>Number(await page.getByTestId('crop-x').inputValue())).toBeGreaterThan(before);
+  await expect(page.getByTestId('transform-download')).toHaveCount(0);
+  await expect(page.getByTestId('transform-crop-result-preview')).toHaveCount(0);
+  await page.getByTestId('transform-process').click();
+  await expect(page.getByTestId('transform-download')).toBeVisible();
+  const second=await page.evaluate(async()=>{
+    const url=document.querySelector('[data-testid=transform-download]').href;
+    return [...new Uint8Array(await(await fetch(url)).arrayBuffer())];
+  });
+  expect(second).not.toEqual(first);
+});
+
 test('square crop keeps ratio while dragging and produces an actual square file',async({page})=>{
   await page.goto('/zh/crop-image/');
   await expect(page.locator('[data-transform-ready=true]')).toBeVisible();

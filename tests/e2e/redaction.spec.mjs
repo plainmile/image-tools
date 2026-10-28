@@ -352,6 +352,37 @@ test('invalid and over-limit additions preserve existing redactions',async({page
   await expect(page.locator('.redactor-file')).toHaveCount(1);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
 });
+test('animated WebP/APNG are rejected without losing already drawn privacy masks',async({page})=>{
+  await page.goto('/redact-image/');
+  await synthetic(page);
+  await draw(page);
+  const movingWebp=Buffer.from([82,73,70,70,28,0,0,0,87,69,66,80,86,80,56,88,10,0,0,0,2]);
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'animation.webp',mimeType:'image/webp',buffer:movingWebp
+  });
+  await expect(page.getByTestId('redact-status')).toContainText('Animated PNG/WebP');
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  const download=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await download; // Original static image and its redaction remain usable.
+
+  await page.goto('/zh/redact-image/');
+  await synthetic(page);
+  await draw(page);
+  const signature=[137,80,78,71,13,10,26,10];
+  const chunk=(type,data=[])=>[0,0,0,data.length,...[...type].map(c=>c.charCodeAt(0)),...data,0,0,0,0];
+  const apng=Buffer.from([...signature,...chunk('IHDR',Array(13).fill(0)),
+    ...chunk('acTL',Array(8).fill(0)),...chunk('IDAT')]);
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'animation.png',mimeType:'image/png',buffer:apng
+  });
+  await expect(page.getByTestId('redact-status')).toContainText('暂不支持动画 PNG/WebP');
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+});
+
 test('clear all images requests confirmation when any masks exist',async({page})=>{
   await page.goto('/zh/redact-image/');await synthetic(page);await draw(page);
   page.once('dialog',dialog=>dialog.dismiss());

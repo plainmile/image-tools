@@ -25,6 +25,7 @@ const copy = {
     saveCrop:'Crop image',saveRotate:'Apply changes',
     clear:'Clear',working:'Editing image…',finished:'Image ready. Use Download image below.',
     preview:'Preview',result:'Output',download:'Download image',
+    refine:'Need another adjustment? Drag the crop frame above and crop again.',
     noAction:'Choose a rotation or flip first.',
     dimensions:'Output dimensions',local:'Images stay in this browser; nothing is uploaded.',
     metadata:'New exports do not retain EXIF or other original metadata.',
@@ -49,6 +50,7 @@ const copy = {
     saveCrop:'裁剪图片',saveRotate:'应用修改',
     clear:'清空',working:'正在处理图片…',finished:'处理完成，请点击下方下载按钮。',
     preview:'预览',result:'处理结果',download:'下载图片',
+    refine:'还想调整？直接拖动上方裁剪框，再点击“裁剪图片”即可。',
     noAction:'请先旋转或翻转图片。',
     dimensions:'输出像素',local:'图片只在当前浏览器本地处理，不会上传。',
     metadata:'重新导出的文件不保留原始 EXIF 等元数据。',
@@ -302,8 +304,7 @@ export default function Transform({lang='en',tool='crop'}) {
         <h2 className="panel-title">{t.preview}</h2>
         <p className="transform-help">{isCrop?t.introCrop:t.introRotate}</p>
         <div className="transform-viewer" data-testid="transform-preview">
-          {result?<img className="transform-result-image" src={result.url} alt={t.result}/>:
-           !selected||!source?<p className="preview-empty">{t.empty}</p>:
+          {!selected||!source?<p className="preview-empty">{t.empty}</p>:
            isCrop? <div ref={stage} data-testid="crop-stage" className="crop-stage"
              style={{width:'min(100%, '+Math.round(360*selected.width/selected.height)+'px)',aspectRatio:selected.width+' / '+selected.height}}
              onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
@@ -313,11 +314,17 @@ export default function Transform({lang='en',tool='crop'}) {
                <span className="crop-handle" data-crop-action="resize" aria-hidden="true"/>
              </div>}
            </div>:
+           result?<img className="transform-result-image" src={result.url} alt={t.result}/>:
            <canvas ref={previewCanvas} className="rotate-preview" data-testid="rotate-preview" role="img" aria-label={t.preview}/>}
         </div>
         {selected&&outputDims&&<p className="transform-output-size" data-testid="transform-dimensions">{t.dimensions}: {outputDims.width}×{outputDims.height} px</p>}
         {result&&<div className="result">
           <strong>{t.result}</strong>
+          {isCrop&&<>
+            <img className="transform-result-image transform-crop-result" data-testid="transform-crop-result-preview"
+              src={result.url} alt={t.result}/>
+            <p className="transform-refine-help">{t.refine}</p>
+          </>}
           <p data-testid="transform-result-meta">{result.width}×{result.height} · {result.format.toUpperCase()} · {formatBytes(result.bytes)} ({result.bytes} {lang==='zh'?'字节':'bytes'})</p>
           <a className="download" data-testid="transform-download" href={result.url} download={result.name}>{t.download}</a>
         </div>}
