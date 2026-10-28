@@ -2,18 +2,18 @@
 import Base from '../layouts/Base.astro';
 const entries = [
   ['resize-image/', 'Resize image', 'Scale without borders and keep JPG, PNG or WebP by default; choose exact-size padding or cropping when needed.'],
-  ['convert-image/', 'Convert image format', 'Convert JPG, PNG and WebP without changing the pixel dimensions. Single download or batch ZIP.'],
   ['compress-image-to-size/', 'Compress to a file-size limit', 'Save a JPG or WebP under a specified KB limit.'],
-  ['signature-resizer/', 'Resize signature', 'Adjust signature dimensions and file size.'],
+  ['convert-image/', 'Convert image format', 'Convert JPG, PNG and WebP without changing the pixel dimensions. Single download or batch ZIP.'],
   ['bulk-image-resizer/', 'Bulk resize', 'Process one or up to 30 images with original formats retained; always download a ZIP.'],
-  ['passport-photo-print/', '4×6 photo print sheet', 'Repeat the same 2×2-inch photo six times on a 4×6-inch print sheet.'],
-  ['redact-image/', 'Redact images and screenshots', 'Draw privacy covers manually; choose black box, mosaic or blur and export batches.']
+  ['redact-image/', 'Redact images and screenshots', 'Draw privacy covers manually; choose black box, mosaic or blur and export batches.'],
+  ['signature-resizer/', 'Resize signature', 'Adjust signature dimensions and file size.'],
+  ['passport-photo-print/', '4×6 photo print sheet', 'Repeat the same 2×2-inch photo six times on a 4×6-inch print sheet.']
 ];
 ---
-<Base title="Free Image Tools — Resize, Compress & Redact | PlainMile" description="Convert JPG, PNG and WebP, resize photos, compress images below KB limits, cover text in screenshots and create print sheets. English and Chinese tools process images locally in your browser.">
+<Base title="Free Image Tools — Resize, Compress & Convert | PlainMile" description="Convert JPG, PNG and WebP, resize photos, compress images below KB limits, cover text in screenshots and create print sheets. English and Chinese tools process images locally in your browser.">
   <section class="home-head"><h1>Image tools</h1><p class="lead">Convert formats, resize, compress or redact images. Choose the task you need and start immediately.</p></section>
   <section class="home-tools" aria-label="Image tools">
     <div class="tool-list">{entries.map(([path,title,detail])=><a class="tool-link" href={'/'+path}><span><strong>{title}</strong><small>{detail}</small></span><span class="arrow" aria-hidden="true">›</span></a>)}</div>
   </section>
-  <section class="reference"><h2>Files and formats</h2><p>JPG, PNG and WebP are supported. Resize and batch tools retain each source format by default, including PNG transparency. The KB compressor defaults to JPG and warns if that would replace transparent areas with white. Files are processed in your browser, and results show actual output bytes and dimensions.</p><p>Other PlainMile tools: <a href="https://plainmile.com/">PlainMile</a> and <a href="https://pdf.plainmile.com/">PDF Tools</a>.</p></section>
+  <section class="reference"><h2>Files and formats</h2><p>JPG, PNG and WebP are supported. The format converter keeps pixel dimensions unchanged. Resize and batch tools retain each source format by default, including PNG transparency. The KB compressor defaults to JPG and warns if that would replace transparent areas with white. Files are processed in your browser, and results show actual output bytes and dimensions.</p><p>Other PlainMile tools: <a href="https://plainmile.com/">PlainMile</a> and <a href="https://pdf.plainmile.com/">PDF Tools</a>.</p></section>
 </Base>
