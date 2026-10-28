@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
-import {validateRedactionFiles,validateRedactionPixels,decodeBitmap,boxBetween,paintRedactions,flattenRedactedImage} from '../lib/redaction-core.mjs';
+import {validateRedactionFiles,validateRedactionPixels,decodeBitmap,boxBetween,paintRedactions,flattenRedactedImage,addRedactionOutputBytes} from '../lib/redaction-core.mjs';
 import {formatBytes} from '../lib/image-core.mjs';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import '../styles/redactor.css';
@@ -13,6 +13,8 @@ function redactError(error,lang){
   const message=String(error?.message||error||'Image could not be processed.');
   if(lang==='zh' && message.includes('Animated PNG/WebP'))
     return '暂不支持动画 PNG/WebP。只处理第一帧会遗漏其他动画帧，因此未导入图片。';
+  if(lang==='zh' && message.includes('Redacted output exceeds 128 MB'))
+    return '打码图片的累计导出大小超过 128 MB，请减少图片数量，或改选 JPG/WebP 后重试。';
   return message;
 }
 function save(blob,name){
@@ -129,8 +131,10 @@ export default function Redactor({lang='en'}){
     try{
       if(all){
         const zip=new JSZip();
+        let outputBytes=0;
         for(let i=0;i<list.length;i++){
           const out=await flattenRedactedImage(list[i].file,list[i].masks,effect,format,strength);
+          outputBytes=addRedactionOutputBytes(outputBytes,out.blob.size);
           zip.file('redacted-'+String(i+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),out.blob);
         }
         const blob=await zip.generateAsync({type:'blob'});
