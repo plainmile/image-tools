@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
+import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import {
   MAX_FILES, MAX_BATCH_BYTES, MAX_BATCH_OUTPUT_PIXELS,
   inspectImage, assertDimensions, processImage, inputImageFormat,
@@ -24,6 +25,7 @@ const language = {
     noOutput:'No images could be converted.',
     note:'Image dimensions stay unchanged; metadata such as EXIF is not preserved. Maximum 32 megapixels per output.',
     progress:'Processed',abort:'You can stop after the current file finishes.',
+    paste:'You can paste a screenshot (Ctrl+V / ⌘V).',kept:' Previous images and download are kept.',
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP · 单张 40 MB，最多 30 张',
@@ -42,6 +44,7 @@ const language = {
     noOutput:'没有可以转换的图片。',
     note:'转换时保留原始像素宽高，但不保留 EXIF 等元数据；单张输出最多 3200 万像素。',
     progress:'已处理',abort:'可以在当前图片完成后停止。',
+    paste:'也可以直接粘贴截图（Ctrl+V / ⌘V）。',kept:' 已保留之前的图片和下载结果。',
   }
 };
 
@@ -68,18 +71,14 @@ export default function Converter({lang='en'}) {
   useEffect(()=>{setReady(true);return()=>{sequence.current+=1;};},[]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
   useEffect(()=>()=>{if(result?.url)URL.revokeObjectURL(result.url);},[result]);
-  useEffect(()=>{setResult(null);},[format,quality]);
+  useEffect(()=>{setResult(null);setStatus(prev=>prev.startsWith(t.done)?t.selected:prev);},[format,quality]);
 
   async function choose(chosen) {
-    if(busy||inspecting)return;
-    sequence.current+=1;
-    const request=sequence.current;
-    setFiles([]);setRejected([]);setResult(null);setPreview(null);
-    setStatus('');setProcessed(0);setWasBatch(chosen.length>1);
-    if(!chosen.length)return;
+    if(busy||inspecting||!chosen.length)return;
     if(chosen.length>MAX_FILES||chosen.reduce((sum,file)=>sum+file.size,0)>MAX_BATCH_BYTES){
-      setStatus(t.max);return;
+      setStatus(t.max+(files.length?t.kept:''));return;
     }
+    const request=++sequence.current;
     setInspecting(true);setStatus(t.reading);
     try{
       const valid=[],invalid=[];
@@ -93,13 +92,31 @@ export default function Converter({lang='en'}) {
         }
       }
       if(request!==sequence.current)return;
-      setFiles(valid);setRejected(invalid);
-      if(valid.length)setPreview(URL.createObjectURL(valid[0].file));
-      setStatus(valid.length?t.selected+(invalid.length?' '+t.check:''):t.noOutput);
+      setRejected(invalid);
+      if(!valid.length){
+        setStatus(t.noOutput+' '+t.check+(files.length?t.kept:''));
+        return;
+      }
+      setFiles(valid);setResult(null);setPreview(URL.createObjectURL(valid[0].file));
+      setWasBatch(chosen.length>1);setProcessed(0);
+      setStatus(t.selected+(invalid.length?' '+t.check:''));
+    }catch(error){
+      if(request===sequence.current)setStatus(localizedError(error,lang)+(files.length?t.kept:''));
     }finally{
       if(request===sequence.current)setInspecting(false);
     }
   }
+  useEffect(()=>{
+    const handle=(event)=>{
+      if(busy||inspecting)return;
+      const images=clipboardImageFiles(event);
+      if(!images.length)return;
+      event.preventDefault();
+      void choose(images);
+    };
+    document.addEventListener('paste',handle);
+    return()=>document.removeEventListener('paste',handle);
+  },[busy,inspecting,files,lang]);
   function reset(){
     if(busy||inspecting)return;
     sequence.current+=1;setFiles([]);setRejected([]);setResult(null);
@@ -161,7 +178,7 @@ export default function Converter({lang='en'}) {
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
               disabled={!ready||busy||inspecting}
               onChange={e=>{const selected=Array.from(e.target.files||[]);e.target.value='';void choose(selected);}}/>
-            <span>{t.hint}</span>
+            <span>{t.hint} · {t.paste}</span>
           </label>
           {files.length>0&&<div className="file-summary">
             <strong>{t.showFiles}: {files.length}</strong>

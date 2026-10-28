@@ -22,6 +22,7 @@ const guide={"resize-image":{"heading":"等比例缩放、留白、裁剪有什�
 <Base lang="zh" path={'/zh/'+tool+'/'} title={title} description={description}>
 <section class="page-head"><p class="breadcrumb"><a href="/zh/">图片工具</a> / {heading}</p><h1>{heading}</h1><p class="lead">{lead}</p></section>
 <Editor client:load lang="zh" tool={tool}/>
+{tool!=='passport-photo-print'&&<p class="editor-disclosure">提示：您可以按 Ctrl+V（Mac 为 ⌘V）直接粘贴截图，随后在上方设置处理参数并下载。</p>}
 <section class="reference" aria-label="工具使用说明">
 <h2>{guide.heading}</h2><p>{guide.intro}</p><p>{examples[tool]}</p><p>{hint}</p>
 <h2>常见问题</h2>

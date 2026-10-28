@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
+import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
 const dict = {
@@ -20,7 +21,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',packaging:'Creating ZIP…'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,7 +40,7 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',packaging:'正在生成 ZIP…'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
@@ -57,7 +58,7 @@ export default function Editor({lang='en',tool='resize'}) {
   const [inspecting,setInspecting]=useState(false);
   const canvasRef=useRef(null),selectionId=useRef(0);
   useEffect(()=>{setReady(true);return ()=>{selectionId.current+=1;};},[]);
-  useEffect(()=>{setOutput(null);},[width,height,mode,format,target,quality,downscale,zoom,cropX,cropY]);
+  useEffect(()=>{setOutput(null);setStatus(prev=>prev.startsWith(t.done)?t.pending:prev);},[width,height,mode,format,target,quality,downscale,zoom,cropX,cropY]);
   useEffect(()=>{
     if (!preview || !canvasRef.current || output) return;
     let active=true;
@@ -93,17 +94,18 @@ export default function Editor({lang='en',tool='resize'}) {
   useEffect(()=>()=>{if(output?.url)URL.revokeObjectURL(output.url);},[output]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
   async function selectFiles(chosen){
-    if(busy||inspecting)return;
+    if(busy||inspecting||!chosen.length)return;
+    if(chosen.length>MAX_FILES){
+      setStatus((lang==='zh'?'最多选择 30 张图片。':'Maximum 30 files.')+(files.length?t.kept:''));return;
+    }
+    if(!batch&&chosen.length>1){setStatus(t.single+(files.length?t.kept:''));return;}
+    if(chosen.reduce((sum,f)=>sum+f.size,0)>MAX_BATCH_BYTES){
+      setStatus(t.limit+(files.length?t.kept:''));return;
+    }
     const id=++selectionId.current;
-    setFiles([]);setRejected([]);setOutput(null);setPreview(null);setStatus('');
-    if(chosen.length>MAX_FILES){setStatus(lang==='zh'?'最多选择 30 张图片。':'Maximum 30 files.');return;}
-    if(!batch && chosen.length>1){setStatus(t.single);return;}
-    if(chosen.reduce((sum,f)=>sum+f.size,0)>MAX_BATCH_BYTES){setStatus(t.limit);return;}
-    if(!chosen.length)return;
     setInspecting(true);setStatus(t.loading);
     try{
       const valid=[],invalid=[];
-      // Serial decoding protects memory; skip corrupt files only in batch mode.
       for(const file of chosen){
         try{
           const dimensions=await inspectImage(file);
@@ -114,20 +116,24 @@ export default function Editor({lang='en',tool='resize'}) {
         }
       }
       if(id!==selectionId.current)return;
-      setFiles(valid);setRejected(invalid);
-      if(valid.length){
-        setPreview(URL.createObjectURL(valid[0].file));
-        if(!sheet&&!batch&&valid.length===1){
-          const {width:w,height:h}=valid[0];
-          const scale=Math.min(1,MAX_AXIS/w,MAX_AXIS/h,Math.sqrt(MAX_OUTPUT_PIXELS/(w*h)));
-          setWidth(Math.max(1,Math.floor(w*scale)));
-          setHeight(Math.max(1,Math.floor(h*scale)));
-        }
+      setRejected(invalid);
+      if(!valid.length){
+        setStatus((invalid[0]?.reason||t.choose)+(files.length?t.kept:''));
+        return;
       }
-      setStatus(valid.length?(invalid.length?t.pending+' '+t.someSkipped:t.pending)
-        :(invalid[0]?.reason||t.choose));
+      // Commit the new selection only after at least one valid image was decoded.
+      // A bad replacement must never discard a finished download.
+      setFiles(valid);setOutput(null);
+      setPreview(URL.createObjectURL(valid[0].file));
+      if(!sheet&&!batch&&valid.length===1){
+        const {width:w,height:h}=valid[0];
+        const scale=Math.min(1,MAX_AXIS/w,MAX_AXIS/h,Math.sqrt(MAX_OUTPUT_PIXELS/(w*h)));
+        setWidth(Math.max(1,Math.floor(w*scale)));
+        setHeight(Math.max(1,Math.floor(h*scale)));
+      }
+      setStatus(invalid.length?t.pending+' '+t.someSkipped:t.pending);
     }catch(err){
-      if(id===selectionId.current){setFiles([]);setRejected([]);setPreview(null);setStatus(err.message||t.error);}
+      if(id===selectionId.current)setStatus((err?.message||t.error)+(files.length?t.kept:''));
     }finally{if(id===selectionId.current)setInspecting(false);}
   }
   function pick(e){
@@ -141,9 +147,16 @@ export default function Editor({lang='en',tool='resize'}) {
     if(!busy)void selectFiles(Array.from(e.dataTransfer?.files||[]));
   }
   function paste(e){
-    const files=Array.from(e.clipboardData?.files||[]);
-    if(files.length){e.preventDefault();void selectFiles(files);}
+    if(busy||inspecting)return;
+    const images=clipboardImageFiles(e);
+    if(!images.length)return;
+    e.preventDefault();
+    void selectFiles(images);
   }
+  useEffect(()=>{
+    document.addEventListener('paste',paste);
+    return()=>document.removeEventListener('paste',paste);
+  },[busy,inspecting,batch,lang,files]);
   function changeWidth(v){
     setWidth(v);
     if(keep&&files[0]&&v!==''&&Number.isInteger(Number(v))&&Number(v)>0&&Number(v)<=MAX_AXIS)
@@ -215,7 +228,7 @@ export default function Editor({lang='en',tool='resize'}) {
     <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} disabled={losslessOutput||busy||inspecting} onChange={e=>setQuality(e.target.value)}/><small>{t.qualityNote}</small></label>
     {mode==='within'?<label className="check"><input type="checkbox" checked={downscale} disabled={busy||inspecting} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>:<p className="resize-mode-help wide" data-testid="exact-size-note">{t.exactSizeNotice}</p>}
   </>;
-  return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings} onPaste={paste}>
+  return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings}>
     <div className="editor-workspace">
       <form className="editor-controls" onSubmit={run}>
         <div className="control-section">
@@ -225,7 +238,7 @@ export default function Editor({lang='en',tool='resize'}) {
             <input aria-label={t.upload} data-testid="upload" type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
               disabled={!ready||busy||inspecting} multiple={batch} onChange={pick}/>
-            <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}. {t.drop}</span>
+            <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}. {t.drop} {t.paste}</span>
           </label>
           {rejected.length>0&&<details className="batch-errors" data-testid="skipped-inputs" open>
             <summary>{t.skippedInputs} ({rejected.length})</summary>
