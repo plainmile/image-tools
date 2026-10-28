@@ -322,3 +322,40 @@ test('pasted screenshots cannot replace redaction work while download is encodin
   await expect(page.locator('.redactor-gallery')).not.toContainText('interrupt.png');
   await expect(page.getByTestId('redact-count')).toHaveText('1');
 });
+
+test('adding images never overwrites previously drawn redactions',async({page})=>{
+  await page.goto('/zh/redact-image/');await synthetic(page);await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await synthetic(page);
+  await expect(page.locator('.redactor-file')).toHaveCount(2);
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await page.locator('.redactor-file').first().click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  expect((await downloaded).suggestedFilename()).toBe('redacted-image.png');
+});
+test('invalid and over-limit additions preserve existing redactions',async({page})=>{
+  await page.goto('/redact-image/');await synthetic(page);await draw(page);
+  await page.getByTestId('redact-upload').setInputFiles({name:'broken.png',mimeType:'image/png',buffer:Buffer.from([0,1,2,3])});
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await synthetic(page,12);
+  await expect(page.getByTestId('redact-status')).toContainText('at most 12');
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+});
+test('clear all images requests confirmation when any masks exist',async({page})=>{
+  await page.goto('/zh/redact-image/');await synthetic(page);await draw(page);
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.getByTestId('redact-clear-images').click();
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByTestId('redact-clear-images').click();
+  await expect(page.locator('.redactor-file')).toHaveCount(0);
+  await synthetic(page);
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+});
