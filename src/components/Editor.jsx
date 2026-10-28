@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
-import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
@@ -20,7 +20,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,7 +39,7 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
@@ -50,6 +50,7 @@ export default function Editor({lang='en',tool='resize'}) {
   const [quality,setQuality]=useState(90),[downscale,setDownscale]=useState(tool==='compress-image-to-size');
   const [zoom,setZoom]=useState(100),[cropX,setCropX]=useState(0),[cropY,setCropY]=useState(0);
   const [status,setStatus]=useState(''),[busy,setBusy]=useState(false),[output,setOutput]=useState(null);
+  const [rejected,setRejected]=useState([]);
   const [preview,setPreview]=useState(null),[ready,setReady]=useState(false);
   const [inspecting,setInspecting]=useState(false);
   const canvasRef=useRef(null),selectionId=useRef(0);
@@ -90,30 +91,41 @@ export default function Editor({lang='en',tool='resize'}) {
   useEffect(()=>()=>{if(output?.url)URL.revokeObjectURL(output.url);},[output]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
   async function selectFiles(chosen){
-    if(busy)return;
+    if(busy||inspecting)return;
     const id=++selectionId.current;
-    setFiles([]);setOutput(null);setPreview(null);setStatus('');
+    setFiles([]);setRejected([]);setOutput(null);setPreview(null);setStatus('');
     if(chosen.length>MAX_FILES){setStatus(lang==='zh'?'最多选择 30 张图片。':'Maximum 30 files.');return;}
     if(!batch && chosen.length>1){setStatus(t.single);return;}
     if(chosen.reduce((sum,f)=>sum+f.size,0)>MAX_BATCH_BYTES){setStatus(t.limit);return;}
     if(!chosen.length)return;
     setInspecting(true);setStatus(t.loading);
     try{
-      const meta=[];
-      // Do not decode thirty large photos at once; browsers can run out of memory.
-      for(const file of chosen)meta.push(await inspectImage(file));
-      if(id!==selectionId.current)return;
-      setFiles(chosen.map((file,i)=>({file,...meta[i]})));
-      setPreview(URL.createObjectURL(chosen[0]));
-      if(!sheet&&!batch&&chosen.length===1){
-        const {width:w,height:h}=meta[0];
-        const scale=Math.min(1,MAX_AXIS/w,MAX_AXIS/h,Math.sqrt(MAX_OUTPUT_PIXELS/(w*h)));
-        setWidth(Math.max(1,Math.floor(w*scale)));
-        setHeight(Math.max(1,Math.floor(h*scale)));
+      const valid=[],invalid=[];
+      // Serial decoding protects memory; skip corrupt files only in batch mode.
+      for(const file of chosen){
+        try{
+          const dimensions=await inspectImage(file);
+          valid.push({file,...dimensions});
+        }catch(err){
+          if(!batch)throw err;
+          invalid.push({name:file.name||'image',reason:err?.message||t.error});
+        }
       }
-      setStatus(t.pending);
+      if(id!==selectionId.current)return;
+      setFiles(valid);setRejected(invalid);
+      if(valid.length){
+        setPreview(URL.createObjectURL(valid[0].file));
+        if(!sheet&&!batch&&valid.length===1){
+          const {width:w,height:h}=valid[0];
+          const scale=Math.min(1,MAX_AXIS/w,MAX_AXIS/h,Math.sqrt(MAX_OUTPUT_PIXELS/(w*h)));
+          setWidth(Math.max(1,Math.floor(w*scale)));
+          setHeight(Math.max(1,Math.floor(h*scale)));
+        }
+      }
+      setStatus(valid.length?(invalid.length?t.pending+' '+t.someSkipped:t.pending)
+        :(invalid[0]?.reason||t.choose));
     }catch(err){
-      if(id===selectionId.current){setFiles([]);setPreview(null);setStatus(err.message||t.error);}
+      if(id===selectionId.current){setFiles([]);setRejected([]);setPreview(null);setStatus(err.message||t.error);}
     }finally{if(id===selectionId.current)setInspecting(false);}
   }
   function pick(e){
@@ -147,11 +159,19 @@ export default function Editor({lang='en',tool='resize'}) {
       const options={width:Number(width),height:Number(height),mode,format,targetKb:Number(target),
         quality:Number(quality)/100,allowDownscale:mode==='within'&&downscale,zoom:Number(zoom)/100,cropX:Number(cropX)/100,cropY:Number(cropY)/100};
       if(batch)validateBatchPixels(files,options.width,options.height,mode);
-      const results=[];
+      const results=[],failed=[];
+      let totalOutputBytes=0;
       for(const item of files){
-        const result=sheet?await makePassportSheet(item.file,options):await processImage(item.file,options);
-        results.push({name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
+        try{
+          const result=sheet?await makePassportSheet(item.file,options):await processImage(item.file,options);
+          if(batch)totalOutputBytes=addBatchOutputBytes(totalOutputBytes,result.bytes);
+          results.push({name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
+        }catch(err){
+          if(!batch)throw err;
+          failed.push({name:item.file.name,reason:err?.message||t.error});
+        }
       }
+      if(!results.length)throw new Error(t.noExport+(failed[0]?' '+failed[0].reason:''));
       let blob,name;
       if(!batch&&results.length===1){blob=results[0].blob;name=results[0].name;}
       else{
@@ -159,7 +179,7 @@ export default function Editor({lang='en',tool='resize'}) {
         blob=await zip.generateAsync({type:'blob'});name='plainmile-images.zip';
       }
       const url=URL.createObjectURL(blob);
-      setOutput({url,blob,name,results});setStatus(t.done);
+      setOutput({url,blob,name,results,failed});setStatus(failed.length?t.done+' '+t.someSkipped:t.done);
     }catch(err){setStatus(err.message||t.error);}
     finally{setBusy(false);}
   }
@@ -199,6 +219,10 @@ export default function Editor({lang='en',tool='resize'}) {
               disabled={!ready||busy||inspecting} multiple={batch} onChange={pick}/>
             <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}. {t.drop}</span>
           </label>
+          {rejected.length>0&&<details className="batch-errors" data-testid="skipped-inputs" open>
+            <summary>{t.skippedInputs} ({rejected.length})</summary>
+            <ul>{rejected.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
+          </details>}
           {!!files.length&&<div className="file-summary">
             <strong>{files.length} {lang==='zh'?'个文件':'file(s)'}</strong>
             <ul>{files.slice(0,6).map((f,i)=><li key={i}>{f.file.name} · {f.width}×{f.height} · {formatBytes(f.file.size)}</li>)}</ul>
@@ -256,7 +280,7 @@ export default function Editor({lang='en',tool='resize'}) {
         {batch&&<p className="notice">{t.batch}</p>}
         <div className="form-actions">
           <button data-testid="process" disabled={!files.length||busy||inspecting} type="submit">{busy?t.working:sheet?t.sheet:t.run}</button>
-          <button type="button" disabled={busy||inspecting} className="secondary" onClick={()=>{selectionId.current+=1;setFiles([]);setPreview(null);setOutput(null);setStatus('');const el=document.querySelector('[data-testid=upload]');if(el)el.value='';}}>{t.reset}</button>
+          <button type="button" disabled={busy||inspecting} className="secondary" onClick={()=>{selectionId.current+=1;setFiles([]);setRejected([]);setPreview(null);setOutput(null);setStatus('');const el=document.querySelector('[data-testid=upload]');if(el)el.value='';}}>{t.reset}</button>
         </div>
       </form>
       <aside className="editor-preview" aria-label={t.preview}>
@@ -273,6 +297,10 @@ export default function Editor({lang='en',tool='resize'}) {
           <p data-testid="result-meta">{batch?
             output.results.length+' '+t.count+' · ZIP '+formatBytes(output.blob.size):
             output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
+          {batch&&output.failed.length>0&&<details className="batch-errors" data-testid="skipped-outputs" open>
+            <summary>{t.skippedOutputs} ({output.failed.length})</summary>
+            <ul>{output.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
+          </details>}
           {batch&&<details className="batch-export-details" data-testid="batch-export-details">
             <summary>{t.batchItems} ({output.results.length})</summary>
             <ul>{output.results.map((r,i)=><li key={i}><span>{r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span></li>)}</ul>
