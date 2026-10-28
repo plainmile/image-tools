@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import JSZip from 'jszip';
 
+async function selectResizeMode(page,mode){
+  const panel=page.getByTestId('advanced-resize');
+  if(!(await panel.evaluate(node=>node.open)))await page.getByTestId('advanced-resize-summary').click();
+  await page.getByTestId('resize-mode').selectOption(mode);
+}
+
+
 async function uploadSynthetic(page, count=1){
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   const png=await page.evaluate(async()=>{
@@ -25,7 +32,7 @@ test('English and Chinese pages contain valid static SEO metadata',async({page})
 });
 test('real JPG is generated at exact requested dimensions with correct decoded pixel data',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
-  await page.getByLabel('Resize method').selectOption('cover');
+  await selectResizeMode(page,'cover');
   await page.getByTestId('format').selectOption('jpeg');
   await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
   await page.getByTestId('process').click();
@@ -70,7 +77,7 @@ test('mobile remains usable and navigation works',async({page})=>{
 });
 test('invalid and oversized dimensions report error without false download',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
-  await page.getByLabel('Resize method').selectOption('contain');
+  await selectResizeMode(page,'contain');
   await page.getByTestId('width').fill('9000');await page.getByTestId('height').fill('9000');
   await page.getByTestId('process').click();await expect(page.getByTestId('status')).toContainText('32-megapixel');
   await expect(page.getByTestId('download')).toHaveCount(0);
@@ -140,7 +147,7 @@ test('transparent PNG retains alpha; JPEG gets white background',async({page})=>
 });
 test('clearing a pixel input with lock aspect ratio does not crash',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
-  await page.getByLabel('Resize method').selectOption('contain');
+  await selectResizeMode(page,'contain');
   await page.getByLabel('Sync width and height').check();
   await page.getByTestId('width').fill('');
   await expect(page.getByTestId('width')).toHaveValue('');
@@ -164,7 +171,7 @@ test('single-image tools reject multiple uploads and expose real crop preview',a
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   await expect(page.getByTestId('upload')).not.toHaveAttribute('multiple');
   await uploadSynthetic(page,1);
-  await page.getByLabel('Resize method').selectOption('cover');
+  await selectResizeMode(page,'cover');
   await expect(page.locator('.preview-frame canvas')).toBeVisible();
 });
 
@@ -185,7 +192,7 @@ test('batch limit reports a clear error without processing',async({page})=>{
 
 test('batch blocks excessive output pixels before allocating a giant canvas',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,5);
-  await page.getByLabel('Resize method').selectOption('contain');
+  await selectResizeMode(page,'contain');
   await page.getByTestId('width').fill('8000');
   await page.getByTestId('height').fill('4000');
   await page.getByTestId('process').click();
@@ -258,7 +265,7 @@ test('portrait landscape and square outputs have no automatic white margins',asy
 });
 test('white letterboxing requires explicit exact-size Fit and JPEG format',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
-  await page.getByLabel('Resize method').selectOption('contain');
+  await selectResizeMode(page,'contain');
   await page.getByTestId('format').selectOption('jpeg');
   await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
   await expect(page.getByTestId('expected-dimensions')).toContainText('64×64');
@@ -376,6 +383,10 @@ test('Chinese resizing choices use plain words and explain what happens before u
   await expect(mode.locator('option[value="cover"]')).toHaveText('裁剪边缘，填满尺寸');
   await expect(mode.locator('option[value="contain"]')).toHaveText('保留整张图，空白补齐');
   await expect(page.getByTestId('resize-mode-help')).toContainText('不加白边');
+  await expect(mode).toBeHidden();
+  await expect(page.getByTestId('advanced-resize-summary')).toContainText('需要固定宽高');
+  await page.getByTestId('advanced-resize-summary').click();
+  await expect(mode).toBeVisible();
   await mode.selectOption('cover');
   await expect(page.getByTestId('resize-mode-help')).toContainText('可能被裁掉');
   await mode.selectOption('contain');
@@ -388,8 +399,37 @@ test('English resizing choices explain proportional, crop and padding modes',asy
   await expect(mode).toHaveValue('within');
   await expect(mode.locator('option[value="within"]')).toHaveText('Keep proportions (recommended)');
   await expect(page.getByTestId('resize-mode-help')).toContainText('without cropping or borders');
+  await expect(mode).toBeHidden();
+  await page.getByTestId('advanced-resize-summary').click();
+  await expect(mode).toBeVisible();
   await mode.selectOption('cover');
   await expect(page.getByTestId('resize-mode-help')).toContainText('may be cut off');
   await mode.selectOption('contain');
   await expect(page.getByTestId('resize-mode-help')).toContainText('Empty space may appear');
+});
+
+test('chosen specialist mode remains clearly labelled when advanced options are collapsed',async({page})=>{
+  await page.goto('/zh/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await selectResizeMode(page,'cover');
+  await page.getByTestId('advanced-resize-summary').click();
+  await expect(page.getByTestId('resize-mode')).toBeHidden();
+  await expect(page.getByTestId('advanced-resize-summary')).toContainText('当前方式');
+  await expect(page.getByTestId('advanced-resize-summary')).toContainText('裁剪边缘');
+  await expect(page.getByTestId('resize-mode-help')).toContainText('可能被裁掉');
+  await selectResizeMode(page,'within');
+  await expect(page.getByTestId('advanced-resize-summary')).toContainText('需要固定宽高');
+  await expect(page.getByTestId('resize-mode')).toHaveValue('within');
+});
+test('mobile initially shows simple resize inputs without specialist mode picker',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  await page.goto('/zh/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.getByTestId('width')).toBeVisible();
+  await expect(page.getByTestId('height')).toBeVisible();
+  await expect(page.getByTestId('resize-mode')).toBeHidden();
+  await expect(page.getByTestId('advanced-resize-summary')).toBeVisible();
+  await expect(page.getByTestId('resize-mode-help')).toContainText('默认按比例缩放');
+  const size=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:document.documentElement.clientWidth}));
+  expect(size.scroll).toBeLessThanOrEqual(size.viewport+1);
 });
