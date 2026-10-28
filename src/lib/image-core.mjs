@@ -100,15 +100,25 @@ export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, m
     dx: (outputWidth - dw) / 2, dy: (outputHeight - dh) / 2, dw, dh };
 }
 
+// Match the actual browser-reported media type first. File extensions are only
+// a fallback when the operating system does not supply a useful MIME type.
+export function inputImageFormat(file) {
+  const type = String(file?.type || '').toLowerCase();
+  if (type === 'image/jpeg') return 'jpeg';
+  if (type === 'image/png') return 'png';
+  if (type === 'image/webp') return 'webp';
+  const extension = String(file?.name || '').toLowerCase().match(/\.(jpe?g|png|webp)$/)?.[1];
+  if ((type === '' || type === 'application/octet-stream') && extension) {
+    return extension === 'jpg' || extension === 'jpeg' ? 'jpeg' : extension;
+  }
+  throw new Error('Supported images: JPEG, PNG and WebP. SVG, GIF and HEIC are not supported.');
+}
+
 export function validateFile(file) {
   if (!file || typeof file.size !== 'number') throw new Error('Select an image first.');
   if (!file.size) throw new Error('The selected file is empty.');
   if (file.size > MAX_FILE_BYTES) throw new Error('Each image must be 40 MB or smaller.');
-  const name = String(file.name || '').toLowerCase();
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) &&
-      !/\.(jpe?g|png|webp)$/.test(name)) {
-    throw new Error('Supported images: JPEG, PNG and WebP. SVG, GIF and HEIC are not supported yet.');
-  }
+  inputImageFormat(file);
 }
 
 export function sanitizeStem(filename) {
@@ -216,7 +226,7 @@ async function encodeWithTarget(canvas, format, targetBytes, preferredQuality) {
 
 export async function processImage(file, options = {}) {
   validateFile(file);
-  const format = options.format || 'jpeg';
+  const format = options.format === 'original' ? inputImageFormat(file) : (options.format || 'jpeg');
   if (!MIME[format]) throw new Error('Unsupported output format.');
   let { width, height } = options.mode === 'within'
     ? { width: integer(options.width, 'Width'), height: integer(options.height, 'Height') }
