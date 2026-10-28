@@ -64,6 +64,8 @@ test('fit within bounding box preserves aspect ratio and does not upscale small 
   assert.deepEqual(fitWithin(120,80,55,35),{width:53,height:35});
   assert.deepEqual(fitWithin(120,80,800,800),{width:120,height:80});
   assert.deepEqual(fitWithin(800,1200,800,800),{width:533,height:800});
+  assert.deepEqual(fitWithin(1920,1080,800,800),{width:800,height:450});
+  assert.deepEqual(fitWithin(1080,1920,800,800),{width:450,height:800});
   assert.deepEqual(fitWithin(10000,10000,10000,10000),{width:5656,height:5656});
   assert.throws(()=>fitWithin(100,100,0,100),/Width/);
 });

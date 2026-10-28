@@ -8,7 +8,7 @@ Image processing and manual redaction run entirely in your browser. There is no 
 
 ## First release
 
-- Resize to exact width/height, choose crop-to-fill or fit-with-padding; PNG and WebP preserve source transparency and JPEG has a white background.
+- Resize proportionally without padding, borders or cropping by default (fit within maximum dimensions, no upscaling); exact-size fit-with-padding and crop-to-fill remain explicit choices. PNG/WebP preserve alpha; JPEG has a white background.
 - Compress JPEG/WebP to a target KB, optionally reducing pixel dimensions when needed. Verify the **actual** output bytes.
 - Resize signatures by pixel size and target KB (application requirements vary).
 - Batch resize locally and download a ZIP. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; exact-size Fit and crop-to-fill remain available.
