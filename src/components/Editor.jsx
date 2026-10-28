@@ -325,7 +325,7 @@ export default function Editor({lang='en',tool='resize'}) {
             output.results.length+' '+t.count+' · ZIP '+formatBytes(output.blob.size):
             output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
           <p data-testid="exact-bytes">{lang==='zh'?'实际文件大小：':'Exact file size: '}{output.blob.size} {lang==='zh'?'字节':'bytes'}</p>
-           <p data-testid="size-comparison">{lang==='zh'?'原文件合计':'Original total'}: {formatBytes(output.results.reduce((sum,item)=>sum+item.sourceBytes,0))} · {lang==='zh'?'结果文件':'Output file'}: {formatBytes(output.blob.size)}</p>
+           <p data-testid="size-comparison">{output.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(output.results.reduce((sum,item)=>sum+item.sourceBytes,0))} · {lang==='zh'?'结果文件':'Output file'}: {formatBytes(output.blob.size)}</p>
           {batch&&output.failed.length>0&&<details className="batch-errors" data-testid="skipped-outputs" open>
             <summary>{t.skippedOutputs} ({output.failed.length})</summary>
             <ul>{output.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
