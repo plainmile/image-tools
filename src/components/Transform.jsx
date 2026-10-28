@@ -327,6 +327,7 @@ export default function Transform({lang='en',tool='crop'}) {
             <p className="transform-refine-help">{t.refine}</p>
           </>}
           <p data-testid="transform-result-meta">{result.width}×{result.height} · {result.format.toUpperCase()} · {formatBytes(result.bytes)} ({result.bytes} {lang==='zh'?'字节':'bytes'})</p>
+           <p data-testid="transform-size-comparison">{lang==='zh'?'原文件':'Original'}: {formatBytes(selected.file.size)} · {lang==='zh'?'处理结果':'Output'}: {formatBytes(result.bytes)}</p>
           <a className="download" data-testid="transform-download" href={result.url} download={result.name}>{t.download}</a>
         </div>}
       </aside>
