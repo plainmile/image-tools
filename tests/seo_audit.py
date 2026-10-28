@@ -73,7 +73,15 @@ for route in ROUTES:
     assert len(doc.jsonld) >= 1, f"missing JSON-LD on {route}"
     expected = "WebSite" if route in ("/", "/zh/") else "WebPage" if route.endswith("/privacy/") else "WebApplication"
     assert any(item.get("@type") == expected for item in doc.jsonld), (route, expected, doc.jsonld)
+    if expected == "WebApplication":
+        assert any(item.get("@type") == "BreadcrumbList" for item in doc.jsonld), route
     for item in doc.jsonld:
+        if item.get("@type") == "BreadcrumbList":
+            entries = item["itemListElement"]
+            assert len(entries) == 2, (route, entries)
+            assert entries[0]["item"] == ORIGIN + ("/zh/" if route.startswith("/zh/") else "/")
+            assert entries[1]["item"] == ORIGIN + route
+            continue
         assert item.get("url") == ORIGIN + route, (route, item)
         if expected == "WebApplication":
             assert item.get("offers", {}).get("price") == "0", (route, item)

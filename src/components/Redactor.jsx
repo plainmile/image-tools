@@ -5,8 +5,8 @@ import {formatBytes} from '../lib/image-core.mjs';
 import '../styles/redactor.css';
 
 const labels={
-  en:{upload:'Choose images',limit:'JPG, PNG or WebP · up to 12 images / 100 MB total',draw:'Draw rectangles',erase:'Remove rectangles',undo:'Undo',redo:'Redo',clear:'Clear all boxes',style:'Redaction style',solid:'Solid black — secure concealment',mosaic:'Pixelate / mosaic',blur:'Gaussian blur',warning:'Use solid black for private text, account numbers or passwords. Pixelation and blur are visual effects, not secure concealment.',remove:'Remove',download:'Download image',zip:'Download all as ZIP',format:'Save as',first:'Select images to start.',hint:'Drag over the image to cover an area. Switch to Remove to delete a box.',local:'All editing happens in your browser; images are not uploaded.',need:'Every image in the ZIP needs at least one rectangle.',ready:'Download ready',images:'Images',masks:'Redacted areas',strength:'Effect strength',working:'Processing…'},
-  zh:{upload:'选择图片',limit:'JPG、PNG 或 WebP · 最多 12 张 / 100 MB',draw:'手动画框',erase:'删除遮挡框',undo:'撤销',redo:'重做',clear:'清空本图',style:'打码方式',solid:'黑色实心遮挡（保护隐私）',mosaic:'像素马赛克',blur:'高斯模糊',warning:'密码、证件号和其他敏感文字请用实心黑块。马赛克和模糊仅供视觉处理，不能保证保密。',remove:'删除',download:'下载当前图片',zip:'全部打包 ZIP 下载',format:'导出格式',first:'请选择图片。',hint:'在图片上拖动即可画框；切换删除模式可点击移除。',local:'所有操作均在浏览器本地完成，图片不会上传。',need:'每张图片都需要至少一个遮挡框，才能打包下载。',ready:'文件可以下载',images:'图片列表',masks:'遮挡区域',strength:'效果强度',working:'正在处理…'}
+  en:{upload:'Choose images',limit:'JPG, PNG or WebP · up to 12 images / 100 MB total',draw:'Draw rectangles',erase:'Remove rectangles',undo:'Undo',redo:'Redo',clear:'Clear all boxes',style:'Style for new rectangles',solid:'Solid black — secure concealment',mosaic:'Pixelate / mosaic',blur:'Gaussian blur',warning:'Use solid black for private text, account numbers or passwords. Pixelation and blur are visual effects, not secure concealment.',remove:'Remove',download:'Download image',zip:'Download all as ZIP',format:'Save as',first:'Select images to start.',hint:'Choose a style, then drag to add a rectangle. Existing rectangles keep their own styles; change them in the area list.',local:'All editing happens in your browser; images are not uploaded.',need:'Add at least one box to each image before ZIP export.',ready:'Download ready',images:'Images',masks:'Redacted areas',strength:'Effect strength',drop:'Drop images here or paste a screenshot',working:'Processing…'},
+  zh:{upload:'选择图片',limit:'JPG、PNG 或 WebP · 最多 12 张 / 100 MB',draw:'手动画框',erase:'删除遮挡框',undo:'撤销',redo:'重做',clear:'清空本图',style:'新画遮挡框的方式',solid:'黑色实心遮挡（保护隐私）',mosaic:'像素马赛克',blur:'高斯模糊',warning:'密码、证件号和其他敏感文字请用实心黑块。马赛克和模糊仅供视觉处理，不能保证保密。',remove:'删除',download:'下载当前图片',zip:'全部打包 ZIP 下载',format:'导出格式',first:'请选择图片。',hint:'先选择打码方式，再拖动画框。已画的区域不会随全局模式改变，可在下方逐个调整。',local:'所有操作均在浏览器本地完成，图片不会上传。',need:'批量导出前，请为每张图片至少画一个遮挡框。',ready:'文件可以下载',images:'图片列表',masks:'遮挡区域',strength:'效果强度',drop:'可拖放图片或粘贴截图',working:'正在处理…'}
 };
 function save(blob,name){
   const url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -81,7 +81,7 @@ export default function Redactor({lang='en'}){
     if(!dragRef.current||!current)return;
     const box=boxBetween(dragRef.current,position(e),current.width,current.height);
     dragRef.current=null;setDraft(null);
-    if(box)modify(a=>[...a,{id:'mask-'+(++sequence.current),...box,source:'manual'}]);
+    if(box)modify(a=>[...a,{id:'mask-'+(++sequence.current),...box,source:'manual',effect,strength}]);
   }
   useEffect(()=>{
     if(!current||!canvasRef.current)return;
@@ -122,7 +122,7 @@ export default function Redactor({lang='en'}){
     }catch(e){setMessage(e.message);}finally{setBusy(false);}
   }
   return <section className="redactor" data-redactor-ready={String(ready)}>
-    <div className="redactor-top"><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit}</span></div>
+    <div className="redactor-top" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void choose(Array.from(e.dataTransfer?.files||[]));}}><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit} · {t.drop}</span></div>
     {items.length>0&&<>
       <div className="redactor-gallery" aria-label={t.images}>{items.map(v=><button className={'redactor-file '+(v.id===activeId?'chosen':'')} key={v.id} type="button" disabled={busy} onClick={()=>{setActiveId(v.id);setDraft(null);}}><span>{v.file.name}</span><small>{v.width}×{v.height} · {v.masks.length} {lang==='zh'?'处':'boxes'}</small></button>)}</div>
       <div className="redactor-tools">
@@ -137,7 +137,7 @@ export default function Redactor({lang='en'}){
           <p className="redactor-instruction">{t.hint}</p>
           <div className="redactor-stage-wrap">{current&&<div className="redactor-stage" style={{aspectRatio:current.width+'/'+current.height,maxWidth:Math.min(900,650*current.width/current.height)+'px'}}>
             <canvas ref={canvasRef} className="redactor-preview-canvas" role="img" aria-label={lang==='zh'?'真实打码效果预览':'Live redaction effect preview'}/>
-            <svg data-testid="redact-overlay" viewBox={'0 0 '+current.width+' '+current.height} preserveAspectRatio="none" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={()=>{dragRef.current=null;setDraft(null);}}>
+            <svg data-testid="redact-overlay" data-mode={tool} viewBox={'0 0 '+current.width+' '+current.height} preserveAspectRatio="none" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={()=>{dragRef.current=null;setDraft(null);}}>
               <rect x="0" y="0" width={current.width} height={current.height} fill="transparent"/>
               {boxes.map(m=><rect key={m.id} data-testid="redact-mark" data-mark-id={m.id} x={m.x} y={m.y} width={m.w} height={m.h} fill="transparent" stroke="#f59e0b" strokeWidth={Math.max(2,current.width/800)} onPointerDown={e=>{if(tool!=='erase'||busy)return;e.preventDefault();e.stopPropagation();modify(a=>a.filter(b=>b.id!==m.id));}}/>)}
               {draft&&<rect data-testid="redact-draft" x={draft.x} y={draft.y} width={draft.w} height={draft.h} fill="rgba(0,0,0,.18)" stroke="#f59e0b" strokeDasharray="8 5" pointerEvents="none"/>}
@@ -153,7 +153,18 @@ export default function Redactor({lang='en'}){
             <p className="redactor-warning">{t.warning}</p>
           </div>
           <div className="redactor-control"><div className="redactor-heading"><strong>{t.masks}</strong><span data-testid="redact-count">{boxes.length}</span></div>
-            <div className="redactor-areas">{boxes.map((m,i)=><div key={m.id}><span>{lang==='zh'?'遮挡区域':'Area'} {i+1}</span><button type="button" className="redactor-secondary" disabled={busy} onClick={()=>modify(a=>a.filter(b=>b.id!==m.id))}>{t.remove}</button></div>)}</div>
+            <div className="redactor-areas">{boxes.map((m,i)=><div className="redactor-area-entry" key={m.id}>
+              <span>{lang==='zh'?'遮挡区域':'Area'} {i+1}</span>
+              <select data-testid="redact-area-effect" aria-label={(lang==='zh'?'区域样式 ':'Style for area ')+(i+1)} value={m.effect||'solid'} disabled={busy}
+                onChange={e=>modify(a=>a.map(v=>v.id===m.id?{...v,effect:e.target.value}:v))}>
+                <option value="solid">{t.solid}</option><option value="mosaic">{t.mosaic}</option><option value="blur">{t.blur}</option>
+              </select>
+              <button type="button" className="redactor-secondary" disabled={busy} onClick={()=>modify(a=>a.filter(v=>v.id!==m.id))}>{t.remove}</button>
+              {(m.effect||'solid')!=='solid'&&<label className="redactor-area-strength">{t.strength}: {m.strength??strength}
+                <input data-testid="redact-area-strength" type="range" min="8" max="64" step="4" value={m.strength??strength} disabled={busy}
+                  onChange={e=>modify(a=>a.map(v=>v.id===m.id?{...v,strength:Number(e.target.value)}:v))}/>
+              </label>}
+            </div>)}</div>
           </div>
           <div className="redactor-control"><label htmlFor="redact-format">{t.format}</label><select id="redact-format" value={format} onChange={e=>setFormat(e.target.value)} disabled={busy}><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select>
             <div className="redactor-actions"><button type="button" data-testid="redact-download" disabled={busy||!current?.masks.length} onClick={()=>void download(false)}>{t.download}</button>{items.length>1&&<button type="button" data-testid="redact-download-all" disabled={busy} onClick={()=>void download(true)}>{t.zip}</button>}</div>

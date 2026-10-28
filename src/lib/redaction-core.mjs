@@ -79,13 +79,19 @@ export function paintRedactions(ctx, bitmap, masks, effect, strength=24) {
   for (const item of masks) {
     const box = clampBox(item, bitmap.width, bitmap.height);
     if (!box) throw new Error('Invalid redaction box. Recheck the covered area before exporting.');
-    if (effect === 'solid' || effect === 'white') {
-      ctx.fillStyle = effect === 'white' ? '#fff' : '#000';
+    const style = item.effect ?? effect;
+    const amount = item.strength ?? strength;
+    if (!['solid','mosaic','blur'].includes(style) ||
+        (style !== 'solid' && (!Number.isFinite(amount) || amount < 8 || amount > 64))) {
+      throw new Error('Unsupported redaction style or strength.');
+    }
+    if (style === 'solid') {
+      ctx.fillStyle = '#000';
       ctx.fillRect(box.x, box.y, box.w, box.h);
-    } else if (effect === 'mosaic') {
+    } else if (style === 'mosaic') {
       const sample = document.createElement('canvas');
-      sample.width = Math.max(1, Math.ceil(box.w / strength));
-      sample.height = Math.max(1, Math.ceil(box.h / strength));
+      sample.width = Math.max(1, Math.ceil(box.w / amount));
+      sample.height = Math.max(1, Math.ceil(box.h / amount));
       const sctx = sample.getContext('2d');
       if (!sctx) throw new Error('Canvas unavailable.');
       sctx.drawImage(bitmap, box.x, box.y, box.w, box.h, 0, 0, sample.width, sample.height);
@@ -95,9 +101,9 @@ export function paintRedactions(ctx, bitmap, masks, effect, strength=24) {
       ctx.drawImage(sample, 0, 0, sample.width, sample.height, box.x, box.y, box.w, box.h);
       ctx.restore();
       sample.width = 0; sample.height = 0;
-    } else if (effect === 'blur') {
+    } else if (style === 'blur') {
       ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
-      ctx.filter = 'blur(' + strength + 'px)';
+      ctx.filter = 'blur(' + amount + 'px)';
       ctx.drawImage(bitmap, 0, 0);
       ctx.restore();
     } else {

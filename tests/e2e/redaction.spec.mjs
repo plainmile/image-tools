@@ -69,7 +69,7 @@ test('remove mode deletes a box, and users can add a replacement',async({page})=
   await page.getByRole('button',{name:'删除遮挡框'}).click();
   await page.getByTestId('redact-mark').first().click();
   await expect(page.getByTestId('redact-count')).toHaveText('0');
-  await page.getByRole('button',{name:'手动加框'}).click();
+  await page.getByRole('button',{name:'手动画框'}).click();
   await draw(page,[.1,.2],[.4,.5]);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
 });
@@ -167,15 +167,6 @@ test('downloaded redacted image does not reveal the source filename',async({page
   expect(result.suggestedFilename()).not.toContain('capture');
 });
 
-test('users can limit OCR scanning to a selected region and return to full picture',async({page})=>{
-  await page.goto('/zh/redact-image/');await synthetic(page);
-  await page.getByTestId('redact-region-mode').click();
-  await draw(page,[.04,.12],[.70,.80]);
-  await expect(page.getByTestId('redact-scan-region')).toBeVisible();
-  await expect(page.getByTestId('redact-count')).toHaveText('0');
-  await page.getByTestId('redact-region-reset').click();
-  await expect(page.getByTestId('redact-scan-region')).toHaveCount(0);
-});
 test('portrait redaction preview retains correct aspect ratio',async({page})=>{
   await page.goto('/redact-image/');
   await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
@@ -204,4 +195,71 @@ test('no OCR controls and all three manual effects are available for export',asy
     const downloaded=page.waitForEvent('download');await page.getByTestId('redact-download').click();await downloaded;
     await expect(page.getByTestId('redact-status')).toContainText('960×280');
   }
+});
+
+test('existing private black boxes do not change when choosing blur for new areas',async({page})=>{
+  await page.goto('/redact-image/');
+  await synthetic(page);
+  await draw(page,[.10,.10],[.32,.7]);
+  await page.getByTestId('redact-effect').selectOption('blur');
+  await draw(page,[.55,.10],[.85,.7]);
+  const selectors=page.getByTestId('redact-area-effect');
+  await expect(selectors).toHaveCount(2);
+  await expect(selectors.nth(0)).toHaveValue('solid');
+  await expect(selectors.nth(1)).toHaveValue('blur');
+  await page.getByTestId('redact-effect').selectOption('mosaic');
+  await expect(selectors.nth(0)).toHaveValue('solid');
+  await expect(selectors.nth(1)).toHaveValue('blur');
+  await selectors.nth(1).selectOption('mosaic');
+  await expect(selectors.nth(0)).toHaveValue('solid');
+  await expect(selectors.nth(1)).toHaveValue('mosaic');
+  await expect(page.getByTestId('redact-area-strength')).toHaveCount(1);
+});
+
+test('mosaic, blur and black pixel previews match actual PNG exports',async({page})=>{
+  await page.goto('/redact-image/'); await synthetic(page);
+  await draw(page);
+  await page.evaluate(()=>{
+    const original=URL.createObjectURL.bind(URL);
+    window.__actualExports=[];
+    URL.createObjectURL=(blob)=>{window.__actualExports.push(blob);return original(blob);};
+  });
+  for(const mode of ['solid','mosaic','blur']){
+    await page.getByTestId('redact-area-effect').selectOption(mode);
+    // This covers the center of the synthetic black-on-white caption.
+    // Preview canvas dimensions match source for this small test image.
+    await expect.poll(()=>page.locator('.redactor-preview-canvas').evaluate(c=>c.width)).toBe(960);
+    const request=page.waitForEvent('download');
+    await page.getByTestId('redact-download').click();await request;
+    const pixels=await page.evaluate(async()=>{
+      const blob=window.__actualExports.at(-1);
+      const bitmap=await createImageBitmap(blob);
+      const off=document.createElement('canvas');off.width=bitmap.width;off.height=bitmap.height;
+      off.getContext('2d').drawImage(bitmap,0,0);
+      const canvas=document.querySelector('.redactor-preview-canvas');
+      const imageData=off.getContext('2d').getImageData(250,135,1,1).data;
+      const previewData=canvas.getContext('2d').getImageData(250,135,1,1).data;
+      bitmap.close();
+      return {exported:Array.from(imageData),preview:Array.from(previewData)};
+    });
+    expect(pixels.preview.slice(0,3)).toEqual(pixels.exported.slice(0,3));
+    if(mode==='solid')expect(pixels.exported.slice(0,3)).toEqual([0,0,0]);
+  }
+});
+
+test('manual redaction supports file dropping and keeps OCR absent',async({page})=>{
+  await page.goto('/zh/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const bytes=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=160;c.height=100;
+    const blob=await new Promise(ok=>c.toBlob(ok,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.locator('.redactor-top').evaluate((element,bytes)=>{
+    const transfer=new DataTransfer();
+    transfer.items.add(new File([new Uint8Array(bytes)],'dropped.png',{type:'image/png'}));
+    element.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+  },bytes);
+  await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  await expect(page.getByTestId('redact-ocr')).toHaveCount(0);
 });
