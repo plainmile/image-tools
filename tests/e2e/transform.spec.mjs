@@ -61,15 +61,15 @@ test('crop exports only selected original pixels, without stretching or uploadin
   await expect(page.getByTestId('transform-dimensions')).toContainText('px');
   await page.locator('.transform-coordinates summary').click();
   await page.getByTestId('crop-width').fill('10');
-  await page.getByTestId('crop-height').fill('7');
+  await page.getByTestId('crop-height').fill('9');
   await page.getByTestId('crop-x').fill('0');
   await page.getByTestId('crop-y').fill('0');
-  await expect(page.getByTestId('transform-dimensions')).toContainText('10×7 px');
+  await expect(page.getByTestId('transform-dimensions')).toContainText('10×9 px');
   await page.getByTestId('transform-process').click();
   await expect(page.getByTestId('transform-download')).toBeVisible();
   const result=await downloadedPixels(page);
   expect(result.name).toBe('corners-cropped.png');
-  expect([result.w,result.h]).toEqual([10,7]);
+  expect([result.w,result.h]).toEqual([10,9]);
   expect(result.mime).toBe('image/png');
   expect(result.tl[1]).toBeGreaterThan(220); // green upper-left pattern
   expect(result.bl[0]).toBeGreaterThan(220); // red lower-left
