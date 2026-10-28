@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import Transform from '../../components/Transform.jsx';
+---
+<Base lang="zh" path="/zh/rotate-image/" title="在线旋转与翻转图片 — 90°、180°、镜像 | PlainMile" description="一键将 JPG、PNG、WebP 图片向左或向右旋转 90 度，支持水平镜像、垂直翻转，浏览器内实时预览和下载，无需上传图片。">
+  <section class="page-head">
+    <p class="breadcrumb"><a href="/zh/">图片工具</a> / 图片旋转与翻转</p>
+    <h1>旋转图片、水平或垂直翻转</h1>
+    <p class="lead">侧着的照片一键转正，也可以把截图做镜像。点击旋转或翻转，预览正确后直接下载。</p>
+  </section>
+  <Transform client:load lang="zh" tool="rotate"/>
+  <section class="reference" aria-label="图片旋转帮助">
+    <h2>常见方向问题，直接点击修正</h2>
+    <p>支持 JPG、PNG、WebP。点击“向左旋转 90°”或“向右旋转 90°”，连续操作两次就是旋转 180°；水平和垂直翻转可以与旋转组合。预览使用与最终下载一致的像素变换，不会上传文件。</p>
+    <p>将 1200 × 800 像素的图片旋转 90° 后，输出为 800 × 1200 像素；镜像翻转则不交换宽高。工具会重新编码导出文件，不覆盖原图，也不会保留原始 EXIF 元数据。</p>
+    <h2>使用步骤</h2>
+    <ol><li>选择一张图片。</li><li>点击旋转或翻转按钮，确认预览方向正确。</li><li>点击处理并下载保存新图片。</li></ol>
+    <h2>常见问题</h2>
+    <div class="qa"><h3>怎样把倒置照片旋转 180 度？</h3><p>连续点击向左或向右旋转两次，预览会显示最终方向。</p></div>
+    <div class="qa"><h3>旋转后图片宽高会变化吗？</h3><p>旋转 90° 或 270° 会交换宽高；旋转 180° 或镜像翻转不改变宽高。重新编码 JPG/WebP 时文件大小和画质可能有所变化。</p></div>
+    <div class="qa"><h3>PNG 图片的透明背景如何保留？</h3><p>选择“保持原格式”或 PNG、WebP 输出。JPG 不支持透明像素，会替换为白色。</p></div>
+    <h2>相关工具</h2>
+    <ul class="related-links"><li><a href="/zh/crop-image/">裁剪图片</a></li><li><a href="/zh/resize-image/">修改图片尺寸</a></li><li><a href="/zh/convert-image/">转换图片格式</a></li></ul>
+    <p class="editor-disclosure">图片只在当前浏览器处理。详见<a href="/zh/privacy/">隐私说明</a>。</p>
+  </section>
+</Base>
