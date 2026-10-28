@@ -10,6 +10,8 @@ async function uploadSynthetic(page, count=1){
     return Array.from(new Uint8Array(await blob.arrayBuffer()));
   });
   await page.getByTestId('upload').setInputFiles(Array.from({length:count},(_,i)=>({name:'sample-'+i+'.png',mimeType:'image/png',buffer:Buffer.from(png)})));
+  // Wait until decoding finishes and source dimensions have populated the form.
+  if(count<=30) await expect(page.locator('.file-summary')).toContainText('sample-0.png');
 }
 test('English and Chinese pages contain valid static SEO metadata',async({page})=>{
   for(const route of ['/','/zh/','/resize-image/','/zh/resize-image/','/compress-image-to-size/','/zh/compress-image-to-size/','/signature-resizer/','/zh/signature-resizer/','/bulk-image-resizer/','/zh/bulk-image-resizer/','/passport-photo-print/','/zh/passport-photo-print/','/redact-image/','/zh/redact-image/','/privacy/','/zh/privacy/']){
@@ -230,6 +232,7 @@ test('portrait landscape and square outputs have no automatic white margins',asy
       return Array.from(new Uint8Array(await blob.arrayBuffer()));
     },{width,height});
     await page.getByTestId('upload').setInputFiles({name:'test.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
+    await expect(page.locator('.file-summary')).toContainText(width+'×'+height);
     await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
     await expect(page.getByTestId('expected-dimensions')).toContainText(expected.join('×'));
     await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
