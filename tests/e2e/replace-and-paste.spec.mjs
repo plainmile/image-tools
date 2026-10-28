@@ -15,9 +15,11 @@ async function makePng(page) {
 const bad={name:'broken.png',mimeType:'image/png',buffer:Buffer.from([1,2,3,4,5])};
 async function pasteScreenshot(page,bytes,selector) {
   return await page.evaluate(({bytes,selector})=>{
-    const dt=new DataTransfer();
-    dt.items.add(new File([Uint8Array.from(bytes)],'pasted-screenshot.png',{type:'image/png'}));
-    const event=new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true});
+    const file=new File([Uint8Array.from(bytes)],'pasted-screenshot.png',{type:'image/png'});
+    // Firefox does not reliably expose clipboardData on synthetic ClipboardEvent.
+    // Provide a clipboard-like payload to test the event handling logic consistently.
+    const event=new Event('paste',{bubbles:true,cancelable:true});
+    Object.defineProperty(event,'clipboardData',{value:{files:[file],items:[]}});
     (selector?document.querySelector(selector):document.body).dispatchEvent(event);
     return event.defaultPrevented;
   },{bytes:Array.from(bytes),selector});
