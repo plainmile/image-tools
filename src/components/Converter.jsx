@@ -210,7 +210,7 @@ export default function Converter({lang='en'}) {
         </div>
         {result?.url&&<div className="result">
           <strong>{t.output}</strong>
-          <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)}</p>
+          <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)} · {result.blob.size} {lang==='zh'?'字节':'bytes'}</p>
           {result.failed.length>0&&<details open className="batch-errors" data-testid="convert-failed-output">
             <summary>{t.failed} ({result.failed.length})</summary>
             <ul>{result.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
