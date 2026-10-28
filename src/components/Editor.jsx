@@ -173,7 +173,7 @@ export default function Editor({lang='en',tool='resize'}) {
             <strong>{t.upload}</strong>
             <input aria-label={t.upload} data-testid="upload" type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-              disabled={busy||inspecting} multiple={batch} onChange={pick}/>
+              disabled={!ready||busy||inspecting} multiple={batch} onChange={pick}/>
             <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}. {t.drop}</span>
           </label>
           {!!files.length&&<div className="file-summary">
