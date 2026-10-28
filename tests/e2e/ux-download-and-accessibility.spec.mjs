@@ -42,12 +42,15 @@ test('redaction exposes a repeatable download link and invalidates it after chan
   await page.goto('/redact-image/');
   await expect(page.locator('[data-redactor-ready=true]')).toBeVisible();
   await page.getByTestId('redact-upload').setInputFiles(await sample(page));
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
   const overlay=page.getByTestId('redact-overlay');
+  await expect(overlay).toBeVisible();
+  await overlay.scrollIntoViewIfNeeded();
   const box=await overlay.boundingBox();
   expect(box).toBeTruthy();
   await page.mouse.move(box.x+box.width*.1,box.y+box.height*.1);
   await page.mouse.down();
-  await page.mouse.move(box.x+box.width*.55,box.y+box.height*.55);
+  await page.mouse.move(box.x+box.width*.55,box.y+box.height*.55,{steps:8});
   await page.mouse.up();
   await expect(page.getByTestId('redact-mark')).toHaveCount(1);
   const first=page.waitForEvent('download');
