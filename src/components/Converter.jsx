@@ -132,7 +132,7 @@ export default function Converter({lang='en'}) {
       let totalPixels=0,totalBytes=0;
       const succeeded=[],failed=[];
       for(const [index,item] of files.entries()){
-        if(cancelled.current){setStatus(t.cancelled);return;}
+        if(cancelled.current){setStatus(t.cancelled+(result?.url?t.kept:''));return;}
         try{
           const area=item.width*item.height;
           if(totalPixels+area>MAX_BATCH_OUTPUT_PIXELS)
@@ -149,7 +149,7 @@ export default function Converter({lang='en'}) {
         }
         setProcessed(index+1);
       }
-      if(cancelled.current){setStatus(t.cancelled);return;}
+      if(cancelled.current){setStatus(t.cancelled+(result?.url?t.kept:''));return;}
       if(!succeeded.length){
         setFailedAttempt(failed);
         setStatus(t.noOutput+' '+t.check+(result?.url?t.kept:''));return;
