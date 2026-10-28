@@ -96,6 +96,10 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .batch-errors li { display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; padding: 4px 0; overflow-wrap: anywhere; border-top: 1px solid var(--line); }
 .batch-errors li span:first-child { font-weight: 500; }
 .batch-errors li span:last-child { color: var(--muted); }
+.batch-progress { margin: 14px 0 4px; display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.batch-progress progress { width: 100%; height: 10px; accent-color: var(--accent); }
+.batch-progress small { font-size: 12px; }
+
 
 .editor-footer { border-top: 1px solid var(--line); padding: 8px 24px; color: var(--muted); display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 7px 20px; font-size: 12px; }
 .editor-footer p { margin: 0; }
