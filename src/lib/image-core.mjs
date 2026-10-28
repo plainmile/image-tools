@@ -75,6 +75,13 @@ export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, m
   if (![sourceWidth, sourceHeight, outputWidth, outputHeight].every((v) => Number.isFinite(v) && v > 0)) {
     throw new Error('Invalid image dimensions.');
   }
+  // The proportional mode has already computed final integer dimensions.
+  // Draw edge-to-edge, instead of re-fitting into the rounded canvas and
+  // accidentally creating tiny fractional padding at the top or sides.
+  if (mode === 'within') {
+    return { sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight,
+      dx: 0, dy: 0, dw: outputWidth, dh: outputHeight };
+  }
   if (mode === 'cover') {
     const scale = Math.max(outputWidth / sourceWidth, outputHeight / sourceHeight) * clamp(zoom, 1, 3);
     const sw = outputWidth / scale;
@@ -223,7 +230,7 @@ export async function processImage(file, options = {}) {
   const image = await readImage(file);
   if (options.mode === 'within') ({ width, height } = fitWithin(image.naturalWidth, image.naturalHeight, width, height));
   for (let attempt = 0; attempt < (options.allowDownscale ? 15 : 1); attempt += 1) {
-    const canvas = makeCanvas(image, { ...options, mode: options.mode === 'within' ? 'contain' : options.mode, format }, width, height);
+    const canvas = makeCanvas(image, { ...options, format }, width, height);
     const result = await encodeWithTarget(canvas, format, targetBytes, preferredQuality);
     canvas.width = 0;
     canvas.height = 0;
