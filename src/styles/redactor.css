@@ -67,4 +67,4 @@
 .redactor-control input[type=range]{max-width:100%;accent-color:var(--accent);}
 
 /* Clearing a batch is a separate explicit action; adding images never discards masks. */
-.redactor-top [data-testid=redact-clear-images]{margin-left:auto;min-height:34px;white-space:nowrap;}
+.redactor-actions [data-testid=redact-clear-images]{white-space:nowrap;}

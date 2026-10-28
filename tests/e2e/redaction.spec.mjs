@@ -14,9 +14,15 @@ async function synthetic(page,count=1){
     name:'capture-'+i+'.png',mimeType:'image/png',buffer:Buffer.from(bytes),
   })));
   await expect(page.getByTestId('redact-overlay')).toBeVisible();
+  // The image gallery can render before asynchronous decoding has released the busy state.
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
   return bytes;
 }
 async function draw(page,from=[.2,.25],to=[.65,.65]){
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  // Playwright mouse coordinates are viewport based; ensure the entire image is in view
+  // before dragging, including on short Firefox/WebKit headless viewports.
+  await page.getByTestId('redact-overlay').scrollIntoViewIfNeeded();
   const box=await page.getByTestId('redact-overlay').boundingBox();
   await page.mouse.move(box.x+box.width*from[0],box.y+box.height*from[1]);
   await page.mouse.down();
