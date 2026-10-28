@@ -356,7 +356,7 @@ test('compression warns about JPEG transparency loss and PNG lossless KB limitat
   await expect(page.getByTestId('alpha-warning')).toBeVisible();
   await page.getByTestId('format').selectOption('original');
   await expect(page.getByTestId('png-size-warning')).toBeVisible();
-  await expect(page.getByLabel('Quality: 90%').locator('input')).toBeDisabled();
+  await expect(page.locator('.field-grid input[type="range"]').first()).toBeDisabled();
 });
 test('choosing the same image after output resets the stale download',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
