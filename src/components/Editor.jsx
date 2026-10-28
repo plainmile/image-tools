@@ -170,7 +170,8 @@ export default function Editor({lang='en',tool='resize'}) {
   async function run(e){
     e.preventDefault();if(!files.length||busy||inspecting)return;
     cancelRequested.current=false;
-    setBusy(true);setOutput(null);setStatus(t.working);
+    // Retain the previous usable download until this reprocessing attempt succeeds.
+    setBusy(true);setStatus(t.working);
     if(batch){setProgress(0);setPhase('processing');}
     try{
       const options={width:Number(width),height:Number(height),mode,format,targetKb:Number(target),
@@ -201,7 +202,7 @@ export default function Editor({lang='en',tool='resize'}) {
       }
       const url=URL.createObjectURL(blob);
       setOutput({url,blob,name,results,failed});setStatus(failed.length?t.done+' '+t.someSkipped:t.done);
-    }catch(err){setStatus(err.message||t.error);}
+    }catch(err){setStatus((err.message||t.error)+(output?.url?t.kept:''));}
     finally{setBusy(false);setPhase('');}
   }
   const sourceFormats=files.map(item=>inputImageFormat(item.file));
