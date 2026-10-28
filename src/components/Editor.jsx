@@ -265,7 +265,7 @@ export default function Editor({lang='en',tool='resize'}) {
           {batch&&<details className="batch-export-details" data-testid="batch-export-details">
             <summary>{t.batchItems} ({output.results.length})</summary>
             <ul>{output.results.map((r,i)=><li key={i}><span>{r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span></li>)}</ul>
-          </details>
+          </details>}
           <a data-testid="download" className="download" href={output.url} download={output.name}>{batch?t.zipDownload:t.download} · {formatBytes(output.blob.size)}</a>
         </div>}
       </aside>
