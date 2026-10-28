@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, drawRect, validateFile, inputImageFormat, sanitizeStem,
-  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES
+  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -97,4 +97,32 @@ test('ZIP output budget protects the browser from unbounded in-memory archives',
   assert.throws(() => addBatchOutputBytes(MAX_BATCH_OUTPUT_BYTES - 7, 8), /128 MB/);
   assert.throws(() => addBatchOutputBytes(-1, 1), /Invalid exported byte/);
   assert.throws(() => addBatchOutputBytes(0, Number.NaN), /Invalid exported byte/);
+});
+
+test('animated APNG is detected before the first IDAT chunk, still PNG is accepted', async () => {
+  const sig=Uint8Array.from([137,80,78,71,13,10,26,10]);
+  const chunk=(type,payload=[])=>Uint8Array.from([
+    0,0,0,payload.length,...[...type].map(c=>c.charCodeAt(0)),...payload,0,0,0,0
+  ]);
+  const asFile=(bytes,name='example.png',type='image/png')=>{
+    const blob=new Blob([bytes]);return {name,type,size:blob.size,slice:(...args)=>blob.slice(...args)};
+  };
+  const idat=chunk('IDAT');
+  const still=asFile(new Uint8Array([...sig,...chunk('IHDR',Array(13).fill(0)),...idat]));
+  const animated=asFile(new Uint8Array([...sig,...chunk('IHDR',Array(13).fill(0)),...chunk('acTL',Array(8).fill(0)),...idat]));
+  assert.equal(await isAnimatedImage(still),false);
+  assert.equal(await isAnimatedImage(animated),true);
+});
+
+test('WebP VP8X animation flag is recognized; ordinary still WebP is accepted', async () => {
+  const fakeWebp=(flag)=>{
+    const bytes=Uint8Array.from([
+      82,73,70,70,28,0,0,0,87,69,66,80,86,80,56,88,10,0,0,0,flag
+    ]);
+    const blob=new Blob([bytes]);
+    return {name:'test.webp',type:'image/webp',size:blob.size,slice:(...args)=>blob.slice(...args)};
+  };
+  assert.equal(await isAnimatedImage(fakeWebp(0)),false);
+  assert.equal(await isAnimatedImage(fakeWebp(2)),true);
+  assert.equal(await isAnimatedImage(fakeWebp(0x12)),true);
 });
