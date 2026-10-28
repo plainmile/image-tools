@@ -8,7 +8,7 @@ import json
 DIST = Path("dist")
 ORIGIN = "https://image.plainmile.com"
 TOOLS = [
-    "resize-image", "compress-image-to-size", "signature-resizer",
+    "resize-image", "convert-image", "compress-image-to-size", "signature-resizer",
     "bulk-image-resizer", "passport-photo-print", "redact-image",
 ]
 ROUTES = ["/", "/privacy/"] + [f"/{x}/" for x in TOOLS]
