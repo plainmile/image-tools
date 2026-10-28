@@ -10,8 +10,8 @@ Image processing and manual redaction run entirely in your browser. There is no 
 
 - Resize proportionally without padding, borders or cropping by default (fit within maximum dimensions, no upscaling); exact-size fit-with-padding and crop-to-fill remain explicit choices. By default, regular resize and bulk resize retain the original JPG, PNG or WebP format (including existing alpha). Explicit JPEG output converts transparency to white; this is disclosed in the editor.
 - Compress an image to a target KB (default JPG), optionally reducing pixel dimensions when needed. JPEG cannot retain PNG/WebP transparency, so the editor warns before export. PNG is lossless and may fail strict size targets. Verify the **actual** output bytes.
-- Resize signatures by pixel size and target KB (application requirements vary).
-- Batch resize locally and **always** download a ZIP, even when one file is selected. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; original formats are retained by default; exact-size Fit and crop-to-fill remain available.
+- Resize signatures by pixel size and an optional KB target (unlimited by default; application requirements vary).
+- Batch resize locally and **always** download a ZIP, even when one file is selected. Output files have individually reviewable dimensions and format information. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; original formats are retained by default; exact-size Fit and crop-to-fill remain available.
 - Redact images manually in-browser using solid black, real pixelation or blur with live preview, undo/redo and ZIP export.
 - Create a 4x6-inch 300-DPI JPEG print sheet with six 2x2-inch photos, by manually framing an existing photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
 - English/Chinese SEO pages and a non-indexed 404. UI can be used on mobile.
@@ -59,7 +59,7 @@ Images and filenames stay in the page session. ZIP files and outputs are generat
 ### Privacy-focused redaction notes
 
 - HTML responses set `Cache-Control: public, no-transform` to prevent Cloudflare automatic analytics script injection. Keep **Web Analytics automatic injection disabled** for `image.plainmile.com` in Cloudflare as defense in depth.
-- Manual covers have per-image Undo/Redo (up to 40 edits).
+- Manual covers have per-image Undo/Redo (up to 40 edits). Adding another batch of images keeps existing covers; the clear-all action asks for confirmation before destroying edits.
 - Black/white previews are fully opaque; exports are flattened into new image pixels. Blur and mosaic must not be used to hide secrets.
 - Batch redaction is capped at 96 megapixels total to bound browser memory use. A failed image selection must release temporary object URLs.
 
