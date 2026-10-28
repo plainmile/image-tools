@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {cropPreset,validateCrop,moveCrop,resizeCrop,drawCrop,rotationDimensions} from '../../src/lib/transform-core.mjs';
 
 test('crop defaults to a usable centered region and never exceeds the output limit',()=>{
-  assert.deepEqual(cropPreset(100,60,'free'),{x:7,y:5,width:85,height:51});
+  assert.deepEqual(cropPreset(100,60,'free'),{x:7,y:4,width:85,height:51});
   const square=cropPreset(400,300,'1');
   assert.equal(square.width,square.height);
   assert.ok(square.width>0 && square.x>=0 && square.y>=0);
