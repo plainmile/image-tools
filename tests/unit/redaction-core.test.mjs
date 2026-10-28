@@ -52,3 +52,11 @@ test('redaction ZIP budget is checked before JSZip allocation',()=>{
   assert.throws(()=>addRedactionOutputBytes(-1,1),/Invalid/);
   assert.throws(()=>addRedactionOutputBytes(1,Number.NaN),/Invalid/);
 });
+
+test('redaction accepts image filename fallback only when explicit MIME is absent',()=>{
+  assert.doesNotThrow(()=>validateRedactionFiles([{name:'screenshot.PNG',type:'',size:512}]));
+  assert.doesNotThrow(()=>validateRedactionFiles([{name:'photo.JpG',type:'application/octet-stream',size:2048}]));
+  assert.doesNotThrow(()=>validateRedactionFiles([{name:'unusual-name',type:'image/webp',size:512}]));
+  assert.throws(()=>validateRedactionFiles([{name:'renamed.png',type:'image/svg+xml',size:512}]),/JPEG/);
+  assert.throws(()=>validateRedactionFiles([{name:'animation.gif',type:'',size:512}]),/JPEG/);
+});
