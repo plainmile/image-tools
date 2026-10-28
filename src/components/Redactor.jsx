@@ -26,10 +26,12 @@ export default function Redactor({lang='en'}){
   const t=labels[lang];
   const [items,setItems]=useState([]),[activeId,setActiveId]=useState(null);
   const [tool,setTool]=useState('draw'),[effect,setEffect]=useState('solid'),[strength,setStrength]=useState(24);
-  const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[draft,setDraft]=useState(null);
+  const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[draft,setDraft]=useState(null),[lastDownload,setLastDownload]=useState(null);
   const canvasRef=useRef(null),dragRef=useRef(null),urls=useRef([]),sequence=useRef(0),selection=useRef(0),busyRef=useRef(false),itemsRef=useRef([]);
   const current=items.find(v=>v.id===activeId)||null,boxes=current?.masks||[];
   useEffect(()=>{itemsRef.current=items;},[items]);
+  useEffect(()=>()=>{if(lastDownload?.url)URL.revokeObjectURL(lastDownload.url);},[lastDownload]);
+  function discardDownload(){setLastDownload(null);}
   useEffect(()=>{
     setReady(true);
     function paste(event){
@@ -58,7 +60,7 @@ export default function Redactor({lang='en'}){
       const combined=[...existing,...next];
       urls.current.push(...next.map(v=>v.url));
       itemsRef.current=combined;
-      setItems(combined);setActiveId(next[0].id);setTool('draw');setMessage(t.added);
+      setItems(combined);setActiveId(next[0].id);setTool('draw');discardDownload();setMessage(t.added);
     }catch(error){next.forEach(v=>URL.revokeObjectURL(v.url));setMessage(redactError(error,lang));}
     finally{if(token===selection.current){busyRef.current=false;setBusy(false);}}
   }
@@ -68,10 +70,11 @@ export default function Redactor({lang='en'}){
     selection.current++;
     urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=[];
     itemsRef.current=[];dragRef.current=null;
-    setItems([]);setActiveId(null);setDraft(null);setMessage('');
+    setItems([]);setActiveId(null);setDraft(null);discardDownload();setMessage('');
   }
   function modify(fn){
     if(!current||busy)return;
+    discardDownload();
     setItems(prev=>prev.map(v=>{
       if(v.id!==current.id)return v;
       const next=fn(v.masks);
@@ -81,10 +84,12 @@ export default function Redactor({lang='en'}){
   }
   function undo(){
     if(!current?.undo.length||busy)return;
+    discardDownload();
     setItems(a=>a.map(v=>v.id!==activeId?v:{...v,masks:v.undo.at(-1),undo:v.undo.slice(0,-1),redo:[...v.redo.slice(-39),v.masks]}));
   }
   function redo(){
     if(!current?.redo.length||busy)return;
+    discardDownload();
     setItems(a=>a.map(v=>v.id!==activeId?v:{...v,masks:v.redo.at(-1),redo:v.redo.slice(0,-1),undo:[...v.undo.slice(-39),v.masks]}));
   }
   function position(e){
@@ -138,17 +143,21 @@ export default function Redactor({lang='en'}){
           zip.file('redacted-'+String(i+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),out.blob);
         }
         const blob=await zip.generateAsync({type:'blob'});
-        save(blob,'plainmile-redacted-images.zip');setMessage(t.ready+' · ZIP · '+formatBytes(blob.size));
+        save(blob,'plainmile-redacted-images.zip');
+        setLastDownload({url:URL.createObjectURL(blob),name:'plainmile-redacted-images.zip',bytes:blob.size,sourceBytes:list.reduce((sum,item)=>sum+item.file.size,0)});
+        setMessage(t.ready+' · ZIP · '+formatBytes(blob.size));
       }else{
         const out=await flattenRedactedImage(current.file,current.masks,effect,format,strength);
-        save(out.blob,out.filename);setMessage(t.ready+' · '+current.width+'×'+current.height+' · '+formatBytes(out.blob.size));
+        save(out.blob,out.filename);
+        setLastDownload({url:URL.createObjectURL(out.blob),name:out.filename,bytes:out.blob.size,sourceBytes:current.file.size});
+        setMessage(t.ready+' · '+current.width+'×'+current.height+' · '+formatBytes(out.blob.size));
       }
     }catch(e){setMessage(e.message);}finally{busyRef.current=false;setBusy(false);}
   }
   return <section className="redactor" data-redactor-ready={String(ready)}>
     <div className="redactor-top" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void choose(Array.from(e.dataTransfer?.files||[]));}}><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={!ready||busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit} · {t.drop}</span></div>
     {items.length>0&&<>
-      <div className="redactor-gallery" aria-label={t.images}>{items.map(v=><button className={'redactor-file '+(v.id===activeId?'chosen':'')} key={v.id} type="button" disabled={busy} onClick={()=>{setActiveId(v.id);setDraft(null);}}><span>{v.file.name}</span><small>{v.width}×{v.height} · {v.masks.length} {lang==='zh'?'处':'boxes'}</small></button>)}</div>
+      <div className="redactor-gallery" aria-label={t.images}>{items.map(v=><button className={'redactor-file '+(v.id===activeId?'chosen':'')} key={v.id} type="button" disabled={busy} onClick={()=>{setActiveId(v.id);setDraft(null);discardDownload();}}><span>{v.file.name}</span><small>{v.width}×{v.height} · {v.masks.length} {lang==='zh'?'处':'boxes'}</small></button>)}</div>
       <div className="redactor-tools">
         <div className="redactor-main">
           <div className="redactor-actions">
@@ -191,13 +200,17 @@ export default function Redactor({lang='en'}){
               </label>}
             </div>)}</div>
           </div>
-          <div className="redactor-control"><label htmlFor="redact-format">{t.format}</label><select id="redact-format" value={format} onChange={e=>setFormat(e.target.value)} disabled={busy}><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select>
+          <div className="redactor-control"><label htmlFor="redact-format">{t.format}</label><select id="redact-format" value={format} onChange={e=>{setFormat(e.target.value);discardDownload();}} disabled={busy}><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select>
             <div className="redactor-actions"><button type="button" data-testid="redact-download" disabled={busy||!current?.masks.length} onClick={()=>void download(false)}>{t.download}</button>{items.length>1&&<button type="button" data-testid="redact-download-all" disabled={busy} onClick={()=>void download(true)}>{t.zip}</button>}</div>
           </div>
         </aside>
       </div>
     </>}
     {!items.length&&<p className="redactor-empty">{t.first}</p>}
+    {lastDownload&&<div className="redactor-saved-result" data-testid="redact-saved-result">
+      <span>{lang==='zh'?'原文件':'Original'}: {formatBytes(lastDownload.sourceBytes)} · {lang==='zh'?'结果':'Output'}: {formatBytes(lastDownload.bytes)}</span>
+      <a className="download" data-testid="redact-download-again" href={lastDownload.url} download={lastDownload.name}>{lang==='zh'?'再次下载':'Download again'}</a>
+    </div>}
     <div className="redactor-status"><p role="status" data-testid="redact-status">{message||t.first}</p><p>{t.local}</p></div>
   </section>;
 }
