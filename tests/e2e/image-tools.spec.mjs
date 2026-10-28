@@ -224,6 +224,7 @@ test('proportional resize without borders is default for English and Chinese and
 });
 test('portrait landscape and square outputs have no automatic white margins',async({page})=>{
   await page.goto('/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   for(const [width,height,expected] of [[240,120,[64,32]],[120,240,[32,64]],[200,200,[64,64]]]){
     const bytes=await page.evaluate(async({width,height})=>{
       const c=document.createElement('canvas');c.width=width;c.height=height;
@@ -231,7 +232,7 @@ test('portrait landscape and square outputs have no automatic white margins',asy
       const blob=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
       return Array.from(new Uint8Array(await blob.arrayBuffer()));
     },{width,height});
-    await page.getByTestId('upload').setInputFiles({name:'test.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
+    await page.getByTestId('upload').setInputFiles({name:'shape-'+width+'x'+height+'.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
     await expect(page.locator('.file-summary')).toContainText(width+'×'+height);
     await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
     await expect(page.getByTestId('expected-dimensions')).toContainText(expected.join('×'));
