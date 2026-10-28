@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   REDACT_MAX_FILES, REDACT_MAX_BYTES, validateRedactionFiles,
-  verifyImageSize, validateRedactionPixels, REDACT_MAX_BATCH_PIXELS, clampBox, boxBetween, decodeBitmap,
+  verifyImageSize, validateRedactionPixels, REDACT_MAX_BATCH_PIXELS, REDACT_MAX_ZIP_BYTES, addRedactionOutputBytes, clampBox, boxBetween, decodeBitmap,
 } from '../../src/lib/redaction-core.mjs';
 
 test('validate input limits and unsupported types', () => {
@@ -42,4 +42,13 @@ test('animated image redaction rejects before decoding any still frame',async()=
     'animation.png','image/png');
   await assert.rejects(decodeBitmap(webp),/Animated PNG\/WebP/);
   await assert.rejects(decodeBitmap(apng),/Animated PNG\/WebP/);
+});
+
+test('redaction ZIP budget is checked before JSZip allocation',()=>{
+  assert.equal(REDACT_MAX_ZIP_BYTES,128*1024*1024);
+  assert.equal(addRedactionOutputBytes(20,30),50);
+  assert.equal(addRedactionOutputBytes(REDACT_MAX_ZIP_BYTES-1,1),REDACT_MAX_ZIP_BYTES);
+  assert.throws(()=>addRedactionOutputBytes(REDACT_MAX_ZIP_BYTES-1,2),/128 MB/);
+  assert.throws(()=>addRedactionOutputBytes(-1,1),/Invalid/);
+  assert.throws(()=>addRedactionOutputBytes(1,Number.NaN),/Invalid/);
 });
