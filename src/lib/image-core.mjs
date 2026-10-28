@@ -239,7 +239,10 @@ export async function processImage(file, options = {}) {
   const preferredQuality = clamp(Number(options.quality ?? 0.9), 0.05, 0.95);
   const image = await readImage(file);
   if (options.mode === 'within') ({ width, height } = fitWithin(image.naturalWidth, image.naturalHeight, width, height));
-  for (let attempt = 0; attempt < (options.allowDownscale ? 15 : 1); attempt += 1) {
+  // Exact-size modes must never shrink the canvas to meet a KB target.
+  // Only proportional mode is allowed to reduce output dimensions.
+  const canDownscale = options.mode === 'within' && options.allowDownscale;
+  for (let attempt = 0; attempt < (canDownscale ? 15 : 1); attempt += 1) {
     const canvas = makeCanvas(image, { ...options, format }, width, height);
     const result = await encodeWithTarget(canvas, format, targetBytes, preferredQuality);
     canvas.width = 0;
