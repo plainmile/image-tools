@@ -1,9 +1,19 @@
-import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, isAnimatedImage } from './image-core.mjs';
+import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage } from './image-core.mjs';
 
 export const REDACT_MAX_FILES = 12;
 export const REDACT_MAX_BYTES = 100 * 1024 * 1024;
 export const REDACT_MAX_PIXELS = 32_000_000;
 export const REDACT_MAX_BATCH_PIXELS = 96_000_000;
+export const REDACT_MAX_ZIP_BYTES = MAX_BATCH_OUTPUT_BYTES;
+
+// Bound uncompressed redacted image data before JSZip copies it into a ZIP.
+export function addRedactionOutputBytes(total, next) {
+  if (![total,next].every(value => Number.isSafeInteger(value) && value >= 0))
+    throw new Error('Invalid redaction output size.');
+  if (total + next > REDACT_MAX_ZIP_BYTES)
+    throw new Error('Redacted output exceeds 128 MB. Export fewer images at once or choose JPG/WebP.');
+  return total + next;
+}
 
 const MIN_BOX = 2;
 export function validateRedactionFiles(files) {
@@ -128,15 +138,19 @@ export async function flattenRedactedImage(file, masks, effect='solid', format='
   const bitmap = await decodeBitmap(file);
   try {
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width; canvas.height = bitmap.height;
-    const ctx = canvas.getContext('2d', { alpha: format !== 'jpeg' });
-    if (!ctx) throw new Error('Canvas unavailable.');
-    if (format === 'jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-    ctx.drawImage(bitmap, 0, 0);
-    paintRedactions(ctx, bitmap, masks, effect, strength);
-    const blob = await canvasBlob(canvas, 'image/' + format, 0.94);
-    canvas.width = 0; canvas.height = 0;
-    return { blob, filename: 'redacted-image.' + (format === 'jpeg' ? 'jpg' : format) };
+    try {
+      canvas.width = bitmap.width; canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d', { alpha: format !== 'jpeg' });
+      if (!ctx) throw new Error('Canvas unavailable.');
+      if (format === 'jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      ctx.drawImage(bitmap, 0, 0);
+      paintRedactions(ctx, bitmap, masks, effect, strength);
+      const blob = await canvasBlob(canvas, 'image/' + format, 0.94);
+      return { blob, filename: 'redacted-image.' + (format === 'jpeg' ? 'jpg' : format) };
+    } finally {
+      // Release full-resolution canvas storage on encoding failure as well.
+      canvas.width = 0; canvas.height = 0;
+    }
   } finally {
     bitmap.close();
   }
