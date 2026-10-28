@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {inspectImage,inputImageFormat,exportFilename,formatBytes} from '../lib/image-core.mjs';
+import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import {
   cropPreset,validateCrop,moveCrop,resizeCrop,drawCrop,
   rotationDimensions,drawRotation,exportTransform
@@ -28,6 +29,7 @@ const copy = {
     dimensions:'Output dimensions',local:'Images stay in this browser; nothing is uploaded.',
     metadata:'New exports do not retain EXIF or other original metadata.',
     pixelCap:'Output exceeds the browser canvas limit. Crop a smaller area, or resize the image first.',
+    paste:'Or paste a screenshot (Ctrl+V / ⌘V).',kept:' Your previous image and download are still available.',
   },
   zh:{
     choose:'选择图片',hint:'支持 JPG、PNG、WebP · 单张最多 40 MB',
@@ -51,6 +53,7 @@ const copy = {
     dimensions:'输出像素',local:'图片只在当前浏览器本地处理，不会上传。',
     metadata:'重新导出的文件不保留原始 EXIF 等元数据。',
     pixelCap:'输出像素超过浏览器限制。请缩小裁剪范围，或先调整原图尺寸。',
+    paste:'也可以粘贴截图（Ctrl+V / ⌘V）。',kept:' 已保留之前的图片和下载结果。',
   }
 };
 
@@ -73,45 +76,58 @@ export default function Transform({lang='en',tool='crop'}) {
   const [selected,setSelected]=useState(null),[source,setSource]=useState(null);
   const [status,setStatus]=useState(''),[result,setResult]=useState(null);
   const [aspect,setAspect]=useState('free'),[crop,setCrop]=useState(null);
+  const [coordDraft,setCoordDraft]=useState({});
   const [degrees,setDegrees]=useState(0),[flipH,setFlipH]=useState(false),[flipV,setFlipV]=useState(false);
   const [format,setFormat]=useState('original'),[quality,setQuality]=useState(90);
   const request=useRef(0),stage=useRef(null),drag=useRef(null),previewCanvas=useRef(null);
   useEffect(()=>{setReady(true);return()=>{request.current+=1;};},[]);
   useEffect(()=>()=>{if(source)URL.revokeObjectURL(source);},[source]);
   useEffect(()=>()=>{if(result?.url)URL.revokeObjectURL(result.url);},[result]);
-  useEffect(()=>{setResult(null);},[crop,degrees,flipH,flipV,format,quality]);
+  useEffect(()=>{setResult(null);setStatus(prev=>prev===t.finished?t.selected:prev);},[crop,degrees,flipH,flipV,format,quality]);
 
   async function choose(items) {
-    if(busy||checking)return;
+    if(busy||checking||!items.length)return;
+    if(items.length!==1){setStatus(t.unsupported+(selected?t.kept:''));return;}
     const key=++request.current;
-    setSelected(null);setSource(null);setResult(null);setCrop(null);setStatus('');
-    setDegrees(0);setFlipH(false);setFlipV(false);setAspect('free');setFormat('original');
-    if(!items.length)return;
-    if(items.length!==1){setStatus(t.unsupported);return;}
     setChecking(true);setStatus(t.checking);
     try{
       const file=items[0];
       const dims=await inspectImage(file);
       if(key!==request.current)return;
+      // Only replace the current image and its download after successful validation.
       setSelected({file,...dims});
-      if(isCrop)setCrop(cropPreset(dims.width,dims.height,'free'));
-      setSource(URL.createObjectURL(file));
+      setCrop(isCrop?cropPreset(dims.width,dims.height,'free'):null);
+      setSource(URL.createObjectURL(file));setResult(null);setCoordDraft({});
+      setDegrees(0);setFlipH(false);setFlipV(false);setAspect('free');setFormat('original');
       setStatus(t.selected);
-    }catch(err){if(key===request.current)setStatus(errorMessage(err,lang));}
-    finally{if(key===request.current)setChecking(false);}
+    }catch(err){
+      if(key===request.current)setStatus(errorMessage(err,lang)+(selected?t.kept:''));
+    }finally{if(key===request.current)setChecking(false);}
   }
+  useEffect(()=>{
+    const handle=(event)=>{
+      if(busy||checking)return;
+      const images=clipboardImageFiles(event);
+      if(!images.length)return;
+      event.preventDefault();
+      void choose(images);
+    };
+    document.addEventListener('paste',handle);
+    return()=>document.removeEventListener('paste',handle);
+  },[busy,checking,selected,lang,isCrop]);
   function clear(){
     if(busy||checking)return;
-    ++request.current;setSelected(null);setCrop(null);setSource(null);setResult(null);
+    ++request.current;setSelected(null);setCrop(null);setCoordDraft({});setSource(null);setResult(null);
     setStatus('');setAspect('free');setDegrees(0);setFlipH(false);setFlipV(false);
     setFormat('original');setQuality(90);
   }
   function updateAspect(value){
-    setAspect(value);
+    setAspect(value);setCoordDraft({});
     if(selected)setCrop(cropPreset(selected.width,selected.height,value));
     setResult(null);
   }
   function coordinate(key,value){
+    setCoordDraft(previous=>({...previous,[key]:value}));
     if(!selected||!crop||value==='')return;
     const n=Number(value);if(!Number.isSafeInteger(n))return;
     const sw=selected.width,sh=selected.height;
@@ -134,6 +150,7 @@ export default function Transform({lang='en',tool='crop'}) {
     event.preventDefault();
     const action=event.target.closest('[data-crop-action]')?.dataset.cropAction||'draw';
     drag.current={action,start:pointerPoint(event),base:{...crop}};
+    setCoordDraft({});
     event.currentTarget.setPointerCapture(event.pointerId);
   }
   function pointerMove(event){
@@ -224,7 +241,7 @@ export default function Transform({lang='en',tool='crop'}) {
             <input data-testid="transform-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
               disabled={!ready||busy||checking}
               onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/>
-            <span>{t.hint}</span>
+            <span>{t.hint} · {t.paste}</span>
           </label>
           {selected&&<p className="file-summary" data-testid="transform-source">{selected.file.name} · {selected.width}×{selected.height} · {formatBytes(selected.file.size)}</p>}
         </div>
@@ -243,11 +260,12 @@ export default function Transform({lang='en',tool='crop'}) {
                 {['x','y','width','height'].map((key)=><label key={key}>
                   {t[{x:'x',y:'y',width:'w',height:'h'}[key]]}
                   <input data-testid={'crop-'+key} type="number" min={key==='x'||key==='y'?0:1} step="1"
-                    disabled={busy} value={crop?.[key]??''} onChange={e=>coordinate(key,e.target.value)}/>
+                    disabled={busy} value={coordDraft[key]??crop?.[key]??''} onChange={e=>coordinate(key,e.target.value)}
+                    onBlur={()=>setCoordDraft(previous=>{const next={...previous};delete next[key];return next;})}/>
                 </label>)}
               </div>
             </details>
-            <button className="secondary transform-reset" type="button" disabled={busy} onClick={()=>{setCrop(cropPreset(selected.width,selected.height,aspect));setResult(null);}}>{t.resetFrame}</button>
+            <button className="secondary transform-reset" type="button" disabled={busy} onClick={()=>{setCoordDraft({});setCrop(cropPreset(selected.width,selected.height,aspect));setResult(null);}}>{t.resetFrame}</button>
           </>:<>
             <div className="transform-buttons">
               <button className="secondary" type="button" data-testid="rotate-left" disabled={busy} onClick={()=>rotate(-90)}>{t.left}</button>
