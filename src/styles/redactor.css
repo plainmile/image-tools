@@ -65,3 +65,6 @@
 .redactor-top{border:1px dashed transparent;}
 .redactor-top:hover{border-color:var(--line);}
 .redactor-control input[type=range]{max-width:100%;accent-color:var(--accent);}
+
+/* Clearing a batch is a separate explicit action; adding images never discards masks. */
+.redactor-actions [data-testid=redact-clear-images]{white-space:nowrap;}

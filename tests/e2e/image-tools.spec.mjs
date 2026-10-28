@@ -181,7 +181,8 @@ test('batch maximum dimensions do not add padding or enlarge small images',async
   await page.getByTestId('width').fill('55');
   await page.getByTestId('height').fill('35');
   await page.getByTestId('process').click();
-  await expect(page.getByTestId('result-meta')).toContainText('53×35');
+  await expect(page.getByTestId('batch-export-details')).toContainText('53×35');
+  await expect(page.getByTestId('result-meta')).toContainText('2');
   await expect(page.getByTestId('download')).toBeVisible();
 });
 test('batch limit reports a clear error without processing',async({page})=>{
@@ -432,4 +433,35 @@ test('mobile initially shows simple resize inputs without specialist mode picker
   await expect(page.getByTestId('resize-mode-help')).toContainText('默认按比例缩放');
   const size=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:document.documentElement.clientWidth}));
   expect(size.scroll).toBeLessThanOrEqual(size.viewport+1);
+});
+
+test('simple resizing hides optional KB controls, while compression shows its KB target',async({page})=>{
+  await page.goto('/zh/resize-image/');await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.getByTestId('output-advanced')).toBeVisible();
+  await expect(page.getByTestId('target')).toBeHidden();
+  await expect(page.getByTestId('width')).toBeVisible();
+  await page.getByTestId('output-advanced').locator('summary').click();
+  await expect(page.getByTestId('target')).toBeVisible();
+  await page.goto('/zh/compress-image-to-size/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.getByTestId('target')).toBeVisible();
+  await expect(page.getByTestId('target')).toHaveValue('100');
+});
+test('signature resize has no unsolicited default file-size limit',async({page})=>{
+  await page.goto('/signature-resizer/');await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.getByTestId('target')).toHaveValue('0');
+  await uploadSynthetic(page);await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+});
+test('batch export has a short summary and a per-image dimensions list',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,3);
+  await page.getByTestId('width').fill('50');await page.getByTestId('height').fill('40');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toContainText('ZIP');
+  await expect(page.getByTestId('result-meta')).toContainText('3');
+  await expect(page.getByTestId('result-meta')).not.toContainText(' | ');
+  const details=page.getByTestId('batch-export-details');
+  await details.locator('summary').click();
+  await expect(details.locator('li')).toHaveCount(3);
+  await expect(details.locator('li').first()).toContainText('50×33');
 });

@@ -20,7 +20,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,14 +39,14 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
   const t=dict[lang],sheet=tool==='passport-photo-print',batch=tool==='bulk-image-resizer';
   const [files,setFiles]=useState([]),[width,setWidth]=useState(sheet?600:800),[height,setHeight]=useState(sheet?600:800);
   const [keep,setKeep]=useState(false),[mode,setMode]=useState(sheet?'cover':'within');
-  const [format,setFormat]=useState(tool==='compress-image-to-size'?'jpeg':'original'),[target,setTarget]=useState(tool==='compress-image-to-size'||tool==='signature-resizer'?100:0);
+  const [format,setFormat]=useState(tool==='compress-image-to-size'?'jpeg':'original'),[target,setTarget]=useState(tool==='compress-image-to-size'?100:0);
   const [quality,setQuality]=useState(90),[downscale,setDownscale]=useState(tool==='compress-image-to-size');
   const [zoom,setZoom]=useState(100),[cropX,setCropX]=useState(0),[cropY,setCropY]=useState(0);
   const [status,setStatus]=useState(''),[busy,setBusy]=useState(false),[output,setOutput]=useState(null);
@@ -175,6 +175,11 @@ export default function Editor({lang='en',tool='resize'}) {
         plannedDimensions={width:Number(width),height:Number(height)};
     }catch{/* Invalid dimensions are reported on processing. */}
   }
+  const sizeOptions=<>
+    <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} onChange={e=>setTarget(e.target.value)}/></label>
+    <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} disabled={losslessOutput||busy||inspecting} onChange={e=>setQuality(e.target.value)}/><small>{t.qualityNote}</small></label>
+    <label className="check"><input type="checkbox" checked={downscale} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>
+  </>;
   return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings} onPaste={paste}>
     <div className="editor-workspace">
       <form className="editor-controls" onSubmit={run}>
@@ -221,9 +226,11 @@ export default function Editor({lang='en',tool='resize'}) {
             </p>}
             {format==='jpeg'&&anyNonJpeg&&<p className="mode-explain wide" data-testid="alpha-warning">{t.formatWarning}</p>}
             {Number(target)>0&&losslessOutput&&<p className="mode-explain wide" data-testid="png-size-warning">{t.pngSizeWarning}</p>}
-            <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} onChange={e=>setTarget(e.target.value)}/></label>
-            <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} disabled={losslessOutput||busy||inspecting} onChange={e=>setQuality(e.target.value)}/><small>{t.qualityNote}</small></label>
-            <label className="check"><input type="checkbox" checked={downscale} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>
+            {tool==='compress-image-to-size'||tool==='signature-resizer'?sizeOptions:
+              <details className="output-advanced wide" data-testid="output-advanced">
+                <summary>{t.optionalSize}</summary>
+                <div className="output-advanced-grid">{sizeOptions}</div>
+              </details>}
           </div>
         </div>}
         {(sheet||mode==='cover')&&<div className="control-section">
@@ -252,7 +259,13 @@ export default function Editor({lang='en',tool='resize'}) {
          !!files.length&&!output&&<p className="preview-caption">{sheet?t.cropPreview:files[0].file.name+' · '+files[0].width+'×'+files[0].height}</p>}
         {output&&<div className="result">
           <strong>{t.done}</strong>
-          <p data-testid="result-meta">{output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
+          <p data-testid="result-meta">{batch?
+            output.results.length+' '+t.count+' · ZIP '+formatBytes(output.blob.size):
+            output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
+          {batch&&<details className="batch-export-details" data-testid="batch-export-details">
+            <summary>{t.batchItems} ({output.results.length})</summary>
+            <ul>{output.results.map((r,i)=><li key={i}><span>{r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span></li>)}</ul>
+          </details>}
           <a data-testid="download" className="download" href={output.url} download={output.name}>{batch?t.zipDownload:t.download} · {formatBytes(output.blob.size)}</a>
         </div>}
       </aside>
