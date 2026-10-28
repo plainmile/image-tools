@@ -9,7 +9,7 @@ const dict = {
     mode:'Resize method',within:'Keep proportions (recommended)',contain:'Keep whole image, add space',cover:'Crop edges to fit',format:'Format',originalFormat:'Same as original',
     target:'Maximum size (KB; 0 = no limit)',quality:'Quality',
     advancedResize:'Need exact width and height? More options',activeResize:'Current method',modeWithinHelp:'Default: keep the original proportions without cropping or borders. Width and height are maximums, not exact output dimensions.',modeContainHelp:'Keep everything and use the exact width and height you entered. Empty space may appear around the picture.',modeCoverHelp:'Fill the exact width and height you entered without empty borders. Some edges of the picture may be cut off.',
-    downscale:'Allow smaller dimensions if needed',
+    downscale:'Allow smaller dimensions if needed',exactSizeNotice:'Exact width and height will be preserved. If the KB limit cannot be met, processing stops instead of changing the dimensions.',
     run:'Convert',working:'Processing…',download:'Download file',
     done:'Ready to download',error:'Could not process image',
     files:'Files',settings:'Settings',preview:'Preview',original:'Original',
@@ -28,7 +28,7 @@ const dict = {
     mode:'缩放方式',within:'按比例缩放（推荐）',contain:'保留整张图，空白补齐',cover:'裁剪边缘，填满尺寸',format:'输出格式',originalFormat:'保持原始格式',
     target:'最大大小（KB；0 表示不限）',quality:'画质',
     advancedResize:'需要固定宽高？展开其他方式',activeResize:'当前方式',modeWithinHelp:'默认按比例缩放：不裁剪、不加白边，宽高是上限，实际尺寸可能更小。',modeContainHelp:'完整保留图片，并补齐到填写的宽高。四周可能出现空白（PNG 可能是透明的）。',modeCoverHelp:'裁成填写的宽高，不会有白边，但图片边缘可能被裁掉。',
-    downscale:'必要时允许减小像素',
+    downscale:'必要时允许减小像素',exactSizeNotice:'已选择固定宽高：即使设置了 KB 上限，也不会偷偷缩小图片。无法同时满足时会提示失败。',
     run:'开始处理',working:'正在处理…',download:'下载文件',
     done:'可以下载',error:'图片处理失败',
     files:'文件',settings:'参数设置',preview:'预览',original:'原图',
@@ -145,7 +145,7 @@ export default function Editor({lang='en',tool='resize'}) {
     setBusy(true);setOutput(null);setStatus(t.working);
     try{
       const options={width:Number(width),height:Number(height),mode,format,targetKb:Number(target),
-        quality:Number(quality)/100,allowDownscale:downscale,zoom:Number(zoom)/100,cropX:Number(cropX)/100,cropY:Number(cropY)/100};
+        quality:Number(quality)/100,allowDownscale:mode==='within'&&downscale,zoom:Number(zoom)/100,cropX:Number(cropX)/100,cropY:Number(cropY)/100};
       if(batch)validateBatchPixels(files,options.width,options.height,mode);
       const results=[];
       for(const item of files){
@@ -178,7 +178,7 @@ export default function Editor({lang='en',tool='resize'}) {
   const sizeOptions=<>
     <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} onChange={e=>setTarget(e.target.value)}/></label>
     <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} disabled={losslessOutput||busy||inspecting} onChange={e=>setQuality(e.target.value)}/><small>{t.qualityNote}</small></label>
-    <label className="check"><input type="checkbox" checked={downscale} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>
+    {mode==='within'?<label className="check"><input type="checkbox" checked={downscale} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>:<p className="resize-mode-help wide" data-testid="exact-size-note">{t.exactSizeNotice}</p>}
   </>;
   return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings} onPaste={paste}>
     <div className="editor-workspace">
