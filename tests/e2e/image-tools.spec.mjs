@@ -238,7 +238,7 @@ test('portrait landscape and square outputs have no automatic white margins',asy
       const bitmap=await createImageBitmap(blob);
       const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
       const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0);
-      const corners=[[1,1],[canvas.width-2,1],[1,canvas.height-2],[canvas.width-2,canvas.height-2]]
+      const corners=[[0,0],[canvas.width-1,0],[0,canvas.height-1],[canvas.width-1,canvas.height-1]]
         .map(([x,y])=>Array.from(ctx.getImageData(x,y,1,1).data));
       const dims=[bitmap.width,bitmap.height];bitmap.close();return {dims,corners};
     });
