@@ -1,5 +1,4 @@
 import React,{useEffect,useRef,useState} from 'react';
-import JSZip from 'jszip';
 import {validateRedactionFiles,validateRedactionPixels,decodeBitmap,boxBetween,paintRedactions,flattenRedactedImage,addRedactionOutputBytes} from '../lib/redaction-core.mjs';
 import {formatBytes} from '../lib/image-core.mjs';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
@@ -148,6 +147,7 @@ export default function Redactor({lang='en'}){
     busyRef.current=true;setBusy(true);
     try{
       if(all){
+        const {default: JSZip}=await import('jszip');
         const zip=new JSZip();
         let outputBytes=0;
         for(let i=0;i<list.length;i++){
