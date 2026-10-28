@@ -13,8 +13,20 @@ function redactError(error,lang){
   const message=String(error?.message||error||'Image could not be processed.');
   if(lang==='zh' && message.includes('Animated PNG/WebP'))
     return '暂不支持动画 PNG/WebP。只处理第一帧会遗漏其他动画帧，因此未导入图片。';
-  if(lang==='zh' && message.includes('Redacted output exceeds 128 MB'))
-    return '打码图片的累计导出大小超过 128 MB，请减少图片数量，或改选 JPG/WebP 后重试。';
+  if(lang==='zh'){
+    const translations=[
+      ['Redacted output exceeds 128 MB','打码图片的累计导出大小超过 128 MB，请减少图片数量，或改选 JPG/WebP 后重试。'],
+      ['Select at most 12 images','最多选择 12 张图片，请减少数量后重试。'],
+      ['Selected files exceed the 100 MB','已选图片总大小超过 100 MB，请分批处理。'],
+      ['Each image must be at most 40 MB','每张图片应小于或等于 40 MB，请选择较小的文件。'],
+      ['Only JPEG, PNG and WebP','仅支持 JPG、PNG 和 WebP 图片。'],
+      ['Image exceeds the 32-megapixel','单张图片超过 3200 万像素，请先缩小图片尺寸。'],
+      ['Selected images exceed the 96-megapixel','整批图片超过 9600 万像素，请减少图片数量。'],
+      ['Image encoding failed','图片编码失败，请尝试更换导出格式。'],
+    ];
+    const match=translations.find(([key])=>message.includes(key));
+    if(match)return match[1];
+  }
   return message;
 }
 function save(blob,name){
@@ -40,7 +52,8 @@ export default function Redactor({lang='en'}){
     return()=>{selection.current++;urls.current.forEach(url=>URL.revokeObjectURL(url));window.removeEventListener('paste',paste);};
   },[]);
   async function choose(files){
-    if(busyRef.current)return;
+    // Cancelling an OS file picker is not an error and must not disturb masks.
+    if(busyRef.current||!files.length)return;
     busyRef.current=true;
     const token=++selection.current,next=[];
     setBusy(true);setMessage('');
@@ -137,13 +150,15 @@ export default function Redactor({lang='en'}){
           outputBytes=addRedactionOutputBytes(outputBytes,out.blob.size);
           zip.file('redacted-'+String(i+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),out.blob);
         }
-        const blob=await zip.generateAsync({type:'blob'});
+        // JPEG, PNG and WebP output blobs are already encoded: deflating them
+        // again adds CPU work without meaningful savings on mobile devices.
+        const blob=await zip.generateAsync({type:'blob',compression:'STORE'});
         save(blob,'plainmile-redacted-images.zip');setMessage(t.ready+' · ZIP · '+formatBytes(blob.size));
       }else{
         const out=await flattenRedactedImage(current.file,current.masks,effect,format,strength);
         save(out.blob,out.filename);setMessage(t.ready+' · '+current.width+'×'+current.height+' · '+formatBytes(out.blob.size));
       }
-    }catch(e){setMessage(e.message);}finally{busyRef.current=false;setBusy(false);}
+    }catch(e){setMessage(redactError(e,lang));}finally{busyRef.current=false;setBusy(false);}
   }
   return <section className="redactor" data-redactor-ready={String(ready)}>
     <div className="redactor-top" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void choose(Array.from(e.dataTransfer?.files||[]));}}><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={!ready||busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit} · {t.drop}</span></div>
