@@ -98,9 +98,11 @@ test('batch export requires a mask on each image and packages a ZIP',async({page
   const zip=await page.evaluate(async()=>{
     const b=window.__zipExports.at(-1);
     const v=new Uint8Array(await b.arrayBuffer());
-    return {header:Array.from(v.slice(0,4)),bytes:v.length};
+    return {header:Array.from(v.slice(0,4)),bytes:v.length,compressionMethod:v[8]|(v[9]<<8)};
   });
   expect(zip.header).toEqual([80,75,3,4]);
+  // These image blobs were already compressed; ZIP must not deflate them again.
+  expect(zip.compressionMethod).toBe(0);
   expect(zip.bytes).toBeGreaterThan(200);
   // ZIP filenames are stored in cleartext: never leak source image filenames.
   const names=await page.evaluate(async()=>{
@@ -352,6 +354,43 @@ test('invalid and over-limit additions preserve existing redactions',async({page
   await expect(page.locator('.redactor-file')).toHaveCount(1);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
 });
+test('untyped screenshots, empty picker and Chinese errors preserve existing masks',async({page})=>{
+  await page.goto('/zh/redact-image/');
+  const bytes=await synthetic(page);
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+
+  // Some mobile file sources report an empty MIME even for a valid PNG.
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'mobile-screenshot.PNG',mimeType:'',buffer:Buffer.from(bytes)
+  });
+  await expect(page.locator('.redactor-file')).toHaveCount(2);
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  await expect(page.locator('.redactor-gallery')).toContainText('mobile-screenshot.PNG');
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  const before=await page.getByTestId('redact-status').innerText();
+
+  // Choosing Cancel must not clear any masks, downloads, or status.
+  await page.getByTestId('redact-upload').evaluate(input=>{
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(page.getByTestId('redact-status')).toHaveText(before);
+  await page.locator('.redactor-file').first().click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+
+  await page.getByTestId('redact-upload').setInputFiles(
+    Array.from({length:11},(_,i)=>({
+      name:'overflow-'+i+'.png',mimeType:'image/png',buffer:Buffer.from(bytes)
+    }))
+  );
+  await expect(page.getByTestId('redact-status')).toContainText('最多选择 12 张图片');
+  await expect(page.locator('.redactor-file')).toHaveCount(2);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+});
+
 test('animated WebP/APNG are rejected without losing already drawn privacy masks',async({page})=>{
   await page.goto('/redact-image/');
   await synthetic(page);
