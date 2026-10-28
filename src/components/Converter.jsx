@@ -1,5 +1,4 @@
 import {useEffect,useRef,useState} from 'react';
-import JSZip from 'jszip';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import {
   MAX_FILES, MAX_BATCH_BYTES, MAX_BATCH_OUTPUT_PIXELS,
@@ -159,6 +158,7 @@ export default function Converter({lang='en'}) {
         blob=succeeded[0].blob;name=succeeded[0].name;
       }else{
         setPhase('zip');setStatus(t.packaging);
+        const {default: JSZip}=await import('jszip');
         const zip=new JSZip();
         succeeded.forEach((item,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+item.name,item.blob));
         blob=await zip.generateAsync({type:'blob',compression:'STORE'});
