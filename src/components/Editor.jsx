@@ -185,14 +185,14 @@ export default function Editor({lang='en',tool='resize'}) {
         {!sheet&&<div className="control-section">
           <h2 className="panel-title">{t.settings}</h2>
           <div className="field-grid">
-            <label>{mode==='within'?(lang==='zh'?'最大宽度（像素）':'Max width (px)'):t.width}<input data-testid="width" type="number" min="1" max="10000" value={width} onChange={e=>changeWidth(e.target.value)}/></label>
-            <label>{mode==='within'?(lang==='zh'?'最大高度（像素）':'Max height (px)'):t.height}<input data-testid="height" type="number" min="1" max="10000" value={height} onChange={e=>changeHeight(e.target.value)}/></label>
-            {!batch&&mode!=='within'&&<label className="check wide"><input type="checkbox" checked={keep} onChange={e=>{
+            <label>{mode==='within'?(lang==='zh'?'最大宽度（像素）':'Max width (px)'):t.width}<input data-testid="width" type="number" min="1" max="10000" disabled={busy||inspecting} value={width} onChange={e=>changeWidth(e.target.value)}/></label>
+            <label>{mode==='within'?(lang==='zh'?'最大高度（像素）':'Max height (px)'):t.height}<input data-testid="height" type="number" min="1" max="10000" disabled={busy||inspecting} value={height} onChange={e=>changeHeight(e.target.value)}/></label>
+            {!batch&&mode!=='within'&&<label className="check wide"><input type="checkbox" checked={keep} disabled={busy||inspecting} onChange={e=>{
               setKeep(e.target.checked);
               if(e.target.checked&&files[0]&&Number(width)>0&&Number(width)<=MAX_AXIS)
                 setHeight(aspectDimension(files[0].width,files[0].height,width,'width'));
             }}/>{t.keep}</label>}
-            <label>{t.mode}<select value={mode} onChange={e=>{setMode(e.target.value);if(e.target.value==='within')setKeep(false);}}><option value="within">{t.within}</option><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
+            <label>{t.mode}<select value={mode} disabled={busy||inspecting} onChange={e=>{setMode(e.target.value);if(e.target.value==='within')setKeep(false);}}><option value="within">{t.within}</option><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
             <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
             {plannedDimensions&&<p className="mode-explain wide" data-testid="expected-dimensions">
               {t.estimate}: <strong>{plannedDimensions.width}×{plannedDimensions.height} px</strong>
