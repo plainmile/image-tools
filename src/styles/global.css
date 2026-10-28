@@ -90,6 +90,13 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .batch-plan ul { list-style: none; margin: 10px 0 0; padding: 0; max-height: 170px; overflow: auto; }
 .batch-plan li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; color: var(--muted); overflow-wrap: anywhere; }
 .batch-plan li span:last-child { white-space: nowrap; }
+.batch-errors { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; color: var(--text); font-size: 13px; }
+.batch-errors summary { cursor: pointer; font-weight: 600; }
+.batch-errors ul { list-style: none; padding: 0; margin: 8px 0 0; max-height: 180px; overflow-y: auto; }
+.batch-errors li { display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; padding: 4px 0; overflow-wrap: anywhere; border-top: 1px solid var(--line); }
+.batch-errors li span:first-child { font-weight: 500; }
+.batch-errors li span:last-child { color: var(--muted); }
+
 .editor-footer { border-top: 1px solid var(--line); padding: 8px 24px; color: var(--muted); display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 7px 20px; font-size: 12px; }
 .editor-footer p { margin: 0; }
 .notice { color: var(--muted); font-size: 13px; line-height: 1.5; border-left: 2px solid var(--line); padding-left: 12px; margin: 18px 0 0; }
