@@ -20,11 +20,18 @@ class Page(HTMLParser):
         super().__init__()
         self.tags, self.title, self.description, self.canonical = [], "", "", ""
         self.h1, self.hreflangs, self.robots, self.jsonld = 0, {}, "", []
+        self.opengraph, self.local_links = {}, []
         self._in_title, self._in_ld, self._ld_buffer = False, False, ""
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if tag == "title":
             self._in_title = True
+        if tag == "a":
+            href = attrs.get("href", "")
+            if href.startswith("/") and not href.startswith("//"):
+                self.local_links.append(urlparse(href).path)
+        if tag == "meta" and attrs.get("property", "").startswith("og:"):
+            self.opengraph[attrs["property"]] = attrs.get("content", "")
         if tag == "h1":
             self.h1 += 1
         if tag == "meta" and attrs.get("name") == "description":
@@ -61,6 +68,11 @@ for route in ROUTES:
     assert doc.description and len(doc.description) >= (18 if route.startswith('/zh/') else 30), (route, doc.description)
     assert doc.h1 == 1, f"expected one H1 for {route}: {doc.h1}"
     assert doc.canonical == ORIGIN + route, (route, doc.canonical)
+    assert doc.opengraph.get("og:title") == doc.title, (route, "OG title mismatch")
+    assert doc.opengraph.get("og:description") == doc.description, (route, "OG description mismatch")
+    assert doc.opengraph.get("og:url") == doc.canonical, (route, "OG URL mismatch")
+    for linked_path in doc.local_links:
+        assert linked_path in ROUTES, (route, f"broken local link: {linked_path}")
     counterpart = route[3:] if route.startswith("/zh/") else "/zh" + route
     english = counterpart if route.startswith("/zh/") else route
     chinese = route if route.startswith("/zh/") else counterpart
@@ -110,4 +122,4 @@ assert set(ORIGIN + route for route in ROUTES).issubset(listed), sorted(set(ORIG
 assert ORIGIN + "/404/" not in listed
 robots = (DIST / "robots.txt").read_text()
 assert "Sitemap: https://image.plainmile.com/sitemap-index.xml" in robots
-print(f"SEO PASS: {len(ROUTES)} routes, canonical/hreflang, unique titles, 404 noindex, sitemap entries")
+print(f"SEO PASS: {len(ROUTES)} routes, canonical/hreflang, social metadata, valid internal links, unique titles, 404 noindex, sitemap entries")
