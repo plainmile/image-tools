@@ -2,6 +2,8 @@ export const MAX_FILE_BYTES = 40 * 1024 * 1024;
 export const MAX_FILES = 30;
 export const MAX_BATCH_BYTES = 160 * 1024 * 1024;
 export const MAX_BATCH_OUTPUT_PIXELS = 120_000_000;
+// Limit output blobs held in memory before JSZip creates another ZIP buffer.
+export const MAX_BATCH_OUTPUT_BYTES = 128 * 1024 * 1024;
 export const MAX_SOURCE_PIXELS = 80_000_000;
 export const MAX_OUTPUT_PIXELS = 32_000_000;
 export const MAX_AXIS = 10_000;
@@ -69,6 +71,16 @@ export function validateBatchPixels(images, width, height, mode) {
     }
   }
   return total;
+}
+
+export function addBatchOutputBytes(total, next) {
+  if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(next) || next < 0) {
+    throw new Error('Invalid exported byte count.');
+  }
+  if (total + next > MAX_BATCH_OUTPUT_BYTES) {
+    throw new Error('The ZIP would exceed the 128 MB output memory limit. Use fewer files, smaller dimensions or JPG/WebP.');
+  }
+  return total + next;
 }
 
 export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, mode = 'contain', zoom = 1, x = 0, y = 0) {
