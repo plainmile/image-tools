@@ -183,3 +183,44 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .batch-export-details li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:3px 14px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;overflow-wrap:anywhere;}
 .batch-export-details li span:first-child{font-weight:500;}
 @media(max-width:380px){.output-advanced-grid{grid-template-columns:1fr;}.output-advanced-grid .wide{grid-column:1;}}
+
+
+/* Direct image editing: preview the exact crop rectangle or transformed canvas. */
+.transform-help { font-size: 12px; color: var(--muted); margin: -3px 0 12px; }
+.transform-viewer {
+  min-height: 275px; display: flex; align-items: center; justify-content: center;
+  padding: 12px; background: var(--surface); border: 1px solid var(--line); overflow: hidden;
+}
+.crop-stage {
+  position: relative; max-width: 100%; flex: none; overflow: hidden;
+  cursor: crosshair; touch-action: none; user-select: none;
+  background: repeating-conic-gradient(#e3e5e7 0% 25%, #fff 0% 50%) 50% / 16px 16px;
+}
+.crop-stage > img { display: block; width: 100%; height: 100%; pointer-events: none; }
+.crop-selection {
+  position: absolute; box-shadow: 0 0 0 100vmax rgba(0,0,0,.46);
+  border: 2px solid #fff; outline: 1px solid rgba(0,0,0,.8);
+  touch-action: none; cursor: move;
+}
+.crop-grid {
+  pointer-events: none; display: block; position: absolute; inset: 0;
+  background: linear-gradient(to right,transparent 33.2%,rgba(255,255,255,.48) 33.3%,rgba(255,255,255,.48) 33.5%,transparent 33.6%,transparent 66.5%,rgba(255,255,255,.48) 66.6%,rgba(255,255,255,.48) 66.8%,transparent 66.9%),
+    linear-gradient(to bottom,transparent 33.2%,rgba(255,255,255,.48) 33.3%,rgba(255,255,255,.48) 33.5%,transparent 33.6%,transparent 66.5%,rgba(255,255,255,.48) 66.6%,rgba(255,255,255,.48) 66.8%,transparent 66.9%);
+}
+.crop-handle {
+  position: absolute; right: 0; bottom: 0; width: 21px; height: 21px;
+  background: var(--accent); border: 2px solid #fff; border-radius: 2px;
+  cursor: nwse-resize; touch-action: none;
+}
+.rotate-preview, .transform-result-image {
+  display: block; max-width: 100%; max-height: 345px; width: auto; height: auto;
+  background: repeating-conic-gradient(#e3e5e7 0% 25%,#fff 0% 50%) 50% / 16px 16px;
+}
+.transform-output-size { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+.transform-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.transform-buttons button { flex: 1 1 42%; padding-inline: 9px; }
+.transform-buttons button[aria-pressed=true] { border-color: var(--accent); color: var(--link); background: var(--subtle); }
+.transform-reset { margin-top: 12px; }
+.transform-coordinates { margin-top: 12px; }
+.transform-coordinates .field-grid { margin-top: 11px; }
+@media(max-width:380px){.transform-buttons button{flex-basis:100%;}.crop-handle{width:24px;height:24px;}}
