@@ -2,12 +2,19 @@ import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
 import {validateRedactionFiles,validateRedactionPixels,decodeBitmap,boxBetween,paintRedactions,flattenRedactedImage} from '../lib/redaction-core.mjs';
 import {formatBytes} from '../lib/image-core.mjs';
+import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import '../styles/redactor.css';
 
 const labels={
   en:{upload:'Choose images',limit:'JPG, PNG or WebP · up to 12 images / 100 MB total',draw:'Draw rectangles',erase:'Remove rectangles',undo:'Undo',redo:'Redo',clear:'Clear all boxes',style:'Style for new rectangles',solid:'Solid black — secure concealment',mosaic:'Pixelate / mosaic',blur:'Gaussian blur',warning:'Use solid black for private text, account numbers or passwords. Pixelation and blur are visual effects, not secure concealment.',remove:'Remove',download:'Download image',zip:'Download all as ZIP',format:'Save as',first:'Select images to start.',hint:'Choose a style, then drag to add a rectangle. Existing rectangles keep their own styles; change them in the area list.',local:'All editing happens in your browser; images are not uploaded.',need:'Add at least one box to each image before ZIP export.',ready:'Download ready',images:'Images',masks:'Redacted areas',strength:'Effect strength',drop:'Drop images here or paste a screenshot',working:'Processing…',clearFiles:'Remove all images',confirmClear:'Remove every image and all redaction boxes? This cannot be undone.',added:'Images added. Previous masks are preserved.'},
   zh:{upload:'选择图片',limit:'JPG、PNG 或 WebP · 最多 12 张 / 100 MB',draw:'手动画框',erase:'删除遮挡框',undo:'撤销',redo:'重做',clear:'清空本图',style:'新画遮挡框的方式',solid:'黑色实心遮挡（保护隐私）',mosaic:'像素马赛克',blur:'高斯模糊',warning:'密码、证件号和其他敏感文字请用实心黑块。马赛克和模糊仅供视觉处理，不能保证保密。',remove:'删除',download:'下载当前图片',zip:'全部打包 ZIP 下载',format:'导出格式',first:'请选择图片。',hint:'先选择打码方式，再拖动画框。已画的区域不会随全局模式改变，可在下方逐个调整。',local:'所有操作均在浏览器本地完成，图片不会上传。',need:'批量导出前，请为每张图片至少画一个遮挡框。',ready:'文件可以下载',images:'图片列表',masks:'遮挡区域',strength:'效果强度',drop:'可拖放图片或粘贴截图',working:'正在处理…',clearFiles:'清空所有图片',confirmClear:'确定清空全部图片和遮挡框吗？此操作不可撤销。',added:'图片已加入列表，原来的遮挡框已保留。'}
 };
+function redactError(error,lang){
+  const message=String(error?.message||error||'Image could not be processed.');
+  if(lang==='zh' && message.includes('Animated PNG/WebP'))
+    return '暂不支持动画 PNG/WebP。只处理第一帧会遗漏其他动画帧，因此未导入图片。';
+  return message;
+}
 function save(blob,name){
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
@@ -24,8 +31,7 @@ export default function Redactor({lang='en'}){
   useEffect(()=>{
     setReady(true);
     function paste(event){
-      if(['INPUT','TEXTAREA'].includes(event.target?.tagName))return;
-      const files=Array.from(event.clipboardData?.files||[]);
+      const files=clipboardImageFiles(event);
       if(files.length&&!busyRef.current){event.preventDefault();void choose(files);}
     }
     window.addEventListener('paste',paste);
@@ -51,7 +57,7 @@ export default function Redactor({lang='en'}){
       urls.current.push(...next.map(v=>v.url));
       itemsRef.current=combined;
       setItems(combined);setActiveId(next[0].id);setTool('draw');setMessage(t.added);
-    }catch(error){next.forEach(v=>URL.revokeObjectURL(v.url));setMessage(error.message);}
+    }catch(error){next.forEach(v=>URL.revokeObjectURL(v.url));setMessage(redactError(error,lang));}
     finally{if(token===selection.current){busyRef.current=false;setBusy(false);}}
   }
   function clearImages(){
