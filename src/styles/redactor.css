@@ -25,8 +25,9 @@
 .redactor-stage-wrap{display:flex;align-items:center;justify-content:center;min-height:220px;background:var(--subtle);
   padding:12px;border:1px solid var(--line);overflow:hidden;}
 .redactor-stage {width:100%;max-width:900px;position:relative;margin:auto;}
-.redactor-stage img{display:block;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none;}
+.redactor-preview-canvas{display:block;width:100%;height:100%;}
 .redactor-stage svg{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;}
+.redactor-stage svg[data-mode="erase"]{cursor:pointer;}
 .redactor-sidebar{padding:0 15px;max-height:760px;overflow-y:auto;}
 .redactor-control {padding:15px 0;border-bottom:1px solid var(--line);font-size:13px;}
 .redactor-control:last-child {border-bottom:0;}
@@ -38,12 +39,8 @@
 .redactor-heading {display:flex;justify-content:space-between;gap:12px;margin-bottom:8px;}
 .redactor-heading strong{font-size:13px;}
 .redactor-heading span{color:var(--muted);}
-.redactor-recognized {max-height:195px;overflow-y:auto;display:grid;gap:5px;margin-top:10px;border:1px solid var(--line);padding:6px;}
-.redactor-recognized label {display:flex;align-items:center;gap:7px;font-size:12px;overflow-wrap:anywhere;cursor:pointer;}
-.redactor-recognized input{accent-color:var(--accent);flex-shrink:0;}
-.redactor-recognized span {overflow-wrap:anywhere;}
 .redactor-areas {max-height:150px;overflow-y:auto;}
-.redactor-areas>div{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:4px 0;}
+.redactor-areas>div{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:6px 0;flex-wrap:wrap;}
 .redactor-areas>div span{max-width:205px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
 .redactor-areas button{font-size:11px;padding:3px 7px;}
 .redactor-empty{padding:30px 18px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);}
@@ -60,5 +57,11 @@
  .redactor-sidebar{padding:0 12px;}
 }
 
-/* Keep long OCR lists scrollable; do not hide selectable candidates. */
-.redactor-recognized { max-height: 245px; }
+
+/* Each rectangle owns its own redaction style, preserving earlier privacy masks. */
+.redactor-area-entry select{flex:1 1 140px;min-width:0;margin:0;max-width:220px;}
+.redactor-area-entry .redactor-area-strength{width:100%;display:flex;align-items:center;gap:8px;font-size:12px;}
+.redactor-area-entry .redactor-area-strength input{flex:1;min-width:80px;accent-color:var(--accent);}
+.redactor-top{border:1px dashed transparent;}
+.redactor-top:hover{border-color:var(--line);}
+.redactor-control input[type=range]{max-width:100%;accent-color:var(--accent);}

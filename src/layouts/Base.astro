@@ -13,6 +13,14 @@ const jsonld=isHome
   : isPrivacy
     ? {'@context':'https://schema.org','@type':'WebPage',name:title,url:origin+current,inLanguage:lang==='zh'?'zh-CN':'en'}
     : {'@context':'https://schema.org','@type':'WebApplication',name:title,description,applicationCategory:'MultimediaApplication',operatingSystem:'Any modern browser',inLanguage:lang==='zh'?'zh-CN':'en',isAccessibleForFree:true,url:origin+current,offers:{'@type':'Offer',price:'0',priceCurrency:'USD'}};
+const breadcrumb=isHome||isPrivacy?null:{
+  '@context':'https://schema.org',
+  '@type':'BreadcrumbList',
+  itemListElement:[
+    {'@type':'ListItem',position:1,name:lang==='zh'?'图片工具':'Image tools',item:origin+(lang==='zh'?'/zh/':'/')},
+    {'@type':'ListItem',position:2,name:title,item:origin+current}
+  ]
+};
 const links=lang==='zh'?[['/zh/','首页'],['/zh/resize-image/','调整尺寸'],['/zh/compress-image-to-size/','压缩到指定 KB'],['/zh/signature-resizer/','签名尺寸'],['/zh/bulk-image-resizer/','批量处理'],['/zh/passport-photo-print/','照片排版'],['/zh/redact-image/','图片打码']]:[['/','Home'],['/resize-image/','Resize'],['/compress-image-to-size/','Compress to KB'],['/signature-resizer/','Signature'],['/bulk-image-resizer/','Bulk resize'],['/passport-photo-print/','Photo print'],['/redact-image/','Redact']];
 ---
 <!doctype html>
@@ -39,6 +47,7 @@ const links=lang==='zh'?[['/zh/','首页'],['/zh/resize-image/','调整尺寸'],
     <link rel="alternate" hreflang="x-default" href={origin+english}/>
   </>}
   {!noindex&&<script type="application/ld+json" set:html={JSON.stringify(jsonld)}/> }
+  {!noindex&&breadcrumb&&<script type="application/ld+json" set:html={JSON.stringify(breadcrumb)}/>}
 </head>
 <body>
 <header class="site-header"><div class="shell header-row"><a class="brand" href={lang==='zh'?'/zh/':'/'}><span>PlainMile</span><span class="brand-separator">/</span><span class="brand-product">Image Tools</span></a><div class="lang-switch"><a lang={lang==='zh'?'en':'zh-CN'} href={lang==='zh'?english:chinese}>{lang==='zh'?'English':'简体中文'}</a></div></div></header>

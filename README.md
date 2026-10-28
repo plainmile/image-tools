@@ -4,7 +4,7 @@ Free, private image utilities — designed for **https://image.plainmile.com/** 
 
 **Status:** V0 runs on the existing netcup deployment. CI and public-HTTPS E2E must pass independently for each subsequent release.
 
-Image processing and OCR run in your browser, not on our server. The OCR engine uses self-hosted language and WebAssembly models, downloaded from this site only when the user requests recognition. No image uploads, accounts, cloud inference or paid APIs.
+Image processing and manual redaction run entirely in your browser. There is no OCR, image upload, account, cloud inference or paid API.
 
 ## First release
 
@@ -12,7 +12,7 @@ Image processing and OCR run in your browser, not on our server. The OCR engine 
 - Compress JPEG/WebP to a target KB, optionally reducing pixel dimensions when needed. Verify the **actual** output bytes.
 - Resize signatures by pixel size and target KB (application requirements vary).
 - Batch resize locally and download a ZIP. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; exact-size Fit and crop-to-fill remain available.
-- Redact pictures and screenshots in-browser: English/Chinese OCR proposes boxes, manually add/remove and batch ZIP export. Solid black/white boxes permanently replace the covered pixels; mosaic/blur are for appearance only and not guaranteed private.
+- Redact images manually in-browser using solid black, real pixelation or blur with live preview, undo/redo and ZIP export.
 - Create a 4x6-inch 300-DPI JPEG print sheet with six 2x2-inch photos, by manually framing an existing photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
 - English/Chinese SEO pages and a non-indexed 404. UI can be used on mobile.
 
@@ -59,20 +59,12 @@ Images and filenames stay in the page session. ZIP files and outputs are generat
 ### Privacy-focused redaction notes
 
 - HTML responses set `Cache-Control: public, no-transform` to prevent Cloudflare automatic analytics script injection. Keep **Web Analytics automatic injection disabled** for `image.plainmile.com` in Cloudflare as defense in depth.
-- Manual covers have per-image Undo/Redo (up to 40 edits). OCR suggestions can all be individually unchecked, not only the first 300.
+- Manual covers have per-image Undo/Redo (up to 40 edits).
 - Black/white previews are fully opaque; exports are flattened into new image pixels. Blur and mosaic must not be used to hide secrets.
 - Batch redaction is capped at 96 megapixels total to bound browser memory use. A failed image selection must release temporary object URLs.
 
 - Redacted single-image and ZIP member filenames are generic rather than copies of original filenames, which might contain private names or account IDs.
 
-## OCR review-first design
-- Recognition never automatically covers the image. Detected text appears as blue outline candidates. Users explicitly check candidates or choose Cover all candidates, with a confirmation for noisy/high-area results.
-- Default OCR excludes very low-confidence tokens, punctuation-only tokens and implausible vertical/oversized shapes seen in outdoor/industrial photos; this is a heuristic, not a text or privacy guarantee.
-- Region-limited recognition enables users to draw an OCR scan area around a subtitle/date/label, preventing unrelated background objects from consuming the candidate list.
-- User-uploaded private photos are not committed as test fixtures; regression tests use generated synthetic images only.
+## Manual-only redaction
 
-## General-purpose OCR recognition
-- Use Tesseract OCR output (actual recognized text and coordinates) rather than brightness/color or hardcoded top/bottom/colored-label proposals.
-- Two independent OCR passes (sparse-text + document segmentation with contrast enhancement); optional four-pass thorough mode includes inverted and adaptive threshold images.
-- Upsample small inputs within a bounded canvas; combine and spatially deduplicate OCR candidates, and keep them review-only until deliberately checked.
-- Test receipts, screenshots, document-like layouts, photographs, and text at different positions; do not optimize for a single example image or claim perfect accuracy.
+OCR has been removed. Users draw every cover themselves. The live preview uses the same pixel effects as export. Solid black is recommended for confidential data; mosaic and blur only visually obscure content.
