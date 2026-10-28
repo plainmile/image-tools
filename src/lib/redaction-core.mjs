@@ -1,4 +1,4 @@
-import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS } from './image-core.mjs';
+import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, isAnimatedImage } from './image-core.mjs';
 
 export const REDACT_MAX_FILES = 12;
 export const REDACT_MAX_BYTES = 100 * 1024 * 1024;
@@ -59,6 +59,11 @@ export function boxBetween(a, b, width, height) {
 export async function decodeBitmap(file) {
   if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     throw new Error('Unsupported image format.');
+  }
+  // createImageBitmap only decodes a still frame. Accepting animated PNG/WebP
+  // here would silently discard other frames and misrepresent privacy redaction.
+  if (await isAnimatedImage(file)) {
+    throw new Error('Animated PNG/WebP is not supported. Only the first frame would be redacted.');
   }
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   try {
