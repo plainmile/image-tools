@@ -58,7 +58,7 @@ test('redaction exposes a repeatable download link and invalidates it after chan
   await expect(page.getByTestId('redact-saved-result')).toContainText('Original');
   const repeated=page.waitForEvent('download');
   await link.click();
-  await expect(await repeated).toHaveProperty('suggestedFilename','redacted-image.png');
+  expect((await repeated).suggestedFilename()).toBe('redacted-image.png');
   await page.getByTestId('redact-undo').click();
   await expect(link).toHaveCount(0);
 });
