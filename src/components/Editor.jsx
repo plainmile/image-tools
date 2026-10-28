@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
-import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,fitWithin,validateBatchPixels,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
@@ -20,7 +20,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,7 +39,7 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
@@ -76,7 +76,7 @@ export default function Editor({lang='en',tool='resize'}) {
       const context=canvas.getContext('2d');
       if(!context)return;
       context.clearRect(0,0,w,h);
-      if(format==='jpeg'||sheet){context.fillStyle='#fff';context.fillRect(0,0,w,h);}
+      if(format==='jpeg'||sheet||(format==='original'&&files[0]&&inputImageFormat(files[0].file)==='jpeg')){context.fillStyle='#fff';context.fillRect(0,0,w,h);}
       const region=drawRect(image.naturalWidth,image.naturalHeight,w,h,
         sheet?'cover':mode,Number(zoom)/100,Number(cropX)/100,Number(cropY)/100);
       context.imageSmoothingEnabled=true;
@@ -86,7 +86,7 @@ export default function Editor({lang='en',tool='resize'}) {
     image.onerror=()=>{};
     image.src=preview;
     return ()=>{active=false;image.onload=null;image.onerror=null;};
-  },[preview,output,width,height,mode,format,zoom,cropX,cropY,sheet]);
+  },[preview,output,width,height,mode,format,zoom,cropX,cropY,sheet,files]);
   useEffect(()=>()=>{if(output?.url)URL.revokeObjectURL(output.url);},[output]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
   async function selectFiles(chosen){
@@ -105,7 +105,7 @@ export default function Editor({lang='en',tool='resize'}) {
       if(id!==selectionId.current)return;
       setFiles(chosen.map((file,i)=>({file,...meta[i]})));
       setPreview(URL.createObjectURL(chosen[0]));
-      if(!sheet&&chosen.length===1){
+      if(!sheet&&!batch&&chosen.length===1){
         const {width:w,height:h}=meta[0];
         const scale=Math.min(1,MAX_AXIS/w,MAX_AXIS/h,Math.sqrt(MAX_OUTPUT_PIXELS/(w*h)));
         setWidth(Math.max(1,Math.floor(w*scale)));
@@ -175,10 +175,17 @@ export default function Editor({lang='en',tool='resize'}) {
         plannedDimensions={width:Number(width),height:Number(height)};
     }catch{/* Invalid dimensions are reported on processing. */}
   }
+  const batchPlanned=batch?files.map(item=>{
+    try{
+      const dimensions=mode==='within'?fitWithin(item.width,item.height,Number(width),Number(height))
+        :assertDimensions(Number(width),Number(height));
+      return {name:item.file.name,...dimensions};
+    }catch{return null;}
+  }):[];
   const sizeOptions=<>
-    <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} onChange={e=>setTarget(e.target.value)}/></label>
+    <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} disabled={busy||inspecting} onChange={e=>setTarget(e.target.value)}/></label>
     <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} disabled={losslessOutput||busy||inspecting} onChange={e=>setQuality(e.target.value)}/><small>{t.qualityNote}</small></label>
-    {mode==='within'?<label className="check"><input type="checkbox" checked={downscale} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>:<p className="resize-mode-help wide" data-testid="exact-size-note">{t.exactSizeNotice}</p>}
+    {mode==='within'?<label className="check"><input type="checkbox" checked={downscale} disabled={busy||inspecting} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>:<p className="resize-mode-help wide" data-testid="exact-size-note">{t.exactSizeNotice}</p>}
   </>;
   return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings} onPaste={paste}>
     <div className="editor-workspace">
@@ -217,13 +224,17 @@ export default function Editor({lang='en',tool='resize'}) {
                 }}/>{t.keep}</label>}
               </div>
             </details>
-            <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}>
+            <label>{t.format}<select data-testid="format" value={format} disabled={busy||inspecting} onChange={e=>setFormat(e.target.value)}>
               <option value="original">{t.originalFormat}</option><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option>
             </select></label>
             {plannedDimensions&&<p className="mode-explain wide" data-testid="expected-dimensions">
               {t.estimate}: <strong>{plannedDimensions.width}×{plannedDimensions.height} px</strong>
               <span>{mode==='within'?t.noPadding:mode==='contain'?t.mayPad:t.mayCrop}</span>
             </p>}
+            {batch&&batchPlanned.length>0&&batchPlanned.every(Boolean)&&<details className="batch-plan wide" data-testid="batch-plan">
+              <summary>{t.batchPlan} ({batchPlanned.length})</summary>
+              <ul>{batchPlanned.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.width}×{item.height} px</span></li>)}</ul>
+            </details>}
             {format==='jpeg'&&anyNonJpeg&&<p className="mode-explain wide" data-testid="alpha-warning">{t.formatWarning}</p>}
             {Number(target)>0&&losslessOutput&&<p className="mode-explain wide" data-testid="png-size-warning">{t.pngSizeWarning}</p>}
             {tool==='compress-image-to-size'||tool==='signature-resizer'?sizeOptions:
@@ -236,9 +247,9 @@ export default function Editor({lang='en',tool='resize'}) {
         {(sheet||mode==='cover')&&<div className="control-section">
           <h2 className="panel-title">{lang==='zh'?'裁剪位置':'Crop position'}</h2>
           <div className="field-grid">
-            <label>{t.zoom}: {zoom}%<input type="range" min="100" max="300" value={zoom} onChange={e=>setZoom(e.target.value)}/></label>
-            <label>{t.x}: {cropX}<input type="range" min="-100" max="100" value={cropX} onChange={e=>setCropX(e.target.value)}/></label>
-            <label>{t.y}: {cropY}<input type="range" min="-100" max="100" value={cropY} onChange={e=>setCropY(e.target.value)}/></label>
+            <label>{t.zoom}: {zoom}%<input type="range" min="100" max="300" value={zoom} disabled={busy||inspecting} onChange={e=>setZoom(e.target.value)}/></label>
+            <label>{t.x}: {cropX}<input type="range" min="-100" max="100" value={cropX} disabled={busy||inspecting} onChange={e=>setCropX(e.target.value)}/></label>
+            <label>{t.y}: {cropY}<input type="range" min="-100" max="100" value={cropY} disabled={busy||inspecting} onChange={e=>setCropY(e.target.value)}/></label>
           </div>
         </div>}
         {sheet&&<p className="notice">{t.notice}</p>}
