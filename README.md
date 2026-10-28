@@ -8,6 +8,8 @@ Image processing and manual redaction run entirely in your browser. There is no 
 
 ## First release
 
+- Convert one or up to 30 JPG/PNG/WebP still images without changing pixel dimensions. One converted image downloads directly; multiple inputs use ZIP. Animated APNG/WebP files are rejected before canvas export rather than silently losing frames. Conversion re-encodes pixels and strips original EXIF/metadata.
+
 - Resize proportionally without padding, borders or cropping by default (fit within maximum dimensions, no upscaling); exact-size fit-with-padding and crop-to-fill remain explicit choices. By default, regular resize and bulk resize retain the original JPG, PNG or WebP format (including existing alpha). Explicit JPEG output converts transparency to white; this is disclosed in the editor.
 - Compress an image to a target KB (default JPG), optionally reducing pixel dimensions when needed. JPEG cannot retain PNG/WebP transparency, so the editor warns before export. PNG is lossless and may fail strict size targets. Verify the **actual** output bytes.
 - Resize signatures by pixel size and an optional KB target (unlimited by default; application requirements vary).
