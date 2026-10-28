@@ -224,3 +224,7 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .transform-coordinates { margin-top: 12px; }
 .transform-coordinates .field-grid { margin-top: 11px; }
 @media(max-width:380px){.transform-buttons button{flex-basis:100%;}.crop-handle{width:24px;height:24px;}}
+
+/* Keep the original crop draggable after export while showing the true result below. */
+.transform-crop-result { margin: 10px auto 8px; max-height: 210px; }
+.transform-refine-help { font-size: 12px; line-height: 1.5; }
