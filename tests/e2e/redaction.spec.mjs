@@ -295,3 +295,30 @@ test('overlapping blur and mosaic never reveal an earlier solid privacy cover',a
   expect(result.output.slice(0,3)).toEqual([0,0,0]);
   expect(result.live.slice(0,3)).toEqual([0,0,0]);
 });
+
+test('pasted screenshots cannot replace redaction work while download is encoding',async({page})=>{
+  await page.goto('/redact-image/');await synthetic(page);await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  // Hold the browser-native PNG export long enough to send an actual paste event.
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob=function(callback,...args){
+      return original.call(this,blob=>setTimeout(()=>callback(blob),700),...args);
+    };
+  });
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await expect(page.getByTestId('redact-download')).toBeDisabled();
+  const paste=await page.evaluate(()=>{
+    const transfer=new DataTransfer();
+    transfer.items.add(new File([new Uint8Array([0,1,2,3])],'interrupt.png',{type:'image/png'}));
+    const event=new ClipboardEvent('paste',{clipboardData:transfer,bubbles:true,cancelable:true});
+    window.dispatchEvent(event);
+    return {prevented:event.defaultPrevented};
+  });
+  expect(paste.prevented).toBe(false);
+  await downloaded;
+  await expect(page.locator('.redactor-gallery')).toContainText('capture-0.png');
+  await expect(page.locator('.redactor-gallery')).not.toContainText('interrupt.png');
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+});

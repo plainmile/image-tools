@@ -18,20 +18,21 @@ export default function Redactor({lang='en'}){
   const [items,setItems]=useState([]),[activeId,setActiveId]=useState(null);
   const [tool,setTool]=useState('draw'),[effect,setEffect]=useState('solid'),[strength,setStrength]=useState(24);
   const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[draft,setDraft]=useState(null);
-  const canvasRef=useRef(null),dragRef=useRef(null),urls=useRef([]),sequence=useRef(0),selection=useRef(0);
+  const canvasRef=useRef(null),dragRef=useRef(null),urls=useRef([]),sequence=useRef(0),selection=useRef(0),busyRef=useRef(false);
   const current=items.find(v=>v.id===activeId)||null,boxes=current?.masks||[];
   useEffect(()=>{
     setReady(true);
     function paste(event){
       if(['INPUT','TEXTAREA'].includes(event.target?.tagName))return;
       const files=Array.from(event.clipboardData?.files||[]);
-      if(files.length){event.preventDefault();void choose(files);}
+      if(files.length&&!busyRef.current){event.preventDefault();void choose(files);}
     }
     window.addEventListener('paste',paste);
     return()=>{selection.current++;urls.current.forEach(url=>URL.revokeObjectURL(url));window.removeEventListener('paste',paste);};
   },[]);
   async function choose(files){
-    if(busy)return;
+    if(busyRef.current)return;
+    busyRef.current=true;
     const token=++selection.current,next=[];
     setBusy(true);setMessage('');
     try{
@@ -46,7 +47,7 @@ export default function Redactor({lang='en'}){
       urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=next.map(v=>v.url);
       setItems(next);setActiveId(next[0].id);setTool('draw');setMessage(t.hint);
     }catch(error){next.forEach(v=>URL.revokeObjectURL(v.url));setMessage(error.message);}
-    finally{if(token===selection.current)setBusy(false);}
+    finally{if(token===selection.current){busyRef.current=false;setBusy(false);}}
   }
   function modify(fn){
     if(!current||busy)return;
@@ -102,10 +103,10 @@ export default function Redactor({lang='en'}){
     return()=>{stopped=true;};
   },[current?.id,current?.masks,effect,strength]);
   async function download(all=false){
-    if(busy)return;
+    if(busyRef.current)return;
     const list=all?items:[current];
     if(!list.length||list.some(v=>!v?.masks?.length)){setMessage(t.need);return;}
-    setBusy(true);
+    busyRef.current=true;setBusy(true);
     try{
       if(all){
         const zip=new JSZip();
@@ -119,10 +120,10 @@ export default function Redactor({lang='en'}){
         const out=await flattenRedactedImage(current.file,current.masks,effect,format,strength);
         save(out.blob,out.filename);setMessage(t.ready+' · '+current.width+'×'+current.height+' · '+formatBytes(out.blob.size));
       }
-    }catch(e){setMessage(e.message);}finally{setBusy(false);}
+    }catch(e){setMessage(e.message);}finally{busyRef.current=false;setBusy(false);}
   }
   return <section className="redactor" data-redactor-ready={String(ready)}>
-    <div className="redactor-top" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void choose(Array.from(e.dataTransfer?.files||[]));}}><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit} · {t.drop}</span></div>
+    <div className="redactor-top" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void choose(Array.from(e.dataTransfer?.files||[]));}}><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={!ready||busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit} · {t.drop}</span></div>
     {items.length>0&&<>
       <div className="redactor-gallery" aria-label={t.images}>{items.map(v=><button className={'redactor-file '+(v.id===activeId?'chosen':'')} key={v.id} type="button" disabled={busy} onClick={()=>{setActiveId(v.id);setDraft(null);}}><span>{v.file.name}</span><small>{v.width}×{v.height} · {v.masks.length} {lang==='zh'?'处':'boxes'}</small></button>)}</div>
       <div className="redactor-tools">

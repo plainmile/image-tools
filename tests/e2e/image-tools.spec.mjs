@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import JSZip from 'jszip';
 
 async function uploadSynthetic(page, count=1){
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
@@ -25,6 +26,7 @@ test('English and Chinese pages contain valid static SEO metadata',async({page})
 test('real JPG is generated at exact requested dimensions with correct decoded pixel data',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
   await page.getByLabel('Resize method').selectOption('cover');
+  await page.getByTestId('format').selectOption('jpeg');
   await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
   await page.getByTestId('process').click();
   await expect(page.getByTestId('result-meta')).toContainText('64×64');
@@ -254,9 +256,10 @@ test('portrait landscape and square outputs have no automatic white margins',asy
     }
   }
 });
-test('white letterboxing requires selecting explicit exact-size Fit',async({page})=>{
+test('white letterboxing requires explicit exact-size Fit and JPEG format',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
   await page.getByLabel('Resize method').selectOption('contain');
+  await page.getByTestId('format').selectOption('jpeg');
   await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
   await expect(page.getByTestId('expected-dimensions')).toContainText('64×64');
   await page.getByTestId('process').click();await expect(page.getByTestId('result-meta')).toContainText('64×64');
@@ -271,4 +274,95 @@ test('white letterboxing requires selecting explicit exact-size Fit',async({page
   expect(result.top.slice(0,3).every(x=>x>230)).toBe(true);
   expect(result.middle[0]).toBeGreaterThan(130);
   expect(result.middle[1]).toBeLessThan(120);
+});
+
+test('default original export retains transparent PNG pixels and downloaded extension', async({page})=>{
+  await page.goto('/zh/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const png=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');canvas.width=40;canvas.height=24;
+    const ctx=canvas.getContext('2d');ctx.clearRect(0,0,40,24);
+    ctx.fillStyle='#f43f5e';ctx.fillRect(6,4,28,16);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('upload').setInputFiles({name:'alpha.png',mimeType:'image/png',buffer:Buffer.from(png)});
+  await expect(page.locator('.file-summary')).toContainText('40×24');
+  await expect(page.getByTestId('format')).toHaveValue('original');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+  const actual=await page.evaluate(async()=>{
+    const link=document.querySelector('[data-testid=download]');
+    const blob=await(await fetch(link.href)).blob();
+    const bitmap=await createImageBitmap(blob),canvas=document.createElement('canvas');
+    canvas.width=bitmap.width;canvas.height=bitmap.height;
+    const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0);
+    const alpha=ctx.getImageData(0,0,1,1).data[3];
+    const colored=Array.from(ctx.getImageData(10,10,1,1).data);
+    const dims=[bitmap.width,bitmap.height];bitmap.close();
+    return {type:blob.type,name:link.download,dims,alpha,colored};
+  });
+  expect(actual.type).toBe('image/png');
+  expect(actual.name).toBe('alpha-edited.png');
+  expect(actual.dims).toEqual([40,24]);
+  expect(actual.alpha).toBe(0);
+  expect(actual.colored[0]).toBeGreaterThan(150);
+});
+test('batch of one always produces a ZIP containing a PNG, not a misleading image link',async({page})=>{
+  await page.goto('/bulk-image-resizer/');await uploadSynthetic(page);
+  await expect(page.getByTestId('format')).toHaveValue('original');
+  await page.getByTestId('width').fill('60');
+  await page.getByTestId('height').fill('60');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toContainText('ZIP');
+  const downloaded=await page.evaluate(async()=>{
+    const link=document.querySelector('[data-testid=download]');
+    const blob=await(await fetch(link.href)).blob();
+    return {name:link.download,bytes:Array.from(new Uint8Array(await blob.arrayBuffer()))};
+  });
+  expect(downloaded.name).toBe('plainmile-images.zip');
+  const zip=await JSZip.loadAsync(Buffer.from(downloaded.bytes));
+  const names=Object.keys(zip.files);
+  expect(names).toEqual(['01-sample-0-edited.png']);
+  const png=await zip.file(names[0]).async('uint8array');
+  expect(Array.from(png.slice(0,8))).toEqual([137,80,78,71,13,10,26,10]);
+});
+test('mixed JPG and PNG source formats are preserved separately in batch ZIP',async({page})=>{
+  await page.goto('/bulk-image-resizer/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const images=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=54;c.height=30;
+    c.getContext('2d').fillRect(0,0,54,30);
+    const toBytes=async(type)=>Array.from(new Uint8Array(await(await new Promise(resolve=>c.toBlob(resolve,type))).arrayBuffer()));
+    return {png:await toBytes('image/png'),jpg:await toBytes('image/jpeg')};
+  });
+  await page.getByTestId('upload').setInputFiles([
+    {name:'one.png',mimeType:'image/png',buffer:Buffer.from(images.png)},
+    {name:'two.jpg',mimeType:'image/jpeg',buffer:Buffer.from(images.jpg)}
+  ]);
+  await expect(page.locator('.file-summary')).toContainText('2 file(s)');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+  const payload=await page.evaluate(async()=>Array.from(new Uint8Array(await(await(await fetch(document.querySelector('[data-testid=download]').href)).blob()).arrayBuffer())));
+  const zip=await JSZip.loadAsync(Buffer.from(payload));
+  expect(Object.keys(zip.files)).toEqual(['01-one-edited.png','02-two-edited.jpg']);
+  expect(Array.from((await zip.file('01-one-edited.png').async('uint8array')).slice(0,8)))
+    .toEqual([137,80,78,71,13,10,26,10]);
+  expect(Array.from((await zip.file('02-two-edited.jpg').async('uint8array')).slice(0,2)))
+    .toEqual([255,216]);
+});
+test('compression warns about JPEG transparency loss and PNG lossless KB limitations',async({page})=>{
+  await page.goto('/compress-image-to-size/');await uploadSynthetic(page);
+  await expect(page.getByTestId('format')).toHaveValue('jpeg');
+  await expect(page.getByTestId('alpha-warning')).toBeVisible();
+  await page.getByTestId('format').selectOption('original');
+  await expect(page.getByTestId('png-size-warning')).toBeVisible();
+  await expect(page.locator('.field-grid input[type="range"]').first()).toBeDisabled();
+});
+test('choosing the same image after output resets the stale download',async({page})=>{
+  await page.goto('/resize-image/');await uploadSynthetic(page);
+  await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
+  await uploadSynthetic(page);
+  await expect(page.getByTestId('download')).toHaveCount(0);
+  await expect(page.locator('.file-summary')).toContainText('sample-0.png');
 });
