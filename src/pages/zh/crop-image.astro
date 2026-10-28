@@ -1,0 +1,27 @@
+---
+import Base from '../../layouts/Base.astro';
+import Transform from '../../components/Transform.jsx';
+---
+<Base lang="zh" path="/zh/crop-image/" title="在线裁剪图片 — JPG、PNG、WebP 自由框选裁剪 | PlainMile" description="在线裁剪 JPG、PNG、WebP 图片，拖动裁剪框，支持正方形、4:3、16:9 和竖屏比例。文件在浏览器本地处理，裁剪后直接下载。">
+  <section class="page-head">
+    <p class="breadcrumb"><a href="/zh/">图片工具</a> / 裁剪图片</p>
+    <h1>拖动裁剪框，快速裁剪图片</h1>
+    <p class="lead">选择图片，框选想保留的区域，直接下载。不用输入复杂参数，也不必上传图片到服务器。</p>
+  </section>
+  <Transform client:load lang="zh" tool="crop"/>
+  <section class="reference" aria-label="裁剪图片使用说明">
+    <h2>可视化裁剪，选择需要的画面</h2>
+    <p>适合裁掉截图多余边缘、准备头像或调整图片构图。支持自由裁剪、正方形 1:1、横向 4:3、宽屏 16:9、竖向 3:4。拖动框内区域可移动选区，拖动右下角可改变范围，在框外拖动可以重新框选；需要准确的像素数值时，可展开坐标设置。</p>
+    <p>裁剪只是删除选区外的像素，不会自动缩放到上传网站指定的尺寸。如果还要调整像素大小，请使用<a href="/zh/resize-image/">修改图片尺寸</a>；如果要求 100 KB 等文件大小，请使用<a href="/zh/compress-image-to-size/">压缩到指定 KB</a>。</p>
+    <h2>使用步骤</h2>
+    <ol><li>选择 JPG、PNG 或 WebP 图片。</li><li>按需要选固定比例，移动或调整裁剪框。</li><li>需要时选择输出格式，点击裁剪并下载。</li></ol>
+    <h2>常见问题</h2>
+    <div class="qa"><h3>怎样裁剪出正方形头像？</h3><p>选择“正方形 (1:1)”，移动裁剪框并调整其大小，然后下载。请确认使用平台对最小像素尺寸的要求。</p></div>
+    <div class="qa"><h3>裁剪和缩放图片有什么区别？</h3><p>裁剪会删除选区外的内容，结果宽高等于选区的像素大小；缩放会改变图片整体尺寸。导出前页面会显示实际输出宽高。</p></div>
+    <div class="qa"><h3>透明背景会保留吗？</h3><p>保持 PNG 原格式或改用 WebP 可以保留透明像素；改用 JPG 会变为白色背景。</p></div>
+    <div class="qa"><h3>动画图片可以裁剪吗？</h3><p>暂不支持动画 PNG/WebP。为防止动画帧丢失，工具会明确拒绝这些文件。</p></div>
+    <h2>相关工具</h2>
+    <ul class="related-links"><li><a href="/zh/rotate-image/">图片旋转与翻转</a></li><li><a href="/zh/convert-image/">图片格式转换</a></li><li><a href="/zh/resize-image/">修改图片尺寸</a></li></ul>
+    <p class="editor-disclosure">图片在浏览器本地处理。详见<a href="/zh/privacy/">隐私说明</a>。</p>
+  </section>
+</Base>
