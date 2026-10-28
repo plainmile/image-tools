@@ -1,5 +1,4 @@
 import React,{useEffect,useRef,useState} from 'react';
-import JSZip from 'jszip';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
@@ -197,6 +196,7 @@ export default function Editor({lang='en',tool='resize'}) {
       if(!batch&&results.length===1){blob=results[0].blob;name=results[0].name;}
       else{
         if(batch){setPhase('zip');setStatus(t.packaging);}
+        const {default: JSZip}=await import('jszip');
         const zip=new JSZip();results.forEach((r,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+r.name,r.blob));
         blob=await zip.generateAsync({type:'blob'});name='plainmile-images.zip';
       }
