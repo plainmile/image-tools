@@ -147,3 +147,11 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 
 /* Explain the three resizing choices in everyday language, including before a file is uploaded. */
 .resize-mode-help { margin: -9px 0 1px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+
+/* Ordinary resizing is one-step; fixed-size behavior is intentionally optional. */
+.resize-advanced { border-top: 1px solid var(--line); padding: 8px 0 2px; }
+.resize-advanced summary { cursor: pointer; font-size: 13px; color: var(--accent); line-height: 1.5; }
+.resize-advanced summary:hover { text-decoration: underline; }
+.resize-advanced summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.resize-advanced-inner { display: grid; gap: 12px; margin-top: 12px; }
+.resize-advanced-inner .check { flex-direction: row; align-items: center; }
