@@ -491,3 +491,37 @@ test('proportional mode retains optional downscaling control',async({page})=>{
   await page.locator('[data-testid="output-advanced"] summary').click();
   await expect(page.locator('.output-advanced input[type=checkbox]')).toHaveCount(1);
 });
+
+test('batch one and batch many preserve the same 800px default maxima and expose planned sizes',async({page})=>{
+  await page.goto('/bulk-image-resizer/');
+  await uploadSynthetic(page,1);
+  await expect(page.getByTestId('width')).toHaveValue('800');
+  await expect(page.getByTestId('height')).toHaveValue('800');
+  await page.getByTestId('batch-plan').locator('summary').click();
+  await expect(page.getByTestId('batch-plan')).toContainText('120×80');
+  await uploadSynthetic(page,2);
+  await expect(page.getByTestId('width')).toHaveValue('800');
+  await expect(page.getByTestId('batch-plan').locator('li')).toHaveCount(2);
+  await page.getByTestId('width').fill('60');
+  await page.getByTestId('height').fill('60');
+  await expect(page.getByTestId('batch-plan').locator('li').first()).toContainText('60×40');
+});
+
+test('JPEG output preview fills transparent source pixels with white before export',async({page})=>{
+  await page.goto('/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const bytes=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=32;c.height=32;
+    c.getContext('2d').clearRect(0,0,32,32);
+    const b=await new Promise(ok=>c.toBlob(ok,'image/png'));
+    return Array.from(new Uint8Array(await b.arrayBuffer()));
+  });
+  await page.getByTestId('upload').setInputFiles({name:'transparent.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
+  await expect(page.locator('.file-summary')).toContainText('32×32');
+  await page.getByTestId('format').selectOption('jpeg');
+  await expect.poll(async()=>page.evaluate(()=>{
+    const c=document.querySelector('.preview-frame canvas');
+    if(!c||!c.width)return null;
+    return Array.from(c.getContext('2d').getImageData(0,0,1,1).data);
+  })).toEqual([255,255,255,255]);
+});
