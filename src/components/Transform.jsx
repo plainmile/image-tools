@@ -21,13 +21,13 @@ const copy = {
     flipH:'Flip horizontally',flipV:'Flip vertically',resetChanges:'Reset edits',
     output:'Output format',same:'Same as original',quality:'Quality',
     jpg:'JPEG replaces transparency with white. Select PNG or WebP to keep transparency.',
-    saveCrop:'Crop and download',saveRotate:'Save and download',
-    clear:'Clear',working:'Editing image…',finished:'Ready to download.',
+    saveCrop:'Crop image',saveRotate:'Apply changes',
+    clear:'Clear',working:'Editing image…',finished:'Image ready. Use Download image below.',
     preview:'Preview',result:'Output',download:'Download image',
     noAction:'Choose a rotation or flip first.',
     dimensions:'Output dimensions',local:'Images stay in this browser; nothing is uploaded.',
     metadata:'New exports do not retain EXIF or other original metadata.',
-    pixelCap:'Source is too large for this output. Choose a smaller crop.',
+    pixelCap:'Output exceeds the browser canvas limit. Crop a smaller area, or resize the image first.',
   },
   zh:{
     choose:'选择图片',hint:'支持 JPG、PNG、WebP · 单张最多 40 MB',
@@ -44,13 +44,13 @@ const copy = {
     flipH:'水平翻转',flipV:'垂直翻转',resetChanges:'重置操作',
     output:'输出格式',same:'保持原格式',quality:'画质',
     jpg:'JPG 不支持透明，透明区域会变为白色。需要透明请选择 PNG 或 WebP。',
-    saveCrop:'裁剪并下载',saveRotate:'处理并下载',
-    clear:'清空',working:'正在处理图片…',finished:'可以下载了。',
+    saveCrop:'裁剪图片',saveRotate:'应用修改',
+    clear:'清空',working:'正在处理图片…',finished:'处理完成，请点击下方下载按钮。',
     preview:'预览',result:'处理结果',download:'下载图片',
     noAction:'请先旋转或翻转图片。',
     dimensions:'输出像素',local:'图片只在当前浏览器本地处理，不会上传。',
     metadata:'重新导出的文件不保留原始 EXIF 等元数据。',
-    pixelCap:'裁剪结果过大，请缩小裁剪区域。',
+    pixelCap:'输出像素超过浏览器限制。请缩小裁剪范围，或先调整原图尺寸。',
   }
 };
 
@@ -171,7 +171,9 @@ export default function Transform({lang='en',tool='crop'}) {
     const img=new Image();
     img.onload=()=>{
       if(!valid||!previewCanvas.current)return;
-      const dims=rotationDimensions(img.naturalWidth,img.naturalHeight,degrees);
+      let dims;
+      try { dims=rotationDimensions(img.naturalWidth,img.naturalHeight,degrees); }
+      catch { return; }
       const scale=Math.min(1,480/dims.width,330/dims.height);
       const canvas=previewCanvas.current;
       canvas.width=Math.max(1,Math.round(dims.width*scale));
@@ -271,6 +273,7 @@ export default function Transform({lang='en',tool='crop'}) {
           </div>
           {chosenFormat==='jpeg'&&hasAlpha&&<p className="notice" data-testid="transform-alpha-warning">{t.jpg}</p>}
           <p className="notice">{t.metadata}</p>
+          {!outputDims&&<p className="notice" role="alert">{t.pixelCap} <a href={lang==='zh'?'/zh/resize-image/':'/resize-image/'}>{lang==='zh'?'修改图片尺寸':'Resize image'}</a></p>}
         </div>}
         <div className="form-actions">
           <button type="submit" data-testid="transform-process" disabled={!ready||checking||busy||!edited||!selected||!outputDims}>{isCrop?t.saveCrop:t.saveRotate}</button>
