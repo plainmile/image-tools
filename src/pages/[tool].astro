@@ -22,6 +22,7 @@ const guide={"resize-image":{"heading":"Proportional, padded or cropped resizing
 <Base path={'/'+tool+'/'} title={page.title} description={page.description}>
 <section class="page-head"><p class="breadcrumb"><a href="/">Image tools</a> / {page.heading}</p><h1>{page.heading}</h1><p class="lead">{page.lead}</p></section>
 <Editor client:load lang="en" tool={tool}/>
+{tool!=='passport-photo-print'&&<p class="editor-disclosure">Tip: You can paste a screenshot with Ctrl+V (or ⌘V on Mac) before choosing your image. Use the controls above to prepare the output.</p>}
 <section class="reference" aria-label="Help for this tool">
 <h2>{guide.heading}</h2><p>{guide.intro}</p><p>{examples[tool]}</p><p>{page.use}</p><p>{page.hint}</p>
 <h2>Common questions</h2>
