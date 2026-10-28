@@ -76,7 +76,11 @@ export function canvasBlob(canvas, mime='image/png', quality) {
   });
 }
 export function paintRedactions(ctx, bitmap, masks, effect, strength=24) {
-  for (const item of masks) {
+  // Solid privacy covers must be rendered last. Otherwise an overlapping
+  // blur/mosaic drawn later from the ORIGINAL bitmap can reveal a covered secret.
+  const ordered=[...masks.filter(item=>(item.effect??effect)!=='solid'),
+                 ...masks.filter(item=>(item.effect??effect)==='solid')];
+  for (const item of ordered) {
     const box = clampBox(item, bitmap.width, bitmap.height);
     if (!box) throw new Error('Invalid redaction box. Recheck the covered area before exporting.');
     const style = item.effect ?? effect;
