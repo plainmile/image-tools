@@ -20,10 +20,12 @@ class Page(HTMLParser):
         super().__init__()
         self.tags, self.title, self.description, self.canonical = [], "", "", ""
         self.h1, self.hreflangs, self.robots, self.jsonld = 0, {}, "", []
-        self.opengraph, self.local_links = {}, []
+        self.opengraph, self.local_links, self.html_lang = {}, [], None
         self._in_title, self._in_ld, self._ld_buffer = False, False, ""
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag == "html":
+            self.html_lang = attrs.get("lang")
         if tag == "title":
             self._in_title = True
         if tag == "a":
@@ -56,7 +58,7 @@ class Page(HTMLParser):
             self.jsonld.append(json.loads(self._ld_buffer))
             self._in_ld = False
 
-titles = {}
+titles, descriptions = {}, {}
 for route in ROUTES:
     path = DIST / route.lstrip("/") / "index.html"
     assert path.exists(), f"missing page: {path}"
@@ -65,7 +67,10 @@ for route in ROUTES:
     assert doc.title and len(doc.title) <= 95, (route, doc.title)
     assert doc.title not in titles, f"duplicate title: {route} and {titles[doc.title]}"
     titles[doc.title] = route
+    assert doc.html_lang == ("zh-CN" if route.startswith('/zh/') else "en"), (route, doc.html_lang)
     assert doc.description and len(doc.description) >= (18 if route.startswith('/zh/') else 30), (route, doc.description)
+    assert doc.description not in descriptions, f"duplicate description: {route} and {descriptions.get(doc.description)}"
+    descriptions[doc.description] = route
     assert doc.h1 == 1, f"expected one H1 for {route}: {doc.h1}"
     assert doc.canonical == ORIGIN + route, (route, doc.canonical)
     assert doc.opengraph.get("og:title") == doc.title, (route, "OG title mismatch")
