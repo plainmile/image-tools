@@ -234,7 +234,7 @@ export default function Editor({lang='en',tool='resize'}) {
       <aside className="editor-preview" aria-label={t.preview}>
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
-          {output?.results.length===1 ? <img alt={lang==='zh'?'处理后的图片':'Processed image'} src={output.url}/> :
+          {!batch&&output?.results.length===1 ? <img alt={lang==='zh'?'处理后的图片':'Processed image'} src={output.url}/> :
            preview ? <canvas ref={canvasRef} aria-label={sheet?t.cropPreview:t.preview}/> :
            <p className="preview-empty">{t.empty}</p>}
         </div>
