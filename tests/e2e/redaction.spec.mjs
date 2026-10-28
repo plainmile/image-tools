@@ -263,3 +263,35 @@ test('manual redaction supports file dropping and keeps OCR absent',async({page}
   await expect(page.getByTestId('redact-overlay')).toBeVisible();
   await expect(page.getByTestId('redact-ocr')).toHaveCount(0);
 });
+
+test('overlapping blur and mosaic never reveal an earlier solid privacy cover',async({page})=>{
+  await page.goto('/redact-image/');
+  await synthetic(page);
+  // Original image is white at x=500,y=170. A solid cover changes it to black.
+  await draw(page,[.20,.25],[.65,.65]);
+  await page.getByTestId('redact-effect').selectOption('mosaic');
+  await draw(page,[.30,.30],[.60,.70]);
+  await page.getByTestId('redact-effect').selectOption('blur');
+  await draw(page,[.30,.35],[.75,.75]);
+  await expect(page.getByTestId('redact-area-effect')).toHaveCount(3);
+  await expect(page.getByTestId('redact-area-effect').nth(0)).toHaveValue('solid');
+  await page.evaluate(()=>{
+    const original=URL.createObjectURL.bind(URL);
+    window.__capturedRedaction=null;
+    URL.createObjectURL=(blob)=>{if(blob.type==='image/png')window.__capturedRedaction=blob;return original(blob);};
+  });
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();await downloaded;
+  const result=await page.evaluate(async()=>{
+    const bitmap=await createImageBitmap(window.__capturedRedaction);
+    const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap,0,0);
+    const output=Array.from(canvas.getContext('2d').getImageData(500,170,1,1).data);
+    const preview=document.querySelector('.redactor-preview-canvas');
+    const live=Array.from(preview.getContext('2d').getImageData(500,170,1,1).data);
+    bitmap.close();
+    return {output,live};
+  });
+  expect(result.output.slice(0,3)).toEqual([0,0,0]);
+  expect(result.live.slice(0,3)).toEqual([0,0,0]);
+});
