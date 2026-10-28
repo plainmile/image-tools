@@ -151,8 +151,11 @@ test('transparent PNG rotates to JPEG with white background, no silent animation
   expect([converted.w,converted.h]).toEqual([10,25]);
   expect(converted.tl.slice(0,3).every(x=>x>240)).toBe(true);
   const fake=Buffer.from([82,73,70,70,28,0,0,0,87,69,66,80,86,80,56,88,10,0,0,0,2]);
+  const existingHref=await page.getByTestId('transform-download').getAttribute('href');
   await page.getByTestId('transform-upload').setInputFiles({name:'anim.webp',mimeType:'image/webp',buffer:fake});
   await expect(page.getByTestId('transform-status')).toContainText('动画');
-  await expect(page.getByTestId('transform-download')).toHaveCount(0);
-  await expect(page.getByTestId('transform-process')).toBeDisabled();
+  // Invalid animated input must not discard an earlier completed edit.
+  await expect(page.getByTestId('transform-status')).toContainText('已保留');
+  await expect(page.getByTestId('transform-download')).toHaveAttribute('href',existingHref);
+  await expect(page.getByTestId('transform-process')).toBeEnabled();
 });
