@@ -256,9 +256,10 @@ test('portrait landscape and square outputs have no automatic white margins',asy
     }
   }
 });
-test('white letterboxing requires selecting explicit exact-size Fit',async({page})=>{
+test('white letterboxing requires explicit exact-size Fit and JPEG format',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
   await page.getByLabel('Resize method').selectOption('contain');
+  await page.getByTestId('format').selectOption('jpeg');
   await page.getByTestId('width').fill('64');await page.getByTestId('height').fill('64');
   await expect(page.getByTestId('expected-dimensions')).toContainText('64×64');
   await page.getByTestId('process').click();await expect(page.getByTestId('result-meta')).toContainText('64×64');
