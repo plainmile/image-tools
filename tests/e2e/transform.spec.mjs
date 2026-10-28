@@ -94,6 +94,9 @@ test('crop stays adjustable after first export and regenerates only on demand',a
     return [...new Uint8Array(await(await fetch(url)).arrayBuffer())];
   });
   const before=Number(await page.getByTestId('crop-x').inputValue());
+  // Clicking Apply changes can scroll the controls into view; scroll the
+  // actual frame back into the viewport before sending mouse coordinates.
+  await page.getByTestId('crop-selection').scrollIntoViewIfNeeded();
   const frame=await page.getByTestId('crop-selection').boundingBox();
   const x=frame.x+frame.width/2,y=frame.y+frame.height/2;
   await page.mouse.move(x,y);
