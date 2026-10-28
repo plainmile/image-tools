@@ -1,5 +1,4 @@
 import React,{useEffect,useRef,useState} from 'react';
-import JSZip from 'jszip';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
@@ -184,7 +183,7 @@ export default function Editor({lang='en',tool='resize'}) {
         try{
           const result=sheet?await makePassportSheet(item.file,options):await processImage(item.file,options);
           if(batch)totalOutputBytes=addBatchOutputBytes(totalOutputBytes,result.bytes);
-          results.push({name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
+          results.push({sourceBytes:item.file.size,name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
         }catch(err){
           if(!batch)throw err;
           failed.push({name:item.file.name,reason:err?.message||t.error});
@@ -197,6 +196,7 @@ export default function Editor({lang='en',tool='resize'}) {
       if(!batch&&results.length===1){blob=results[0].blob;name=results[0].name;}
       else{
         if(batch){setPhase('zip');setStatus(t.packaging);}
+        const {default: JSZip}=await import('jszip');
         const zip=new JSZip();results.forEach((r,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+r.name,r.blob));
         blob=await zip.generateAsync({type:'blob'});name='plainmile-images.zip';
       }
@@ -325,6 +325,7 @@ export default function Editor({lang='en',tool='resize'}) {
             output.results.length+' '+t.count+' · ZIP '+formatBytes(output.blob.size):
             output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
           <p data-testid="exact-bytes">{lang==='zh'?'实际文件大小：':'Exact file size: '}{output.blob.size} {lang==='zh'?'字节':'bytes'}</p>
+           <p data-testid="size-comparison">{output.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(output.results.reduce((sum,item)=>sum+item.sourceBytes,0))} · {lang==='zh'?'结果文件':'Output file'}: {formatBytes(output.blob.size)}</p>
           {batch&&output.failed.length>0&&<details className="batch-errors" data-testid="skipped-outputs" open>
             <summary>{t.skippedOutputs} ({output.failed.length})</summary>
             <ul>{output.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>

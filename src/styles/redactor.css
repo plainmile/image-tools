@@ -68,3 +68,6 @@
 
 /* Clearing a batch is a separate explicit action; adding images never discards masks. */
 .redactor-actions [data-testid=redact-clear-images]{white-space:nowrap;}
+
+.redactor-saved-result{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.redactor-saved-result .download{min-width:160px}
