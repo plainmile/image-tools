@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   REDACT_MAX_FILES, REDACT_MAX_BYTES, validateRedactionFiles,
-  verifyImageSize, validateRedactionPixels, REDACT_MAX_BATCH_PIXELS, clampBox, boxBetween ,
+  verifyImageSize, validateRedactionPixels, REDACT_MAX_BATCH_PIXELS, clampBox, boxBetween, decodeBitmap,
 } from '../../src/lib/redaction-core.mjs';
 
 test('validate input limits and unsupported types', () => {
@@ -28,3 +28,18 @@ test('batch pixel budget rejects oversized combined output',()=>{
   assert.throws(()=>validateRedactionPixels([{width:0,height:42}]),/32-megapixel/);
 });
 
+test('animated image redaction rejects before decoding any still frame',async()=>{
+  const wrap=(bytes,name,type)=>{
+    const b=new Blob([Uint8Array.from(bytes)]);
+    return {name,type,size:b.size,slice:(...args)=>b.slice(...args)};
+  };
+  const webp=wrap([82,73,70,70,28,0,0,0,87,69,66,80,86,80,56,88,10,0,0,0,2],
+    'animation.webp','image/webp');
+  const signature=[137,80,78,71,13,10,26,10];
+  const chunk=(type,payload=[])=>[0,0,0,payload.length,...[...type].map(c=>c.charCodeAt(0)),...payload,0,0,0,0];
+  const apng=wrap([...signature,...chunk('IHDR',Array(13).fill(0)),
+    ...chunk('acTL',Array(8).fill(0)),...chunk('IDAT')],
+    'animation.png','image/png');
+  await assert.rejects(decodeBitmap(webp),/Animated PNG\/WebP/);
+  await assert.rejects(decodeBitmap(apng),/Animated PNG\/WebP/);
+});
