@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, drawRect, validateFile, inputImageFormat, sanitizeStem,
-  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels
+  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -88,4 +88,13 @@ test('original format is determined from MIME or safe extension fallback', () =>
   assert.equal(inputImageFormat({name:'photo.png',type:'application/octet-stream'}),'png');
   assert.throws(()=>inputImageFormat({name:'pretend.png',type:'image/svg+xml'}),/Supported images/);
   assert.throws(()=>validateFile({name:'animated.gif',type:'image/gif',size:128}),/Supported images/);
+});
+
+test('ZIP output budget protects the browser from unbounded in-memory archives', () => {
+  assert.equal(MAX_BATCH_OUTPUT_BYTES, 128 * 1024 * 1024);
+  assert.equal(addBatchOutputBytes(20, 50), 70);
+  assert.equal(addBatchOutputBytes(MAX_BATCH_OUTPUT_BYTES - 7, 7), MAX_BATCH_OUTPUT_BYTES);
+  assert.throws(() => addBatchOutputBytes(MAX_BATCH_OUTPUT_BYTES - 7, 8), /128 MB/);
+  assert.throws(() => addBatchOutputBytes(-1, 1), /Invalid exported byte/);
+  assert.throws(() => addBatchOutputBytes(0, Number.NaN), /Invalid exported byte/);
 });
