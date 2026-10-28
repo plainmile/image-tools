@@ -152,7 +152,40 @@ export function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function readImage(file) {
+// Canvas export is a still-image operation: reject animations instead of
+// silently discarding all frames after the first one.
+export async function isAnimatedImage(file) {
+  const format = inputImageFormat(file);
+  if (format === 'webp') {
+    const bytes = new Uint8Array(await file.slice(0, 21).arrayBuffer());
+    const tag = (at, word) => [...word].every((ch, i) => bytes[at + i] === ch.charCodeAt(0));
+    return bytes.length >= 21 && tag(0, 'RIFF') && tag(8, 'WEBP') &&
+      tag(12, 'VP8X') && (bytes[20] & 0x02) !== 0;
+  }
+  if (format === 'png') {
+    const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+    const first = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+    if (first.length !== 8 || signature.some((n, i) => first[i] !== n)) return false;
+    let offset = 8;
+    for (let checked = 0; checked < 2048 && offset + 12 <= file.size; checked += 1) {
+      const h = new Uint8Array(await file.slice(offset, offset + 8).arrayBuffer());
+      if (h.length !== 8) return false;
+      const length = ((h[0] * 0x1000000) + (h[1] << 16) + (h[2] << 8) + h[3]) >>> 0;
+      if (length > file.size - offset - 12) return false;
+      const type = String.fromCharCode(h[4], h[5], h[6], h[7]);
+      if (type === 'acTL') return true;
+      if (type === 'IDAT' || type === 'IEND') return false;
+      offset += 12 + length;
+    }
+    if (offset + 12 <= file.size) throw new Error('PNG metadata has too many chunks to verify animation safely.');
+  }
+  return false;
+}
+
+async function readImage(file) {
+  if (await isAnimatedImage(file)) {
+    throw new Error('Animated PNG/WebP is not supported; exporting it would discard animation frames.');
+  }
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();

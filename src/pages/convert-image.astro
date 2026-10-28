@@ -1,0 +1,27 @@
+---
+import Base from '../layouts/Base.astro';
+import Converter from '../components/Converter.jsx';
+---
+<Base path="/convert-image/" title="Convert Images to JPG, PNG or WebP Online | PlainMile" description="Convert JPG, PNG and WebP images without changing pixel dimensions. Batch convert locally, keep transparency in PNG or WebP and download images or ZIP files.">
+  <section class="page-head">
+    <p class="breadcrumb"><a href="/">Image tools</a> / Convert image format</p>
+    <h1>Convert an image to JPG, PNG or WebP</h1>
+    <p class="lead">Choose your images, select a format and download. Pixel width and height stay the same — no resizing options to configure.</p>
+  </section>
+  <Converter client:load lang="en"/>
+  <section class="reference" aria-label="Image format conversion help">
+    <h2>Convert formats without resizing</h2>
+    <p>Use this tool to convert a PNG screenshot to JPG, save a WebP image as PNG, or export a JPG photo as WebP. Select up to 30 images and apply one output format; a single image downloads directly while multiple selected images download together as a ZIP. Everything is processed in your browser.</p>
+    <p>JPG is widely accepted for photographs, but cannot store transparent pixels. PNG supports transparency and lossless re-encoding, which can increase file size. WebP supports efficient photo compression and transparency, but some older services only accept JPG or PNG. Output file size is measured after conversion and may be larger than the original.</p>
+    <p>Conversion preserves the image's pixel dimensions (up to 32 megapixels per image), not the original EXIF or other metadata. Animated PNG and WebP are refused rather than silently exporting just one animation frame. Uploaded originals remain unchanged.</p>
+    <h2>How to convert an image</h2>
+    <ol><li>Select a JPG, PNG or WebP file, or multiple files.</li><li>Choose the destination format. Adjust JPG/WebP quality only if needed.</li><li>Press Convert images and download the result. Batches are packaged as ZIP files.</li></ol>
+    <h2>Common questions</h2>
+    <div class="qa"><h3>Can I convert WebP to PNG without changing size?</h3><p>Yes. The output keeps the same pixel width and height. PNG conversion does not restore any quality already lost in a compressed original, and a PNG can be larger.</p></div>
+    <div class="qa"><h3>Why does a transparent PNG turn white when converted to JPG?</h3><p>JPEG does not support transparent pixels. Select PNG or WebP if your receiving website accepts them and you need transparency.</p></div>
+    <div class="qa"><h3>Can I convert animated WebP or PNG?</h3><p>Not with this still-image converter. It rejects animations so that frames are not silently lost.</p></div>
+    <h2>Related tools</h2>
+    <ul class="related-links"><li><a href="/resize-image/">Resize image dimensions</a></li><li><a href="/compress-image-to-size/">Compress under a KB limit</a></li><li><a href="/bulk-image-resizer/">Bulk resize images</a></li></ul>
+    <p class="editor-disclosure">No image upload is required. Read the <a href="/privacy/">privacy policy</a>.</p>
+  </section>
+</Base>
