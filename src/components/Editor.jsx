@@ -5,10 +5,10 @@ import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,fitWithin,validate
 const dict = {
   en: {
     upload:'Choose image', hint:'JPG, PNG or WebP · up to 40 MB each',
-    width:'Width (px)',height:'Height (px)',keep:'Keep aspect ratio',
-    mode:'Fitting',contain:'Fit entire image',cover:'Fill and crop',format:'Format',
+    width:'Width (px)',height:'Height (px)',keep:'Sync width and height',
+    mode:'Resize method',within:'Proportional (no borders)',contain:'Exact size: add padding if needed',cover:'Exact size: fill and crop',format:'Format',
     target:'Maximum size (KB; 0 = no limit)',quality:'Quality',
-    downscale:'Allow smaller dimensions if needed',within:'Fit within maximum size (no padding)',
+    downscale:'Allow smaller dimensions if needed',
     run:'Convert',working:'Processing…',download:'Download file',
     done:'Ready to download',error:'Could not process image',
     files:'Files',settings:'Settings',preview:'Preview',original:'Original',
@@ -18,14 +18,15 @@ const dict = {
     batch:'Resize up to 30 images. By default, images keep their proportions without white borders, and smaller images are not enlarged. Download the ZIP.',empty:'The selected image will appear here.',
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
-    drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.'
+    drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
-    width:'宽度（像素）',height:'高度（像素）',keep:'保持宽高比例',
-    mode:'适配方式',contain:'完整显示',cover:'填满并裁剪',format:'输出格式',
+    width:'宽度（像素）',height:'高度（像素）',keep:'同步修改宽高',
+    mode:'缩放方式',within:'等比例缩放（无白边）',contain:'固定尺寸：完整显示（可能留白）',cover:'固定尺寸：填满裁剪',format:'输出格式',
     target:'最大大小（KB；0 表示不限）',quality:'画质',
-    downscale:'必要时允许减小像素',within:'不超过最大尺寸（不留白）',
+    downscale:'必要时允许减小像素',
     run:'开始处理',working:'正在处理…',download:'下载文件',
     done:'可以下载',error:'图片处理失败',
     files:'文件',settings:'参数设置',preview:'预览',original:'原图',
@@ -35,13 +36,14 @@ const dict = {
     batch:'一次最多处理 30 张图片。默认保持每张图片比例、不留白，也不会放大小图。结果打包下载 ZIP。',empty:'选择图片后在这里查看预览。',
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
-    drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。'
+    drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
   const t=dict[lang],sheet=tool==='passport-photo-print',batch=tool==='bulk-image-resizer';
   const [files,setFiles]=useState([]),[width,setWidth]=useState(sheet?600:800),[height,setHeight]=useState(sheet?600:800);
-  const [keep,setKeep]=useState(false),[mode,setMode]=useState(sheet?'cover':batch?'within':'contain');
+  const [keep,setKeep]=useState(false),[mode,setMode]=useState(sheet?'cover':'within');
   const [format,setFormat]=useState('jpeg'),[target,setTarget]=useState(tool==='compress-image-to-size'||tool==='signature-resizer'?100:0);
   const [quality,setQuality]=useState(90),[downscale,setDownscale]=useState(tool==='compress-image-to-size');
   const [zoom,setZoom]=useState(100),[cropX,setCropX]=useState(0),[cropY,setCropY]=useState(0);
@@ -154,6 +156,14 @@ export default function Editor({lang='en',tool='resize'}) {
     }catch(err){setStatus(err.message||t.error);}
     finally{setBusy(false);}
   }
+  let plannedDimensions=null;
+  if(files.length&&!sheet&&!batch){
+    try{
+      if(mode==='within')plannedDimensions=fitWithin(files[0].width,files[0].height,Number(width),Number(height));
+      else if(Number.isInteger(Number(width))&&Number(width)>0&&Number.isInteger(Number(height))&&Number(height)>0)
+        plannedDimensions={width:Number(width),height:Number(height)};
+    }catch{/* Invalid dimensions are reported on processing. */}
+  }
   return <section className="editor" data-editor-ready={ready?'true':'false'} aria-label={t.settings} onPaste={paste}>
     <div className="editor-workspace">
       <form className="editor-controls" onSubmit={run}>
@@ -177,13 +187,17 @@ export default function Editor({lang='en',tool='resize'}) {
           <div className="field-grid">
             <label>{mode==='within'?(lang==='zh'?'最大宽度（像素）':'Max width (px)'):t.width}<input data-testid="width" type="number" min="1" max="10000" value={width} onChange={e=>changeWidth(e.target.value)}/></label>
             <label>{mode==='within'?(lang==='zh'?'最大高度（像素）':'Max height (px)'):t.height}<input data-testid="height" type="number" min="1" max="10000" value={height} onChange={e=>changeHeight(e.target.value)}/></label>
-            {!batch&&<label className="check wide"><input type="checkbox" checked={keep} onChange={e=>{
+            {!batch&&mode!=='within'&&<label className="check wide"><input type="checkbox" checked={keep} onChange={e=>{
               setKeep(e.target.checked);
               if(e.target.checked&&files[0]&&Number(width)>0&&Number(width)<=MAX_AXIS)
                 setHeight(aspectDimension(files[0].width,files[0].height,width,'width'));
             }}/>{t.keep}</label>}
-            <label>{t.mode}<select value={mode} onChange={e=>setMode(e.target.value)}><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option>{batch&&<option value="within">{t.within}</option>}</select></label>
+            <label>{t.mode}<select value={mode} onChange={e=>setMode(e.target.value)}><option value="within">{t.within}</option><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
             <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
+            {plannedDimensions&&<p className="mode-explain wide" data-testid="expected-dimensions">
+              {t.estimate}: <strong>{plannedDimensions.width}×{plannedDimensions.height} px</strong>
+              <span>{mode==='within'?t.noPadding:mode==='contain'?t.mayPad:t.mayCrop}</span>
+            </p>}
             <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} onChange={e=>setTarget(e.target.value)}/></label>
             <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} onChange={e=>setQuality(e.target.value)}/></label>
             <label className="check"><input type="checkbox" checked={downscale} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>
