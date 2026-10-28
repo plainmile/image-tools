@@ -76,7 +76,7 @@ export default function Editor({lang='en',tool='resize'}) {
       context.clearRect(0,0,w,h);
       if(format==='jpeg'||sheet){context.fillStyle='#fff';context.fillRect(0,0,w,h);}
       const region=drawRect(image.naturalWidth,image.naturalHeight,w,h,
-        sheet?'cover':mode==='within'?'contain':mode,Number(zoom)/100,Number(cropX)/100,Number(cropY)/100);
+        sheet?'cover':mode,Number(zoom)/100,Number(cropX)/100,Number(cropY)/100);
       context.imageSmoothingEnabled=true;
       context.imageSmoothingQuality='high';
       context.drawImage(image,region.sx,region.sy,region.sw,region.sh,region.dx,region.dy,region.dw,region.dh);
@@ -192,7 +192,7 @@ export default function Editor({lang='en',tool='resize'}) {
               if(e.target.checked&&files[0]&&Number(width)>0&&Number(width)<=MAX_AXIS)
                 setHeight(aspectDimension(files[0].width,files[0].height,width,'width'));
             }}/>{t.keep}</label>}
-            <label>{t.mode}<select value={mode} onChange={e=>setMode(e.target.value)}><option value="within">{t.within}</option><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
+            <label>{t.mode}<select value={mode} onChange={e=>{setMode(e.target.value);if(e.target.value==='within')setKeep(false);}}><option value="within">{t.within}</option><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
             <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
             {plannedDimensions&&<p className="mode-explain wide" data-testid="expected-dimensions">
               {t.estimate}: <strong>{plannedDimensions.width}×{plannedDimensions.height} px</strong>
