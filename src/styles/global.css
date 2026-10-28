@@ -155,3 +155,15 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .resize-advanced summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .resize-advanced-inner { display: grid; gap: 12px; margin-top: 12px; }
 .resize-advanced-inner .check { flex-direction: row; align-items: center; }
+
+/* Collapse irrelevant quality/KB controls on normal resize and batch pages. */
+.output-advanced{border-top:1px solid var(--line);padding-top:9px;}
+.output-advanced summary,.batch-export-details summary{cursor:pointer;font-size:13px;color:var(--link);}
+.output-advanced summary:focus-visible,.batch-export-details summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+.output-advanced-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px;margin-top:12px;}
+.output-advanced-grid .wide{grid-column:1/-1;}
+.batch-export-details{margin:8px 0 16px;}
+.batch-export-details ul{max-height:250px;overflow-y:auto;margin:10px 0 0;padding:0;list-style:none;border-top:1px solid var(--line);}
+.batch-export-details li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:3px 14px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;overflow-wrap:anywhere;}
+.batch-export-details li span:first-child{font-weight:500;}
+@media(max-width:380px){.output-advanced-grid{grid-template-columns:1fr;}.output-advanced-grid .wide{grid-column:1;}}
