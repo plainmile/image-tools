@@ -13,7 +13,7 @@ Image processing and manual redaction run entirely in your browser. There is no 
 - Resize signatures by pixel size and an optional KB target (unlimited by default; application requirements vary).
 - Batch resize locally and **always** download a ZIP, even when one file is selected. Output files have individually reviewable dimensions and format information. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; original formats are retained by default; exact-size Fit and crop-to-fill remain available.
 - Redact images manually in-browser using solid black, real pixelation or blur with live preview, undo/redo and ZIP export.
-- Create a 4x6-inch 300-DPI JPEG print sheet with six 2x2-inch photos, by manually framing an existing photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
+- Create a 4x6-inch 300-DPI JPEG print sheet with six identical copies of one manually framed 2x2-inch photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
 - English/Chinese SEO pages and a non-indexed 404. UI can be used on mobile.
 
 ## Development (without installing Node on your host)

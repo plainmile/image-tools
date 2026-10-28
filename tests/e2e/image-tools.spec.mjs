@@ -491,3 +491,106 @@ test('proportional mode retains optional downscaling control',async({page})=>{
   await page.locator('[data-testid="output-advanced"] summary').click();
   await expect(page.locator('.output-advanced input[type=checkbox]')).toHaveCount(1);
 });
+
+test('batch one and batch many preserve the same 800px default maxima and expose planned sizes',async({page})=>{
+  await page.goto('/bulk-image-resizer/');
+  await uploadSynthetic(page,1);
+  await expect(page.getByTestId('width')).toHaveValue('800');
+  await expect(page.getByTestId('height')).toHaveValue('800');
+  await page.getByTestId('batch-plan').locator('summary').click();
+  await expect(page.getByTestId('batch-plan')).toContainText('120×80');
+  await uploadSynthetic(page,2);
+  await expect(page.getByTestId('width')).toHaveValue('800');
+  await expect(page.getByTestId('batch-plan').locator('li')).toHaveCount(2);
+  await page.getByTestId('width').fill('60');
+  await page.getByTestId('height').fill('60');
+  await expect(page.getByTestId('batch-plan').locator('li').first()).toContainText('60×40');
+});
+
+test('JPEG output preview fills transparent source pixels with white before export',async({page})=>{
+  await page.goto('/resize-image/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const bytes=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=32;c.height=32;
+    c.getContext('2d').clearRect(0,0,32,32);
+    const b=await new Promise(ok=>c.toBlob(ok,'image/png'));
+    return Array.from(new Uint8Array(await b.arrayBuffer()));
+  });
+  await page.getByTestId('upload').setInputFiles({name:'transparent.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
+  await expect(page.locator('.file-summary')).toContainText('32×32');
+  await page.getByTestId('format').selectOption('jpeg');
+  await expect.poll(async()=>page.evaluate(()=>{
+    const c=document.querySelector('.preview-frame canvas');
+    if(!c||!c.width)return null;
+    return Array.from(c.getContext('2d').getImageData(0,0,1,1).data);
+  })).toEqual([255,255,255,255]);
+});
+
+test('batch ignores one malformed input and keeps other images for ZIP export',async({page})=>{
+  await page.goto('/zh/bulk-image-resizer/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const png=await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=48;c.height=32;
+    c.getContext('2d').fillRect(0,0,c.width,c.height);
+    const blob=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('upload').setInputFiles([
+    {name:'bad-source.png',mimeType:'image/png',buffer:Buffer.from([1,2,3,4,5])},
+    {name:'good-source.png',mimeType:'image/png',buffer:Buffer.from(png)}
+  ]);
+  await expect(page.getByTestId('skipped-inputs')).toContainText('bad-source.png');
+  await expect(page.locator('.file-summary')).toContainText('good-source.png');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toContainText('ZIP');
+  const data=await page.evaluate(async()=>{
+    const blob=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  const zip=await JSZip.loadAsync(Buffer.from(data));
+  expect(Object.keys(zip.files)).toEqual(['01-good-source-edited.png']);
+});
+
+test('batch exports successes and names individual files that fail a strict KB limit',async({page})=>{
+  await page.goto('/bulk-image-resizer/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const images=await page.evaluate(async()=>{
+    const make=async(noisy)=>{
+      const c=document.createElement('canvas');
+      c.width=noisy?160:24;c.height=noisy?120:24;
+      const x=c.getContext('2d');
+      if(noisy){
+        const im=x.createImageData(c.width,c.height);
+        let state=0x12345678;
+        for(let i=0;i<im.data.length;i+=4){
+          state^=state<<13;state^=state>>>17;state^=state<<5;
+          im.data[i]=state&255;im.data[i+1]=(state>>>8)&255;im.data[i+2]=(state>>>16)&255;im.data[i+3]=255;
+        }
+        x.putImageData(im,0,0);
+      }else{ x.fillStyle='#336699';x.fillRect(0,0,c.width,c.height); }
+      const blob=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    };
+    return {small:await make(false),large:await make(true)};
+  });
+  await page.getByTestId('upload').setInputFiles([
+    {name:'small.png',mimeType:'image/png',buffer:Buffer.from(images.small)},
+    {name:'detailed.png',mimeType:'image/png',buffer:Buffer.from(images.large)}
+  ]);
+  await expect(page.locator('.file-summary')).toContainText('2 file(s)');
+  await page.locator('[data-testid=output-advanced] summary').click();
+  await page.getByTestId('target').fill('1');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toContainText('ZIP');
+  await expect(page.getByTestId('skipped-outputs')).toContainText('detailed.png');
+  await expect(page.getByTestId('skipped-outputs')).toContainText('Could not reach');
+  await expect(page.getByTestId('result-meta')).toContainText('1 Output files');
+  const bytes=await page.evaluate(async()=>{
+    const blob=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  const zip=await JSZip.loadAsync(Buffer.from(bytes));
+  expect(Object.keys(zip.files)).toEqual(['01-small-edited.png']);
+  const file=await zip.file('01-small-edited.png').async('uint8array');
+  expect(Array.from(file.slice(0,8))).toEqual([137,80,78,71,13,10,26,10]);
+});
