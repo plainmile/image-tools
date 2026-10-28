@@ -1,5 +1,5 @@
 import {
-  MIME, MAX_SOURCE_PIXELS, assertDimensions, clamp, inputImageFormat,
+  MIME, MAX_SOURCE_PIXELS, MAX_OUTPUT_PIXELS, MAX_AXIS, assertDimensions, clamp, inputImageFormat,
   isAnimatedImage, validateFile
 } from './image-core.mjs';
 
@@ -15,7 +15,14 @@ export function cropPreset(sourceWidth, sourceHeight, aspect = 'free') {
     w = Math.max(1, Math.floor(Math.min(width * 0.85, height * 0.85 * ratio)));
     h = Math.max(1, Math.min(height, Math.round(w / ratio)));
     // Preserve an exact 1:1 crop for a square where practical.
-    if (ratio === 1) w = Math.min(w, h);
+    if (ratio === 1) w = h = Math.min(w, h);
+  }
+  // Make the initial suggested crop immediately exportable even for giant photos.
+  const scale = Math.min(1, MAX_AXIS / w, MAX_AXIS / h, Math.sqrt(MAX_OUTPUT_PIXELS / (w * h)));
+  if (scale < 1) {
+    w = Math.max(1, Math.floor(w * scale));
+    h = ratio === null ? Math.max(1, Math.floor(h * scale)) : Math.max(1, Math.round(w / ratio));
+    h = Math.min(h, MAX_AXIS);
   }
   return { x: Math.floor((width - w) / 2), y: Math.floor((height - h) / 2), width: w, height: h };
 }
@@ -95,8 +102,9 @@ export function drawRotation(ctx, image, width, height, degrees, flipH = false, 
   const result = rotationDimensions(width, height, degrees);
   ctx.save();
   ctx.translate(result.width / 2, result.height / 2);
-  ctx.rotate(degrees * Math.PI / 180);
+  // Flips are relative to the screen, even after a 90-degree rotation.
   ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+  ctx.rotate(degrees * Math.PI / 180);
   ctx.drawImage(image, -width / 2, -height / 2, width, height);
   ctx.restore();
   return result;
