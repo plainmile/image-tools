@@ -465,3 +465,29 @@ test('batch export has a short summary and a per-image dimensions list',async({p
   await expect(details.locator('li')).toHaveCount(3);
   await expect(details.locator('li').first()).toContainText('50×33');
 });
+
+test('exact-size mode never silently downscales when KB goal cannot be met',async({page})=>{
+  await page.goto('/zh/resize-image/');
+  await uploadSynthetic(page);
+  await page.getByTestId('advanced-resize-summary').click();
+  await page.getByTestId('resize-mode').selectOption('contain');
+  await expect(page.getByTestId('exact-size-note')).toContainText('不会偷偷缩小');
+  await page.getByTestId('width').fill('400');
+  await page.getByTestId('height').fill('400');
+  await page.getByTestId('format').selectOption('png');
+  await page.locator('[data-testid="output-advanced"] summary').click();
+  await page.getByTestId('target').fill('1');
+  await expect(page.locator('.output-advanced input[type=checkbox]')).toHaveCount(0);
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toHaveCount(0);
+  await expect(page.getByTestId('status')).toContainText('Could not reach');
+  await page.getByTestId('target').fill('0');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('result-meta')).toContainText('400×400');
+});
+test('proportional mode retains optional downscaling control',async({page})=>{
+  await page.goto('/resize-image/');
+  await uploadSynthetic(page);
+  await page.locator('[data-testid="output-advanced"] summary').click();
+  await expect(page.locator('.output-advanced input[type=checkbox]')).toHaveCount(1);
+});
