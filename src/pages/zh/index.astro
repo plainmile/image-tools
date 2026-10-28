@@ -12,7 +12,7 @@ const entries = [
   ['passport-photo-print/', '4×6 英寸照片排版', '将同一张 2×2 英寸照片重复六份，排版在 4×6 英寸相纸上。']
 ];
 ---
-<Base lang="zh" title="免费图片工具 — 裁剪、旋转、压缩与格式转换 | PlainMile" description="在线裁剪、旋转、翻转、压缩图片与转换 JPG、PNG、WebP 格式，还可批量调整尺寸和图片打码。图片在浏览器本地处理，无需上传。文件在浏览器中处理，不上传图片内容。">
+<Base lang="zh" title="免费图片工具 — 裁剪、旋转、压缩与格式转换 | PlainMile" description="在线裁剪、旋转、翻转、压缩图片与转换 JPG、PNG、WebP 格式，还可批量调整尺寸和图片打码。图片在浏览器本地处理，无需上传。也可粘贴截图直接处理。">
   <section class="home-head"><h1>图片工具</h1><p class="lead">裁剪、旋转、格式转换、调整尺寸、压缩、图片打码或准备打印照片。选择需要的功能即可开始。</p></section>
   <section class="home-tools" aria-label="图片工具">
     <div class="tool-list">{entries.map(([path,title,detail])=><a class="tool-link" href={'/zh/'+path}><span><strong>{title}</strong><small>{detail}</small></span><span class="arrow" aria-hidden="true">›</span></a>)}</div>
