@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  assertDimensions, aspectDimension, drawRect, validateFile, sanitizeStem,
+  assertDimensions, aspectDimension, drawRect, validateFile, inputImageFormat, sanitizeStem,
   exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels
 } from '../../src/lib/image-core.mjs';
 
@@ -78,4 +78,14 @@ test('batch resource budget blocks multi-image megapixel explosions',()=>{
   assert.equal(MAX_BATCH_OUTPUT_PIXELS,120_000_000);
   assert.equal(validateBatchPixels([{width:120,height:80},{width:120,height:80}],55,35,'within'),3710);
   assert.throws(()=>validateBatchPixels(Array.from({length:5},()=>({width:120,height:80})),8000,4000,'contain'),/120-megapixel/);
+});
+
+test('original format is determined from MIME or safe extension fallback', () => {
+  assert.equal(inputImageFormat({name:'transparency.png',type:'image/png'}),'png');
+  assert.equal(inputImageFormat({name:'photo.jpg',type:'image/jpeg'}),'jpeg');
+  assert.equal(inputImageFormat({name:'sample.webp',type:'image/webp'}),'webp');
+  assert.equal(inputImageFormat({name:'photo.jpeg',type:''}),'jpeg');
+  assert.equal(inputImageFormat({name:'photo.png',type:'application/octet-stream'}),'png');
+  assert.throws(()=>inputImageFormat({name:'pretend.png',type:'image/svg+xml'}),/Supported images/);
+  assert.throws(()=>validateFile({name:'animated.gif',type:'image/gif',size:128}),/Supported images/);
 });
