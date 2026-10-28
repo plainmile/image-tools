@@ -1,12 +1,12 @@
 import React,{useEffect,useRef,useState} from 'react';
 import JSZip from 'jszip';
-import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,fitWithin,validateBatchPixels,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,exportFilename,formatBytes } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,fitWithin,validateBatchPixels,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
     upload:'Choose image', hint:'JPG, PNG or WebP · up to 40 MB each',
     width:'Width (px)',height:'Height (px)',keep:'Sync width and height',
-    mode:'Resize method',within:'Proportional (no borders)',contain:'Exact size: add padding if needed',cover:'Exact size: fill and crop',format:'Format',
+    mode:'Resize method',within:'Proportional (no borders)',contain:'Exact size: add padding if needed',cover:'Exact size: fill and crop',format:'Format',originalFormat:'Same as original',
     target:'Maximum size (KB; 0 = no limit)',quality:'Quality',
     downscale:'Allow smaller dimensions if needed',
     run:'Convert',working:'Processing…',download:'Download file',
@@ -19,12 +19,12 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
     width:'宽度（像素）',height:'高度（像素）',keep:'同步修改宽高',
-    mode:'缩放方式',within:'等比例缩放（无白边）',contain:'固定尺寸：完整显示（可能留白）',cover:'固定尺寸：填满裁剪',format:'输出格式',
+    mode:'缩放方式',within:'等比例缩放（无白边）',contain:'固定尺寸：完整显示（可能留白）',cover:'固定尺寸：填满裁剪',format:'输出格式',originalFormat:'保持原始格式',
     target:'最大大小（KB；0 表示不限）',quality:'画质',
     downscale:'必要时允许减小像素',
     run:'开始处理',working:'正在处理…',download:'下载文件',
@@ -37,14 +37,14 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
   const t=dict[lang],sheet=tool==='passport-photo-print',batch=tool==='bulk-image-resizer';
   const [files,setFiles]=useState([]),[width,setWidth]=useState(sheet?600:800),[height,setHeight]=useState(sheet?600:800);
   const [keep,setKeep]=useState(false),[mode,setMode]=useState(sheet?'cover':'within');
-  const [format,setFormat]=useState('jpeg'),[target,setTarget]=useState(tool==='compress-image-to-size'||tool==='signature-resizer'?100:0);
+  const [format,setFormat]=useState(tool==='compress-image-to-size'?'jpeg':'original'),[target,setTarget]=useState(tool==='compress-image-to-size'||tool==='signature-resizer'?100:0);
   const [quality,setQuality]=useState(90),[downscale,setDownscale]=useState(tool==='compress-image-to-size');
   const [zoom,setZoom]=useState(100),[cropX,setCropX]=useState(0),[cropY,setCropY]=useState(0);
   const [status,setStatus]=useState(''),[busy,setBusy]=useState(false),[output,setOutput]=useState(null);
@@ -114,7 +114,12 @@ export default function Editor({lang='en',tool='resize'}) {
       if(id===selectionId.current){setFiles([]);setPreview(null);setStatus(err.message||t.error);}
     }finally{if(id===selectionId.current)setInspecting(false);}
   }
-  function pick(e){void selectFiles(Array.from(e.target.files||[]));}
+  function pick(e){
+    const chosen=Array.from(e.target.files||[]);
+    // Allow selecting the same file again without needing to press Clear first.
+    e.target.value='';
+    void selectFiles(chosen);
+  }
   function drop(e){
     e.preventDefault();
     if(!busy)void selectFiles(Array.from(e.dataTransfer?.files||[]));
@@ -146,7 +151,7 @@ export default function Editor({lang='en',tool='resize'}) {
         results.push({name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
       }
       let blob,name;
-      if(results.length===1){blob=results[0].blob;name=results[0].name;}
+      if(!batch&&results.length===1){blob=results[0].blob;name=results[0].name;}
       else{
         const zip=new JSZip();results.forEach((r,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+r.name,r.blob));
         blob=await zip.generateAsync({type:'blob'});name='plainmile-images.zip';
@@ -156,6 +161,10 @@ export default function Editor({lang='en',tool='resize'}) {
     }catch(err){setStatus(err.message||t.error);}
     finally{setBusy(false);}
   }
+  const sourceFormats=files.map(item=>inputImageFormat(item.file));
+  const anyNonJpeg=sourceFormats.some(type=>type!=='jpeg');
+  const allSourcePng=sourceFormats.length>0&&sourceFormats.every(type=>type==='png');
+  const losslessOutput=format==='png'||(format==='original'&&allSourcePng);
   let plannedDimensions=null;
   if(files.length&&!sheet&&!batch){
     try{
@@ -193,13 +202,17 @@ export default function Editor({lang='en',tool='resize'}) {
                 setHeight(aspectDimension(files[0].width,files[0].height,width,'width'));
             }}/>{t.keep}</label>}
             <label>{t.mode}<select value={mode} disabled={busy||inspecting} onChange={e=>{setMode(e.target.value);if(e.target.value==='within')setKeep(false);}}><option value="within">{t.within}</option><option value="contain">{t.contain}</option><option value="cover">{t.cover}</option></select></label>
-            <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
+            <label>{t.format}<select data-testid="format" value={format} onChange={e=>setFormat(e.target.value)}>
+              <option value="original">{t.originalFormat}</option><option value="jpeg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option>
+            </select></label>
             {plannedDimensions&&<p className="mode-explain wide" data-testid="expected-dimensions">
               {t.estimate}: <strong>{plannedDimensions.width}×{plannedDimensions.height} px</strong>
               <span>{mode==='within'?t.noPadding:mode==='contain'?t.mayPad:t.mayCrop}</span>
             </p>}
+            {format==='jpeg'&&anyNonJpeg&&<p className="mode-explain wide" data-testid="alpha-warning">{t.formatWarning}</p>}
+            {Number(target)>0&&losslessOutput&&<p className="mode-explain wide" data-testid="png-size-warning">{t.pngSizeWarning}</p>}
             <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} onChange={e=>setTarget(e.target.value)}/></label>
-            <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} onChange={e=>setQuality(e.target.value)}/></label>
+            <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} disabled={losslessOutput||busy||inspecting} onChange={e=>setQuality(e.target.value)}/><small>{t.qualityNote}</small></label>
             <label className="check"><input type="checkbox" checked={downscale} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>
           </div>
         </div>}
@@ -225,11 +238,12 @@ export default function Editor({lang='en',tool='resize'}) {
            preview ? <canvas ref={canvasRef} aria-label={sheet?t.cropPreview:t.preview}/> :
            <p className="preview-empty">{t.empty}</p>}
         </div>
-        {!!files.length&&!output&&<p className="preview-caption">{sheet?t.cropPreview:files[0].file.name+' · '+files[0].width+'×'+files[0].height}</p>}
+        {batch&&!!files.length?<p className="preview-caption">{t.batchPreview}</p>:
+         !!files.length&&!output&&<p className="preview-caption">{sheet?t.cropPreview:files[0].file.name+' · '+files[0].width+'×'+files[0].height}</p>}
         {output&&<div className="result">
           <strong>{t.done}</strong>
-          <p data-testid="result-meta">{output.results.map(r=>r.width+'×'+r.height+' · '+formatBytes(r.bytes)).join(' | ')}</p>
-          <a data-testid="download" className="download" href={output.url} download={output.name}>{t.download} · {formatBytes(output.blob.size)}</a>
+          <p data-testid="result-meta">{output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
+          <a data-testid="download" className="download" href={output.url} download={output.name}>{batch?t.zipDownload:t.download} · {formatBytes(output.blob.size)}</a>
         </div>}
       </aside>
     </div>
