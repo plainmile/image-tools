@@ -72,6 +72,7 @@ test('conversion failure keeps last valid export while displaying failed attempt
   await page.getByTestId('convert-process').click();
   await expect(page.getByTestId('convert-status')).toContainText('已保留之前的图片和下载结果');
   await expect(page.getByTestId('convert-failed-output')).toContainText('last-good.png');
-  await expect(page.getByTestId('convert-failed-output')).toContainText('Image encoding failed');
+  await expect(page.getByTestId('convert-failed-output')).toContainText('图片编码失败');
+  await expect(page.getByTestId('convert-failed-output')).not.toContainText('Image encoding failed');
   expect(await downloadSnapshot(page,'convert-download')).toEqual(prior);
 });
