@@ -41,9 +41,9 @@ async function delayNextPreviewDecode(page, canvasSelector) {
 }
 
 const pages=[
-  {label:'resize',url:'/zh/resize-image/',ready:'[data-editor-ready=true]',upload:'upload',file:'file-summary',
+  {label:'resize',url:'/zh/resize-image/',ready:'[data-editor-ready=true]',upload:'upload',file:'.file-summary',
     canvas:'[data-testid=editor-preview-canvas]',loading:'editor-preview-status',title:'正在生成图片预览'},
-  {label:'rotate',url:'/zh/rotate-image/',ready:'[data-transform-ready=true]',upload:'transform-upload',file:'transform-source',
+  {label:'rotate',url:'/zh/rotate-image/',ready:'[data-transform-ready=true]',upload:'transform-upload',file:'[data-testid=transform-source]',
     canvas:'[data-testid=rotate-preview]',loading:'rotate-preview-status',title:'正在生成图片预览'}
 ];
 
@@ -56,7 +56,7 @@ for(const config of pages){
     await page.getByTestId(config.upload).setInputFiles({
       name:'old-red.png',mimeType:'image/png',buffer:red
     });
-    await expect(page.getByTestId(config.file)).toContainText('old-red.png');
+    await expect(page.locator(config.file)).toContainText('old-red.png');
     await expect(page.getByTestId(config.loading)).toHaveCount(0);
     const oldColor=await page.locator(config.canvas).evaluate(canvas=>
       Array.from(canvas.getContext('2d').getImageData(5,5,1,1).data)
@@ -68,7 +68,7 @@ for(const config of pages){
     await page.getByTestId(config.upload).setInputFiles({
       name:'new-blue.png',mimeType:'image/png',buffer:blue
     });
-    await expect(page.getByTestId(config.file)).toContainText('new-blue.png');
+    await expect(page.locator(config.file)).toContainText('new-blue.png');
     await page.waitForFunction(()=>typeof window.__releaseDelayedPreview==='function');
     await expect(page.getByTestId(config.loading)).toContainText(config.title);
     await expect(page.locator(config.canvas)).toHaveAttribute('aria-busy','true');
