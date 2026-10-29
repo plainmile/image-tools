@@ -9,7 +9,8 @@ export default defineConfig({
   use:{
     baseURL:process.env.IMAGE_BASE_URL||'http://127.0.0.1:18082',
     headless:true,
-    trace:'retain-on-failure'
+    trace:'retain-on-failure',
+    screenshot:process.env.IMAGE_PUBLIC_E2E==='1'?'only-on-failure':'off'
   },
   projects:[
     {name:'chromium',use:{browserName:'chromium'}},
