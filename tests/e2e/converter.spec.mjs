@@ -33,7 +33,7 @@ test('English and Chinese converter pages have reciprocal SEO and a usable compa
   expect(measures.scroll).toBeLessThanOrEqual(measures.width+1);
 });
 
-test('one transparent PNG converts directly to a same-size JPEG with white background',async({page})=>{
+test('one transparent PNG converts directly to a same-size JPEG with white background @public-smoke',async({page})=>{
   await page.goto('/convert-image/');
   await expect(page.locator('[data-converter-ready=true]')).toBeVisible();
   const bytes=(await makeImages(page)).png;

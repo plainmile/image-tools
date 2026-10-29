@@ -50,7 +50,7 @@ test('crop and rotate have bilingual titles, canonical and mobile width without 
   }
 });
 
-test('crop exports only selected original pixels, without stretching or uploading',async({page})=>{
+test('crop exports only selected original pixels, without stretching or uploading @public-smoke',async({page})=>{
   const posts=[];
   page.on('request',r=>{if(!['GET','HEAD'].includes(r.method()))posts.push(r.url());});
   await page.goto('/crop-image/');
@@ -174,7 +174,7 @@ test('locked square crop corner grows from a vertical-only drag and exports corr
   await expect(page.getByTestId('transform-download')).toHaveCount(0);
 });
 
-test('right rotation swaps pixels and flip-horizontal mirrors the rotated preview',async({page})=>{
+test('right rotation swaps pixels and flip-horizontal mirrors the rotated preview @public-smoke',async({page})=>{
   await page.goto('/rotate-image/');
   await expect(page.locator('[data-transform-ready=true]')).toBeVisible();
   await page.getByTestId('transform-upload').setInputFiles({

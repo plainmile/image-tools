@@ -64,6 +64,11 @@ jobs:
           if [ "$DEPLOY_PORT" = 22 ]; then pattern="$DEPLOY_HOST"; else pattern="[$DEPLOY_HOST]:$DEPLOY_PORT"; fi
           printf '%s %s\n' "$pattern" "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+      # The public TLS endpoint is owned by the shared edge proxy, not this
+      # static HTTP container. Do not restart a healthy container to fix 525.
+      - name: Public HTTPS preflight before changing production
+        id: preflight
+        run: bash tests/public_https_checks.sh preflight
       - name: Copy production Compose to isolated directory
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -120,15 +125,12 @@ jobs:
           exit 1
           REMOTE
       - name: Public HTTPS smoke tests
-        run: |
-          set -euo pipefail
-          curl --retry 3 -fsS https://image.plainmile.com/ | grep -q 'href="/resize-image/"'
-          curl --retry 3 -fsS https://image.plainmile.com/zh/ | grep -q 'href="/zh/resize-image/"'
-          curl --retry 3 -fsS https://image.plainmile.com/resize-image/ >/dev/null
-          curl --retry 3 -fsS https://image.plainmile.com/robots.txt | grep -q 'Sitemap: https://image.plainmile.com/sitemap-index.xml'
-          curl --retry 3 -fsS https://image.plainmile.com/sitemap-index.xml | grep -q 'sitemap-0.xml'
-          test "$(curl -s -o /dev/null -w '%{http_code}' https://image.plainmile.com/nonexistent-route)" = 404
+        id: public_smoke
+        run: bash tests/public_https_checks.sh release
       - name: Public HTTPS browser E2E
+        id: public_e2e
+        # Complete 3-browser 300+ E2E runs in PR/main CI. Here verify a small
+        # real-binary, mobile, privacy, SEO and security subset over the CDN.
         run: |
           docker run --rm --network host -v "$PWD:/work:ro" -e IMAGE_BASE_URL=https://image.plainmile.com mcr.microsoft.com/playwright:v1.55.0-noble bash -lc '
             set -eu
@@ -138,9 +140,29 @@ jobs:
             cd /tmp/test
             npm init -y >/dev/null
             npm install --no-audit --no-fund @playwright/test@1.55.0 jszip@3.10.1
-            npx playwright test
+            npx playwright test --grep @public-smoke
           '
 
+      - name: Diagnose origin TLS read-only if public HTTPS checks fail
+        if: ${{ failure() && (steps.preflight.outcome == 'failure' || steps.public_smoke.outcome == 'failure' || steps.public_e2e.outcome == 'failure') }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+        run: |
+          # Diagnostics only: never touch the shared edge vhost, certs,
+          # other containers, DNS, Cloudflare settings or production data.
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" '/bin/sh -s' <<'REMOTE'
+          echo 'Origin TLS diagnostics (read-only). Failure on 127.0.0.1 may simply mean 443 listens on a different interface.'
+          if command -v openssl >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+            timeout 8 openssl s_client -connect 127.0.0.1:443 -servername image.plainmile.com -brief </dev/null 2>&1 | head -n 22 || true
+          else
+            echo 'openssl/timeout not available'
+          fi
+          echo 'Image Tools container state:'
+          docker inspect -f '{{.Config.Image}} {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' plainmile-image-tools 2>&1 || true
+          echo 'Check existing shared edge Nginx 443/SNI and TLS error logs; no modifications were made.'
+          REMOTE
       - name: Erase temporary GHCR credentials
         if: always()
         env:

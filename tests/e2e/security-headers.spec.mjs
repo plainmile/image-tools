@@ -10,7 +10,7 @@ function verifySecurityHeaders(response) {
   expect(headers['content-security-policy']).toContain("frame-ancestors 'self'");
 }
 
-test('HTML, static assets and 404 keep security headers despite location-specific cache policies',async({request})=>{
+test('HTML, static assets and 404 keep security headers despite location-specific cache policies @public-smoke',async({request})=>{
   const home=await request.get('/');
   expect(home.status()).toBe(200);
   verifySecurityHeaders(home);
