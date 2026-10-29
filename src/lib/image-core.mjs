@@ -36,9 +36,31 @@ export function assertDimensions(width, height) {
 }
 
 export function aspectDimension(originalWidth, originalHeight, dimension, changed) {
+  if (![originalWidth,originalHeight].every(v => Number.isSafeInteger(v) && v > 0))
+    throw new Error('Invalid source dimensions.');
+  if (changed !== 'width' && changed !== 'height') throw new Error('Invalid dimension to synchronize.');
   const value = integer(dimension, changed === 'width' ? 'Width' : 'Height');
   const ratio = changed === 'width' ? originalHeight / originalWidth : originalWidth / originalHeight;
-  return clamp(Math.round(value * ratio), 1, MAX_AXIS);
+  // Never silently cap just one side: that distorts the very aspect ratio
+  // which the width/height synchronization toggle promises to preserve.
+  return integer(Math.max(1, Math.round(value * ratio)), changed === 'width' ? 'Height' : 'Width');
+}
+
+// An exact-size editor must keep both sides proportional *and* within the
+// same browser canvas budget as the eventual export. When a requested side
+// cannot fit, reduce both together and tell the user it was limited.
+export function fitLockedAspectDimensions(originalWidth, originalHeight, dimension, changed) {
+  if (![originalWidth, originalHeight].every(v => Number.isSafeInteger(v) && v > 0))
+    throw new Error('Invalid source dimensions.');
+  if (changed !== 'width' && changed !== 'height') throw new Error('Invalid dimension to synchronize.');
+  const value = integer(dimension, changed === 'width' ? 'Width' : 'Height');
+  const width = changed === 'width' ? value : Math.max(1, Math.round(value * originalWidth / originalHeight));
+  const height = changed === 'height' ? value : Math.max(1, Math.round(value * originalHeight / originalWidth));
+  const scale = Math.min(1, MAX_AXIS / width, MAX_AXIS / height,
+    Math.sqrt(MAX_OUTPUT_PIXELS / (width * height)));
+  const adjustedWidth = scale < 1 ? Math.max(1, Math.floor(width * scale)) : width;
+  const adjustedHeight = scale < 1 ? Math.max(1, Math.floor(height * scale)) : height;
+  return { ...assertDimensions(adjustedWidth, adjustedHeight), limited: scale < 1 };
 }
 
 export function fitWithin(sourceWidth, sourceHeight, maxWidth, maxHeight) {
