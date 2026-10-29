@@ -172,7 +172,7 @@ test('batch with one encoding failure downloads the one success directly and lis
   expect(output).toEqual({type:'image/png',width:37,height:19});
 });
 
-test('bulk image resizing has an actionable cancel control during processing',async({page})=>{
+test('stopping bulk resize preserves successfully processed images as a direct download',async({page})=>{
   await page.goto('/bulk-image-resizer/');
   await expect(page.locator('[data-editor-ready=true]')).toBeVisible();
   const {png}=await makeImages(page);
@@ -183,13 +183,53 @@ test('bulk image resizing has an actionable cancel control during processing',as
   await page.evaluate(()=>{
     const old=HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob=function(callback,...args){
-      return old.call(this,blob=>setTimeout(()=>callback(blob),350),...args);
+      return old.call(this,blob=>setTimeout(()=>callback(blob),650),...args);
     };
   });
   await page.getByTestId('process').click();
   await expect(page.getByTestId('batch-progress')).toBeVisible();
   await expect(page.getByTestId('batch-cancel')).toBeVisible();
   await page.getByTestId('batch-cancel').click();
-  await expect(page.getByTestId('status')).toContainText('Batch stopped.');
-  await expect(page.getByTestId('download')).toHaveCount(0);
+  await expect(page.getByTestId('status')).toContainText('Batch stopped. Finished images are ready to download.');
+  await expect(page.getByTestId('status')).toContainText('Processed 1 / 4');
+  await expect(page.getByTestId('result-meta')).toContainText('37×19 · PNG');
+  await expect(page.getByTestId('download')).toHaveAttribute('download','photo-0-edited.png');
+  const image=await page.evaluate(async()=>{
+    const blob=await (await fetch(document.querySelector('[data-testid=download]').href)).blob();
+    const bitmap=await createImageBitmap(blob);
+    const data={type:blob.type,width:bitmap.width,height:bitmap.height};
+    bitmap.close();return data;
+  });
+  expect(image).toEqual({type:'image/png',width:37,height:19});
+});
+
+test('stopping Chinese image conversion preserves real output and does not report unprocessed images as failed',async({page})=>{
+  await page.goto('/zh/convert-image/');
+  await expect(page.locator('[data-converter-ready=true]')).toBeVisible();
+  const {png}=await makeImages(page);
+  await page.getByTestId('convert-upload').setInputFiles(Array.from({length:4},(_,i)=>({
+    name:'source-'+i+'.png',mimeType:'image/png',buffer:Buffer.from(png)
+  })));
+  await expect(page.locator('.file-summary')).toContainText('4');
+  await page.evaluate(()=>{
+    const old=HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob=function(callback,...args){
+      return old.call(this,blob=>setTimeout(()=>callback(blob),650),...args);
+    };
+  });
+  await page.getByTestId('convert-process').click();
+  await expect(page.getByTestId('convert-progress')).toBeVisible();
+  await page.getByTestId('convert-cancel').click();
+  await expect(page.getByTestId('convert-status')).toContainText('已停止转换，已完成的图片可以下载。');
+  await expect(page.getByTestId('convert-status')).toContainText('已处理 1 / 4');
+  await expect(page.getByTestId('convert-result-meta')).toContainText('1 张');
+  await expect(page.getByTestId('convert-failed-output')).toHaveCount(0);
+  await expect(page.getByTestId('convert-download')).toHaveAttribute('download','source-0-converted.jpg');
+  const image=await page.evaluate(async()=>{
+    const blob=await (await fetch(document.querySelector('[data-testid=convert-download]').href)).blob();
+    const bitmap=await createImageBitmap(blob);
+    const data={type:blob.type,width:bitmap.width,height:bitmap.height};
+    bitmap.close();return data;
+  });
+  expect(image).toEqual({type:'image/jpeg',width:37,height:19});
 });

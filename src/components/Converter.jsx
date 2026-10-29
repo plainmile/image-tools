@@ -15,7 +15,7 @@ const language = {
     convert:'Convert images',working:'Converting',packaging:'Creating ZIP…',
     done:'Converted files are ready.',download:'Download image',zip:'Download ZIP',
     clear:'Clear',cancel:'Stop after current image',stopping:'Stopping after the current image…',
-    cancelled:'Conversion stopped. No output was saved.',
+    cancelled:'Conversion stopped. No output was saved.',partial:'Conversion stopped. Finished images are ready to download.',
     max:'Select up to 30 images and 160 MB in total.',
     output:'Converted output',preview:'Preview',empty:'Your selected image appears here.',
     local:'All image processing takes place in this browser. No files are uploaded.',
@@ -34,7 +34,7 @@ const language = {
     convert:'开始转换',working:'正在转换',packaging:'正在生成 ZIP…',
     done:'转换完成，可以下载。',download:'下载图片',zip:'下载 ZIP 压缩包',
     clear:'清空',cancel:'处理完当前图片后停止',stopping:'当前图片处理完后停止…',
-    cancelled:'已停止转换，没有生成下载文件。',
+    cancelled:'已停止转换，没有生成下载文件。',partial:'已停止转换，已完成的图片可以下载。',
     max:'最多选择 30 张图片，文件总大小不超过 160 MB。',
     output:'转换结果',preview:'预览',empty:'选择图片后在这里查看。',
     local:'图片仅在当前浏览器中处理，不上传文件。',
@@ -72,7 +72,7 @@ export default function Converter({lang='en'}) {
   useEffect(()=>{setReady(true);return()=>{sequence.current+=1;};},[]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
   useEffect(()=>()=>{if(result?.url)URL.revokeObjectURL(result.url);},[result]);
-  useEffect(()=>{setResult(null);setFailedAttempt([]);setStatus(prev=>prev.startsWith(t.done)?t.selected:prev);},[format,quality]);
+  useEffect(()=>{setResult(null);setFailedAttempt([]);setStatus(prev=>prev.startsWith(t.done)||prev.startsWith(t.partial)?t.selected:prev);},[format,quality]);
 
   async function choose(chosen) {
     if(busy||inspecting||!chosen.length)return;
@@ -139,10 +139,11 @@ export default function Converter({lang='en'}) {
     cancelled.current=false;setBusy(true);setFailedAttempt([]);
     setPhase('processing');setProcessed(0);setStatus(t.working+'…');
     try{
-      let totalPixels=0,totalBytes=0;
+      let totalPixels=0,totalBytes=0,processedCount=0;
       const succeeded=[],failed=[];
       for(const [index,item] of files.entries()){
-        if(cancelled.current){setStatus(t.cancelled+(result?.url?t.kept:''));return;}
+        // Keep successfully converted files when the user stops the batch.
+        if(cancelled.current)break;
         try{
           const area=item.width*item.height;
           if(totalPixels+area>MAX_BATCH_OUTPUT_PIXELS)
@@ -157,12 +158,13 @@ export default function Converter({lang='en'}) {
         }catch(error){
           failed.push({name:item.file.name,reason:localizedError(error,lang)});
         }
-        setProcessed(index+1);
+        processedCount=index+1;
+        setProcessed(processedCount);
       }
-      if(cancelled.current){setStatus(t.cancelled+(result?.url?t.kept:''));return;}
+      const stoppedEarly=cancelled.current&&processedCount<files.length;
       if(!succeeded.length){
         setFailedAttempt(failed);
-        setStatus(t.noOutput+' '+t.check+(result?.url?t.kept:''));return;
+        setStatus((stoppedEarly?t.cancelled:t.noOutput+' '+t.check)+(result?.url?t.kept:''));return;
       }
       let blob,name;
       // Download the only successful image directly, even if the original
@@ -180,7 +182,9 @@ export default function Converter({lang='en'}) {
       }
       setFailedAttempt([]);
       setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded,isZip});
-      setStatus(t.done+(failed.length?' '+t.check:''));
+      setStatus(stoppedEarly
+        ? t.partial+' '+t.progress+' '+processedCount+' / '+files.length+(failed.length?' '+t.check:'')
+        : t.done+(failed.length?' '+t.check:''));
     }catch(error){
       setStatus(localizedError(error,lang)+(result?.url?t.kept:''));
     }finally{setBusy(false);setPhase('');}
