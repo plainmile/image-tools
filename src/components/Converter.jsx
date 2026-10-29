@@ -118,6 +118,17 @@ export default function Converter({lang='en'}) {
     document.addEventListener('paste',handle);
     return()=>document.removeEventListener('paste',handle);
   },[busy,inspecting,files,lang]);
+  function removeFile(index){
+    if(busy||inspecting)return;
+    const remaining=files.filter((_,i)=>i!==index);
+    sequence.current+=1;
+    setFiles(remaining);
+    setPreview(remaining.length?URL.createObjectURL(remaining[0].file):null);
+    setResult(null);setFailedAttempt([]);setProcessed(0);
+    setWasBatch(remaining.length>1);
+    if(!remaining.length)setRejected([]);
+    setStatus(remaining.length?t.selected:t.choose);
+  }
   function reset(){
     if(busy||inspecting)return;
     sequence.current+=1;setFiles([]);setRejected([]);setResult(null);setFailedAttempt([]);
@@ -188,8 +199,13 @@ export default function Converter({lang='en'}) {
           </label>
           {files.length>0&&<div className="file-summary">
             <strong>{t.showFiles}: {files.length}</strong>
-            <ul>{files.slice(0,8).map((item,i)=><li key={i}>{item.file.name} · {item.width}×{item.height} · {formatBytes(item.file.size)}</li>)}</ul>
-            {files.length>8&&<span>+{files.length-8}</span>}
+            <ul className={files.length>1?'selected-files':undefined}>{(files.length>1?files:files.slice(0,8)).map((item,i)=><li key={i} className={files.length>1?'selected-file-entry':undefined}>
+              <span>{item.file.name} · {item.width}×{item.height} · {formatBytes(item.file.size)}</span>
+              {files.length>1&&<button type="button" className="secondary selected-file-remove" data-testid="convert-remove-file"
+                aria-label={(lang==='zh'?'移除 ':'Remove ')+item.file.name} disabled={busy||inspecting}
+                onClick={()=>removeFile(i)}>{lang==='zh'?'移除':'Remove'}</button>}
+            </li>)}</ul>
+            {files.length>8&&files.length<=1&&<span>+{files.length-8}</span>
           </div>}
           {rejected.length>0&&<details open className="batch-errors" data-testid="convert-failed-input">
             <summary>{t.failed} ({rejected.length})</summary>
