@@ -65,6 +65,13 @@ h2 { font-size: 18px; font-weight: 600; }
 .file-summary strong { color: var(--text); font-weight: 600; }
 .file-summary ul { list-style: none; margin: 5px 0 0; padding: 0; }
 .file-summary li { overflow-wrap: anywhere; padding: 3px 0; }
+/* A wrong file can be removed without clearing the entire batch. The list
+   stays compact and scrolls internally when many images are selected. */
+.file-summary .selected-files { max-height: 216px; overflow-y: auto; padding-right: 4px; }
+.file-summary .selected-file-entry { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.file-summary .selected-file-entry > span { min-width: 0; overflow-wrap: anywhere; }
+button.secondary.selected-file-remove { flex: 0 0 auto; min-height: 29px; padding: 3px 9px; font-size: 12px; font-weight: 500; border-color: var(--line); }
+
 .field-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px 20px; }
 .field-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text); }
 .field-grid .wide { grid-column: 1 / -1; }
