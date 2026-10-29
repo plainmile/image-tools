@@ -140,7 +140,7 @@ jobs:
             cd /tmp/test
             npm init -y >/dev/null
             npm install --no-audit --no-fund @playwright/test@1.55.0 jszip@3.10.1
-            npx playwright test --grep @public-smoke
+            npx playwright test --grep @public-smoke --max-failures=3
           '
 
       - name: Diagnose origin TLS read-only if public HTTPS checks fail
