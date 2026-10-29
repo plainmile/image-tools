@@ -89,4 +89,5 @@ test('partial batch conversion compares bytes only for successful outputs',async
   const bytes=first.buffer.byteLength;
   const size=bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(2)+' MB';
   await expect(page.getByTestId('convert-size-comparison')).toContainText('Original (exported images): '+size);
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('Download ZIP size');
 });
