@@ -205,7 +205,6 @@ export default function Converter({lang='en'}) {
                 aria-label={(lang==='zh'?'移除 ':'Remove ')+item.file.name} disabled={busy||inspecting}
                 onClick={()=>removeFile(i)}>{lang==='zh'?'移除':'Remove'}</button>}
             </li>)}</ul>
-            {files.length>8&&files.length<=1&&<span>+{files.length-8}</span>
           </div>}
           {rejected.length>0&&<details open className="batch-errors" data-testid="convert-failed-input">
             <summary>{t.failed} ({rejected.length})</summary>
