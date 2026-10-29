@@ -405,22 +405,27 @@ export async function makePassportSheet(file, opts = {}) {
   const image = await readImage(file);
   // 4x6 inches at 300 pixels/inch, six manually framed 2x2 photos.
   const canvas = document.createElement('canvas');
-  canvas.width = 1200;
-  canvas.height = 1800;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('Canvas unavailable.');
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, 1200, 1800);
-  const rect = drawRect(image.naturalWidth, image.naturalHeight, 600, 600,
-    'cover', opts.zoom || 1, opts.cropX || 0, opts.cropY || 0);
-  for (let row = 0; row < 3; row += 1) {
-    for (let col = 0; col < 2; col += 1) {
-      ctx.drawImage(image, rect.sx, rect.sy, rect.sw, rect.sh, col * 600, row * 600, 600, 600);
+  try {
+    canvas.width = 1200;
+    canvas.height = 1800;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas unavailable.');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, 1200, 1800);
+    const rect = drawRect(image.naturalWidth, image.naturalHeight, 600, 600,
+      'cover', opts.zoom || 1, opts.cropX || 0, opts.cropY || 0);
+    for (let row = 0; row < 3; row += 1) {
+      for (let col = 0; col < 2; col += 1) {
+        ctx.drawImage(image, rect.sx, rect.sy, rect.sw, rect.sh, col * 600, row * 600, 600, 600);
+      }
     }
+    const rawBlob = await canvasToBlob(canvas, MIME.jpeg, 0.93);
+    const blob = new Blob([jpegBytesWithDpi(await rawBlob.arrayBuffer(), 300)], { type: MIME.jpeg });
+    return { blob, width: 1200, height: 1800, format: 'jpeg', bytes: blob.size, quality: 0.93 };
+  } finally {
+    // 1200x1800 RGBA backing memory must also be released when an encoding
+    // callback fails, rather than remaining live until browser garbage collection.
+    canvas.width = 0;
+    canvas.height = 0;
   }
-  const rawBlob = await canvasToBlob(canvas, MIME.jpeg, 0.93);
-  canvas.width = 0;
-  canvas.height = 0;
-  const blob = new Blob([jpegBytesWithDpi(await rawBlob.arrayBuffer(), 300)], { type: MIME.jpeg });
-  return { blob, width: 1200, height: 1800, format: 'jpeg', bytes: blob.size, quality: 0.93 };
 }
