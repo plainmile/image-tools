@@ -516,3 +516,73 @@ test('removing an unedited image needs no confirmation and keeps edited work on 
   await page.getByTestId('redact-download').click();
   expect((await download).suggestedFilename()).toBe('redacted-image.png');
 });
+
+test('switching image thumbnails preserves a finished ZIP until a mask changes',async({page})=>{
+  await page.goto('/redact-image/');await synthetic(page,2);
+  await draw(page);
+  await page.getByRole('button',{name:/capture-1\.png/}).click();
+  await draw(page);
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download-all').click();
+  await downloaded;
+  const href=await page.getByTestId('redact-download-again').getAttribute('href');
+  await page.getByRole('button',{name:/capture-0\.png/}).click();
+  await expect(page.getByTestId('redact-download-again')).toHaveAttribute('href',href);
+  await page.getByRole('button',{name:/capture-1\.png/}).click();
+  await expect(page.getByTestId('redact-download-again')).toHaveAttribute('href',href);
+  await draw(page,[.7,.15],[.88,.45]);
+  await expect(page.getByTestId('redact-download-again')).toHaveCount(0);
+});
+
+test('a single finished download stays available when returning to its unchanged image',async({page})=>{
+  await page.goto('/zh/redact-image/');await synthetic(page,2);await draw(page);
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await downloaded;
+  const href=await page.getByTestId('redact-download-again').getAttribute('href');
+  await page.getByRole('button',{name:/capture-0\.png/}).click();
+  await expect(page.getByTestId('redact-download-again')).toHaveAttribute('href',href);
+  await page.getByRole('button',{name:/capture-1\.png/}).click();
+  await expect(page.getByTestId('redact-download-again')).toHaveCount(0);
+  await page.getByRole('button',{name:/capture-0\.png/}).click();
+  await expect(page.getByTestId('redact-download-again')).toHaveAttribute('href',href);
+  await draw(page,[.7,.1],[.85,.4]);
+  await expect(page.getByTestId('redact-download-again')).toHaveCount(0);
+});
+
+test('JPEG export warns of transparency loss and flattens transparent pixels to white',async({page})=>{
+  await page.goto('/zh/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const data=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');canvas.width=80;canvas.height=80;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,80,80);
+    ctx.fillStyle='#a33';ctx.fillRect(25,25,30,30);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('redact-upload').setInputFiles({name:'transparent.png',mimeType:'image/png',buffer:Buffer.from(data)});
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  await draw(page,[.3,.3],[.7,.7]);
+  await page.locator('#redact-format').selectOption('jpeg');
+  await expect(page.getByTestId('redact-alpha-warning')).toContainText('透明区域会变成白色');
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await downloaded;
+  const result=await page.evaluate(async()=>{
+    const a=document.querySelector('[data-testid="redact-download-again"]');
+    const blob=await(await fetch(a.href)).blob();
+    const bitmap=await createImageBitmap(blob);
+    const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+    const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0);
+    const corner=Array.from(ctx.getImageData(4,4,1,1).data);
+    const masked=Array.from(ctx.getImageData(40,40,1,1).data);
+    bitmap.close();return {name:a.download,mime:blob.type,corner,masked};
+  });
+  expect(result.name).toBe('redacted-image.jpg');
+  expect(result.mime).toBe('image/jpeg');
+  expect(result.corner.slice(0,3).every(x=>x>=245)).toBe(true);
+  expect(result.masked.slice(0,3).every(x=>x<=15)).toBe(true);
+  await page.locator('#redact-format').selectOption('png');
+  await expect(page.getByTestId('redact-alpha-warning')).toHaveCount(0);
+});
