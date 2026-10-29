@@ -127,6 +127,24 @@ test('WebP VP8X animation flag is recognized; ordinary still WebP is accepted', 
   assert.equal(await isAnimatedImage(fakeWebp(0x12)),true);
 });
 
+test('mislabeled GIF, JPEG, PNG and WebP inputs cannot bypass format or animation checks',async()=>{
+  const file=(bytes,name,type)=>{
+    const blob=new Blob([Uint8Array.from(bytes)]);
+    return {name,type,size:blob.size,slice:(...args)=>blob.slice(...args)};
+  };
+  const jpeg=[0xff,0xd8,0xff,0xe0,0,16];
+  const png=[137,80,78,71,13,10,26,10,0,0,0,0];
+  const webp=[82,73,70,70,28,0,0,0,87,69,66,80,86,80,56,32];
+  const gif=[71,73,70,56,57,97,1,0,1,0,0,0];
+  assert.equal(await isAnimatedImage(file(jpeg,'real.jpg','image/jpeg')),false);
+  assert.equal(await isAnimatedImage(file(webp,'real.webp','image/webp')),false);
+  await assert.rejects(isAnimatedImage(file(gif,'renamed.png','image/png')),/Image contents do not match/);
+  await assert.rejects(isAnimatedImage(file(jpeg,'renamed.png','image/png')),/Image contents do not match/);
+  await assert.rejects(isAnimatedImage(file(png,'renamed.jpg','image/jpeg')),/Image contents do not match/);
+  await assert.rejects(isAnimatedImage(file(png,'renamed.webp','image/webp')),/Image contents do not match/);
+  await assert.rejects(isAnimatedImage(file([0,1,2],'empty.jpg','image/jpeg')),/Image contents do not match/);
+});
+
 test('KB encoding checks minimum JPEG/WebP quality instead of reporting an impossible limit',async()=>{
   // Only exactly quality=0.05 can produce 350 bytes: all 11 intermediate
   // binary-search points produce 351+ bytes.
