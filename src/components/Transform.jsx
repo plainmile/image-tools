@@ -138,7 +138,7 @@ export default function Transform({lang='en',tool='crop'}) {
       if(key==='x')setCrop(moveCrop(crop,n-crop.x,0,sw,sh));
       if(key==='y')setCrop(moveCrop(crop,0,n-crop.y,sw,sh));
       if(key==='width')setCrop(resizeCrop(crop,n,crop.height,sw,sh,aspect));
-      if(key==='height')setCrop(aspect==='free'?resizeCrop(crop,crop.width,n,sw,sh):resizeCrop(crop,n*Number(aspect),n,sw,sh,aspect));
+      if(key==='height')setCrop(aspect==='free'?resizeCrop(crop,crop.width,n,sw,sh):resizeCrop(crop,n*Number(aspect),n,sw,sh,aspect,'height'));
     }catch{/* Invalid intermediate typing cannot modify the current crop. */}
   }
   function pointerPoint(event){
@@ -162,7 +162,12 @@ export default function Transform({lang='en',tool='crop'}) {
     const dx=point.x-start.x,dy=point.y-start.y;
     let next;
     if(action==='move')next=moveCrop(base,dx,dy,selected.width,selected.height);
-    else if(action==='resize')next=resizeCrop(base,base.width+dx,base.height+dy,selected.width,selected.height,aspect);
+    else if(action==='resize'){
+      // With a locked ratio the longer relative gesture (horizontal or
+      // vertical) drives the corner, so up/down dragging is never ignored.
+      const axis=aspect!=='free'&&Math.abs(dy)/base.height>Math.abs(dx)/base.width?'height':'width';
+      next=resizeCrop(base,base.width+dx,base.height+dy,selected.width,selected.height,aspect,axis);
+    }
     else next=drawCrop(start,point,selected.width,selected.height,aspect);
     setCrop(next);
   }
