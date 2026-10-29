@@ -472,7 +472,8 @@ test('exact-size mode never silently downscales when KB goal cannot be met',asyn
   await expect(page.locator('.output-advanced input[type=checkbox]')).toHaveCount(0);
   await page.getByTestId('process').click();
   await expect(page.getByTestId('download')).toHaveCount(0);
-  await expect(page.getByTestId('status')).toContainText('Could not reach');
+  await expect(page.getByTestId('status')).toContainText('无法达到指定 KB');
+  await expect(page.getByTestId('status')).not.toContainText('Could not reach');
   await page.getByTestId('target').fill('0');
   await page.getByTestId('process').click();
   await expect(page.getByTestId('result-meta')).toContainText('400×400');
