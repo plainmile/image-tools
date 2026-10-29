@@ -96,5 +96,18 @@ test('partial batch conversion compares bytes only for successful outputs',async
   const bytes=first.buffer.byteLength;
   const size=bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(2)+' MB';
   await expect(page.getByTestId('convert-size-comparison')).toContainText('Original (exported images): '+size);
-  await expect(page.getByTestId('convert-size-comparison')).toContainText('Download ZIP size');
+  // With just one successful output, show the real image size—not a
+  // nonexistent ZIP size—even if the original selection was a batch.
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('Converted output');
+  await expect(page.getByTestId('convert-size-comparison')).not.toContainText('Download ZIP size');
+  await expect(page.getByTestId('convert-download')).toHaveAttribute('download','sample-converted.jpg');
+  const result=await page.evaluate(async()=>{
+    const link=document.querySelector('[data-testid=convert-download]');
+    const blob=await(await fetch(link.href)).blob();
+    const bitmap=await createImageBitmap(blob);
+    const decoded={type:blob.type,width:bitmap.width,height:bitmap.height,bytes:blob.size};
+    bitmap.close();return decoded;
+  });
+  expect(result).toMatchObject({type:'image/jpeg',width:120,height:80});
+  expect(result.bytes).toBeGreaterThan(100);
 });
