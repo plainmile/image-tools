@@ -292,7 +292,7 @@ export default function Editor({lang='en',tool='resize'}) {
                     setWidth(next.width);setHeight(next.height);
                     setStatus(previous=>next.limited?t.aspectLimited:previous===t.aspectLimited?t.pending:previous);
                   }
-                }}/>{t.keep}</label>
+                }}/>{t.keep}</label>}
               </div>
             </details>
             <label>{t.format}<select data-testid="format" value={format} disabled={busy||inspecting} onChange={e=>setFormat(e.target.value)}>
