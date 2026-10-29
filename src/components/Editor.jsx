@@ -44,9 +44,28 @@ const dict = {
 };
 function localizedImageError(error,lang) {
   const message=String(error?.message||error||'');
-  if(lang==='zh'&&message.includes('Image contents do not match'))
-    return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
-  return message;
+  if(lang!=='zh')return message;
+  const translations=[
+    ['Image contents do not match','图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。'],
+    ['Animated PNG/WebP','暂不支持动画 PNG/WebP，避免导出时遗漏动画帧。'],
+    ['cannot be decoded','图片无法解码，可能已损坏或格式不受支持。'],
+    ['80 megapixels','原图超过 8000 万像素，请先缩小图片。'],
+    ['40 MB','单张图片不能超过 40 MB。'],
+    ['Supported images:','仅支持 JPG、PNG 和 WebP，不支持 GIF、SVG 或 HEIC。'],
+    ['32-megapixel','输出超过 3200 万像素，请减小尺寸。'],
+    ['120-megapixel','本批图片的输出总像素超过 1.2 亿，请减小尺寸或分批处理。'],
+    ['128 MB','输出文件累计超过 128 MB，请减少图片数量或输出尺寸。'],
+    ['whole number','宽高必须填写 1 到 10000 之间的整数。'],
+    ['Invalid source dimensions','原图像素尺寸无效，请更换图片。'],
+    ['Target size must','文件大小限制必须在 0 到 20000 KB 之间。'],
+    ['Could not reach the file-size target','无法达到指定 KB 限制，请提高上限、更换格式，或允许缩小像素。'],
+    ['Actual file size exceeds','处理后的文件仍超过指定 KB 限制，请调整设置。'],
+    ['cannot encode the selected output format','当前浏览器不支持选择的导出格式。'],
+    ['Image encoding failed','图片编码失败，请尝试更换输出格式或减小尺寸。'],
+    ['Invalid image dimensions','图片像素尺寸无效，请检查输入。']
+  ];
+  const translation=translations.find(([match])=>message.includes(match));
+  return translation?translation[1]:message;
 }
 
 export default function Editor({lang='en',tool='resize'}) {
@@ -204,7 +223,7 @@ export default function Editor({lang='en',tool='resize'}) {
           results.push({sourceBytes:item.file.size,name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
         }catch(err){
           if(!batch)throw err;
-          failed.push({name:item.file.name,reason:err?.message||t.error});
+          failed.push({name:item.file.name,reason:localizedImageError(err,lang)||t.error});
         }
         if(batch)setProgress(index+1);
       }
@@ -221,7 +240,7 @@ export default function Editor({lang='en',tool='resize'}) {
       }
       const url=URL.createObjectURL(blob);
       setOutput({url,blob,name,results,failed,isZip});setStatus(failed.length?t.done+' '+t.someSkipped:t.done);
-    }catch(err){setStatus((err.message||t.error)+(output?.url?t.kept:''));}
+    }catch(err){setStatus((localizedImageError(err,lang)||t.error)+(output?.url?t.kept:''));}
     finally{setBusy(false);setPhase('');}
   }
   const sourceFormats=files.map(item=>inputImageFormat(item.file));

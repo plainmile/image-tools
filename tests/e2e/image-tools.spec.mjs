@@ -472,7 +472,8 @@ test('exact-size mode never silently downscales when KB goal cannot be met',asyn
   await expect(page.locator('.output-advanced input[type=checkbox]')).toHaveCount(0);
   await page.getByTestId('process').click();
   await expect(page.getByTestId('download')).toHaveCount(0);
-  await expect(page.getByTestId('status')).toContainText('Could not reach');
+  await expect(page.getByTestId('status')).toContainText('无法达到指定 KB');
+  await expect(page.getByTestId('status')).not.toContainText('Could not reach');
   await page.getByTestId('target').fill('0');
   await page.getByTestId('process').click();
   await expect(page.getByTestId('result-meta')).toContainText('400×400');
@@ -577,4 +578,63 @@ test('batch exports successes and names individual files that fail a strict KB l
   });
   await expect(page.getByTestId('download')).toHaveAttribute('download','small-edited.png');
   expect(bytes.slice(0,8)).toEqual([137,80,78,71,13,10,26,10]);
+});
+
+test('Chinese resize and batch limits explain failures in Chinese, without fake downloads',async({page})=>{
+  await page.goto('/zh/resize-image/');await uploadSynthetic(page);
+  await selectResizeMode(page,'contain');
+  await page.getByTestId('width').fill('9000');
+  await page.getByTestId('height').fill('9000');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('status')).toContainText('3200 万像素');
+  await expect(page.getByTestId('status')).not.toContainText('32-megapixel');
+  await expect(page.getByTestId('download')).toHaveCount(0);
+
+  const animation=Buffer.from([82,73,70,70,28,0,0,0,87,69,66,80,86,80,56,88,10,0,0,0,2]);
+  await page.getByTestId('upload').setInputFiles({name:'animated.webp',mimeType:'image/webp',buffer:animation});
+  await expect(page.getByTestId('status')).toContainText('暂不支持动画');
+
+  await page.goto('/zh/bulk-image-resizer/');await uploadSynthetic(page,5);
+  await selectResizeMode(page,'cover');
+  await page.getByTestId('width').fill('5000');
+  await page.getByTestId('height').fill('5000');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('status')).toContainText('1.2 亿');
+  await expect(page.getByTestId('status')).not.toContainText('120-megapixel');
+  await expect(page.getByTestId('download')).toHaveCount(0);
+});
+
+test('Chinese bulk output error identifies a file that misses the KB limit',async({page})=>{
+  await page.goto('/zh/bulk-image-resizer/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const imgs=await page.evaluate(async()=>{
+    async function make(noisy){
+      const c=document.createElement('canvas');c.width=noisy?160:24;c.height=noisy?120:24;
+      const ctx=c.getContext('2d');
+      if(noisy){
+        const data=ctx.createImageData(c.width,c.height);
+        let seed=0x12345678;
+        for(let i=0;i<data.data.length;i+=4){
+          seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;
+          data.data[i]=seed&255;data.data[i+1]=(seed>>>8)&255;data.data[i+2]=(seed>>>16)&255;data.data[i+3]=255;
+        }
+        ctx.putImageData(data,0,0);
+      }else{ctx.fillStyle='#336699';ctx.fillRect(0,0,c.width,c.height);}
+      const b=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
+      return Array.from(new Uint8Array(await b.arrayBuffer()));
+    }
+    return {small:await make(false),noisy:await make(true)};
+  });
+  await page.getByTestId('upload').setInputFiles([
+    {name:'small.png',mimeType:'image/png',buffer:Buffer.from(imgs.small)},
+    {name:'noisy.png',mimeType:'image/png',buffer:Buffer.from(imgs.noisy)}
+  ]);
+  await expect(page.locator('.file-summary')).toContainText('2 个文件');
+  await page.locator('[data-testid=output-advanced] summary').click();
+  await page.getByTestId('target').fill('1');
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toHaveAttribute('download','small-edited.png');
+  await expect(page.getByTestId('skipped-outputs')).toContainText('noisy.png');
+  await expect(page.getByTestId('skipped-outputs')).toContainText('无法达到指定 KB');
+  await expect(page.getByTestId('skipped-outputs')).not.toContainText('Could not reach');
 });
