@@ -20,7 +20,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'First input image preview; check individual files after ZIP export.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Resize preview for the first image only (not the final encoded bytes). Download the ZIP to inspect all outputs.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,7 +39,7 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张原图；ZIP 内每张图片请下载后检查。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张图片的尺寸与裁剪效果（不是最终编码文件）；请下载 ZIP 检查每张结果。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。'
   }
 };
 export default function Editor({lang='en',tool='resize'}) {
@@ -198,7 +198,7 @@ export default function Editor({lang='en',tool='resize'}) {
         if(batch){setPhase('zip');setStatus(t.packaging);}
         const {default: JSZip}=await import('jszip');
         const zip=new JSZip();results.forEach((r,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+r.name,r.blob));
-        blob=await zip.generateAsync({type:'blob'});name='plainmile-images.zip';
+        blob=await zip.generateAsync({type:'blob',compression:'STORE'});name='plainmile-images.zip';
       }
       const url=URL.createObjectURL(blob);
       setOutput({url,blob,name,results,failed});setStatus(failed.length?t.done+' '+t.someSkipped:t.done);
@@ -325,7 +325,7 @@ export default function Editor({lang='en',tool='resize'}) {
             output.results.length+' '+t.count+' · ZIP '+formatBytes(output.blob.size):
             output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
           <p data-testid="exact-bytes">{lang==='zh'?'实际文件大小：':'Exact file size: '}{output.blob.size} {lang==='zh'?'字节':'bytes'}</p>
-           <p data-testid="size-comparison">{output.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(output.results.reduce((sum,item)=>sum+item.sourceBytes,0))} · {lang==='zh'?'结果文件':'Output file'}: {formatBytes(output.blob.size)}</p>
+           <p data-testid="size-comparison">{output.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(output.results.reduce((sum,item)=>sum+item.sourceBytes,0))} · {batch?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'结果文件':'Output file')}: {formatBytes(output.blob.size)}</p>
           {batch&&output.failed.length>0&&<details className="batch-errors" data-testid="skipped-outputs" open>
             <summary>{t.skippedOutputs} ({output.failed.length})</summary>
             <ul>{output.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>

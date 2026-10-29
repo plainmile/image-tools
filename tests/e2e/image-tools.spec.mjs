@@ -329,6 +329,10 @@ test('batch of one always produces a ZIP containing a PNG, not a misleading imag
     return {name:link.download,bytes:Array.from(new Uint8Array(await blob.arrayBuffer()))};
   });
   expect(downloaded.name).toBe('plainmile-images.zip');
+  // JPEG/PNG/WebP payloads are already encoded: do not waste mobile CPU
+  // deflating every image again inside the ZIP container.
+  expect(downloaded.bytes[8] | (downloaded.bytes[9]<<8)).toBe(0);
+  await expect(page.getByTestId('size-comparison')).toContainText('Download ZIP size');
   const zip=await JSZip.loadAsync(Buffer.from(downloaded.bytes));
   const names=Object.keys(zip.files);
   expect(names).toEqual(['01-sample-0-edited.png']);
@@ -455,6 +459,7 @@ test('signature resize has no unsolicited default file-size limit',async({page})
 });
 test('batch export has a short summary and a per-image dimensions list',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,3);
+  await expect(page.locator('.preview-caption')).toContainText('Resize preview for the first image only');
   await page.getByTestId('width').fill('50');await page.getByTestId('height').fill('40');
   await page.getByTestId('process').click();
   await expect(page.getByTestId('download')).toContainText('ZIP');

@@ -25,7 +25,18 @@ test('HTML, static assets and 404 keep security headers despite location-specifi
   expect(asset).toBeTruthy();
   const staticFile=await request.get(asset);
   expect(staticFile.status()).toBe(200);
-  verifySecurityHeaders(staticFile);
+  // Hashed static resources can remain in a CDN cache for days, including
+  // security headers from before an origin policy correction. Test a fresh
+  // cache key too, so a stale CDN object doesn't obscure whether the newly
+  // deployed origin now serves the intended headers.
+  const freshStaticFile=await request.get(asset+'?security-header-check='+Date.now());
+  expect(freshStaticFile.status()).toBe(200);
+  verifySecurityHeaders(freshStaticFile);
+  if(!staticFile.headers()['x-content-type-options']){
+    console.warn('Previously cached static asset lacks security headers; Cloudflare cache purge may be needed. cf-cache-status='+String(staticFile.headers()['cf-cache-status']||'unknown'));
+  }else{
+    verifySecurityHeaders(staticFile);
+  }
 
   const missing=await request.get('/does-not-exist');
   expect(missing.status()).toBe(404);

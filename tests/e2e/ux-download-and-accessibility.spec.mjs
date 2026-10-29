@@ -22,6 +22,13 @@ test('localized skip navigation targets the main landmark',async({page})=>{
   }
 });
 
+test('skip navigation respects the system reduced-motion preference',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/');
+  const behavior=await page.locator('html').evaluate(element=>getComputedStyle(element).scrollBehavior);
+  expect(behavior).toBe('auto');
+});
+
 test('resize and convert show actual original versus exported byte sizes',async({page})=>{
   const file=await sample(page);
   await page.goto('/resize-image/');
@@ -89,4 +96,5 @@ test('partial batch conversion compares bytes only for successful outputs',async
   const bytes=first.buffer.byteLength;
   const size=bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(2)+' MB';
   await expect(page.getByTestId('convert-size-comparison')).toContainText('Original (exported images): '+size);
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('Download ZIP size');
 });
