@@ -154,8 +154,27 @@ export function formatBytes(bytes) {
 
 // Canvas export is a still-image operation: reject animations instead of
 // silently discarding all frames after the first one.
-export async function isAnimatedImage(file) {
+// File.name and File.type are advisory. A GIF (including an animated one)
+// renamed to .png can still decode in browsers and otherwise be exported as
+// only its first frame. Verify the real JPEG/PNG/WebP signature first so an
+// incorrectly labelled file is rejected consistently by every editor.
+export async function verifyImageSignature(file) {
   const format = inputImageFormat(file);
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const startsWith = (values) => values.every((value, index) => bytes[index] === value);
+  const tag = (offset, word) => [...word].every((letter, i) => bytes[offset + i] === letter.charCodeAt(0));
+  const valid = format === 'jpeg'
+    ? startsWith([0xff, 0xd8, 0xff])
+    : format === 'png'
+      ? startsWith([137, 80, 78, 71, 13, 10, 26, 10])
+      : bytes.length >= 12 && tag(0, 'RIFF') && tag(8, 'WEBP');
+  if (!valid)
+    throw new Error('Image contents do not match the selected JPG, PNG or WebP file type. Choose an original supported image.');
+  return format;
+}
+
+export async function isAnimatedImage(file) {
+  const format = await verifyImageSignature(file);
   if (format === 'webp') {
     const bytes = new Uint8Array(await file.slice(0, 21).arrayBuffer());
     const tag = (at, word) => [...word].every((ch, i) => bytes[at + i] === ch.charCodeAt(0));

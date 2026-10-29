@@ -17,6 +17,8 @@ Image processing and manual redaction run entirely in your browser. There is no 
 - Batch resize locally and **always** download a ZIP, even when one file is selected. Output files have individually reviewable dimensions and format information. Fit-within maximum dimensions is the default and does not add borders or enlarge small originals; original formats are retained by default; exact-size Fit and crop-to-fill remain available.
 - Redact images manually in-browser using solid black, real pixelation or blur with live preview, undo/redo and ZIP export.
 - Create a 4x6-inch 300-DPI JPEG print sheet with six identical copies of one manually framed 2x2-inch photo. **Not a government approval or compliance check.** Follow the applicable issuing authority's photo rules.
+- The real file header must match the declared JPG, PNG or WebP format. This prevents a renamed GIF or other mislabeled file from being silently decoded as a still image and losing animation frames.
+- In bulk resize and multi-image conversion, remove one mistaken file directly from the selected list without clearing the other selections. Trimming a conversion batch down to one output switches to direct image download.
 - English/Chinese SEO pages and a non-indexed 404. UI can be used on mobile.
 
 ## Development (without installing Node on your host)

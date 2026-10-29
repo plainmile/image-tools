@@ -10,6 +10,8 @@ const labels={
 };
 function redactError(error,lang){
   const message=String(error?.message||error||'Image could not be processed.');
+  if(lang==='zh' && message.includes('Image contents do not match'))
+    return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
   if(lang==='zh' && message.includes('Animated PNG/WebP'))
     return '暂不支持动画 PNG/WebP。只处理第一帧会遗漏其他动画帧，因此未导入图片。';
   if(lang==='zh'){

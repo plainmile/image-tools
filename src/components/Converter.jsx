@@ -50,6 +50,7 @@ const language = {
 function localizedError(error, lang) {
   const message=String(error?.message||error||'Unknown error');
   if(lang!=='zh')return message;
+  if(message.includes('Image contents do not match'))return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
   if(message.includes('Animated PNG/WebP'))return '暂不支持动画 PNG/WebP：转换会丢失动画帧。';
   if(message.includes('32-megapixel'))return '原图超过单张输出 3200 万像素限制，请先缩小图片尺寸。';
   if(message.includes('128 MB'))return 'ZIP 输出超过 128 MB，请减少图片数量或使用 JPG/WebP。';
@@ -117,6 +118,17 @@ export default function Converter({lang='en'}) {
     document.addEventListener('paste',handle);
     return()=>document.removeEventListener('paste',handle);
   },[busy,inspecting,files,lang]);
+  function removeFile(index){
+    if(busy||inspecting)return;
+    const remaining=files.filter((_,i)=>i!==index);
+    sequence.current+=1;
+    setFiles(remaining);
+    setPreview(remaining.length?URL.createObjectURL(remaining[0].file):null);
+    setResult(null);setFailedAttempt([]);setProcessed(0);
+    setWasBatch(remaining.length>1);
+    if(!remaining.length)setRejected([]);
+    setStatus(remaining.length?t.selected:t.choose);
+  }
   function reset(){
     if(busy||inspecting)return;
     sequence.current+=1;setFiles([]);setRejected([]);setResult(null);setFailedAttempt([]);
@@ -187,8 +199,12 @@ export default function Converter({lang='en'}) {
           </label>
           {files.length>0&&<div className="file-summary">
             <strong>{t.showFiles}: {files.length}</strong>
-            <ul>{files.slice(0,8).map((item,i)=><li key={i}>{item.file.name} · {item.width}×{item.height} · {formatBytes(item.file.size)}</li>)}</ul>
-            {files.length>8&&<span>+{files.length-8}</span>}
+            <ul className={files.length>1?'selected-files':undefined}>{(files.length>1?files:files.slice(0,8)).map((item,i)=><li key={i} className={files.length>1?'selected-file-entry':undefined}>
+              <span>{item.file.name} · {item.width}×{item.height} · {formatBytes(item.file.size)}</span>
+              {files.length>1&&<button type="button" className="secondary selected-file-remove" data-testid="convert-remove-file"
+                aria-label={(lang==='zh'?'移除 ':'Remove ')+item.file.name} disabled={busy||inspecting}
+                onClick={()=>removeFile(i)}>{lang==='zh'?'移除':'Remove'}</button>}
+            </li>)}</ul>
           </div>}
           {rejected.length>0&&<details open className="batch-errors" data-testid="convert-failed-input">
             <summary>{t.failed} ({rejected.length})</summary>

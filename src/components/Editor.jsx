@@ -42,6 +42,13 @@ const dict = {
     estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张图片的尺寸与裁剪效果（不是最终编码文件）；请下载 ZIP 检查每张结果。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。'
   }
 };
+function localizedImageError(error,lang) {
+  const message=String(error?.message||error||'');
+  if(lang==='zh'&&message.includes('Image contents do not match'))
+    return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
+  return message;
+}
+
 export default function Editor({lang='en',tool='resize'}) {
   const t=dict[lang],sheet=tool==='passport-photo-print',batch=tool==='bulk-image-resizer';
   const [files,setFiles]=useState([]),[width,setWidth]=useState(sheet?600:800),[height,setHeight]=useState(sheet?600:800);
@@ -111,7 +118,7 @@ export default function Editor({lang='en',tool='resize'}) {
           valid.push({file,...dimensions});
         }catch(err){
           if(!batch)throw err;
-          invalid.push({name:file.name||'image',reason:err?.message||t.error});
+          invalid.push({name:file.name||'image',reason:localizedImageError(err,lang)||t.error});
         }
       }
       if(id!==selectionId.current)return;
@@ -132,8 +139,18 @@ export default function Editor({lang='en',tool='resize'}) {
       }
       setStatus(invalid.length?t.pending+' '+t.someSkipped:t.pending);
     }catch(err){
-      if(id===selectionId.current)setStatus((err?.message||t.error)+(files.length?t.kept:''));
+      if(id===selectionId.current)setStatus((localizedImageError(err,lang)||t.error)+(files.length?t.kept:''));
     }finally{if(id===selectionId.current)setInspecting(false);}
+  }
+  function removeBatchFile(index){
+    if(!batch||busy||inspecting)return;
+    const remaining=files.filter((_,i)=>i!==index);
+    selectionId.current+=1;
+    setFiles(remaining);
+    setPreview(remaining.length?URL.createObjectURL(remaining[0].file):null);
+    setOutput(null);
+    if(!remaining.length)setRejected([]);
+    setStatus(remaining.length?t.pending:t.choose);
   }
   function pick(e){
     const chosen=Array.from(e.target.files||[]);
@@ -247,8 +264,12 @@ export default function Editor({lang='en',tool='resize'}) {
           </details>}
           {!!files.length&&<div className="file-summary">
             <strong>{files.length} {lang==='zh'?'个文件':'file(s)'}</strong>
-            <ul>{files.slice(0,6).map((f,i)=><li key={i}>{f.file.name} · {f.width}×{f.height} · {formatBytes(f.file.size)}</li>)}</ul>
-            {files.length>6&&<span>+{files.length-6}</span>}
+            <ul className={batch?'selected-files':undefined}>{(batch?files:files.slice(0,6)).map((f,i)=><li key={i} className={batch?'selected-file-entry':undefined}>
+              <span>{f.file.name} · {f.width}×{f.height} · {formatBytes(f.file.size)}</span>
+              {batch&&<button type="button" className="secondary selected-file-remove" data-testid="remove-batch-file"
+                disabled={busy||inspecting} aria-label={(lang==='zh'?'移除 ':'Remove ')+f.file.name}
+                onClick={()=>removeBatchFile(i)}>{lang==='zh'?'移除':'Remove'}</button>}
+            </li>)}</ul>
           </div>}
         </div>
         {!sheet&&<div className="control-section">
