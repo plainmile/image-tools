@@ -316,28 +316,15 @@ test('default original export retains transparent PNG pixels and downloaded exte
   expect(actual.alpha).toBe(0);
   expect(actual.colored[0]).toBeGreaterThan(150);
 });
-test('batch of one always produces a ZIP containing a PNG, not a misleading image link',async({page})=>{
+test('one successful bulk resize downloads PNG directly',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page);
-  await expect(page.getByTestId('format')).toHaveValue('original');
-  await page.getByTestId('width').fill('60');
-  await page.getByTestId('height').fill('60');
+  await page.getByTestId('width').fill('60');await page.getByTestId('height').fill('60');
   await page.getByTestId('process').click();
-  await expect(page.getByTestId('download')).toContainText('ZIP');
-  const downloaded=await page.evaluate(async()=>{
-    const link=document.querySelector('[data-testid=download]');
-    const blob=await(await fetch(link.href)).blob();
-    return {name:link.download,bytes:Array.from(new Uint8Array(await blob.arrayBuffer()))};
-  });
-  expect(downloaded.name).toBe('plainmile-images.zip');
-  // JPEG/PNG/WebP payloads are already encoded: do not waste mobile CPU
-  // deflating every image again inside the ZIP container.
-  expect(downloaded.bytes[8] | (downloaded.bytes[9]<<8)).toBe(0);
-  await expect(page.getByTestId('size-comparison')).toContainText('Download ZIP size');
-  const zip=await JSZip.loadAsync(Buffer.from(downloaded.bytes));
-  const names=Object.keys(zip.files);
-  expect(names).toEqual(['01-sample-0-edited.png']);
-  const png=await zip.file(names[0]).async('uint8array');
-  expect(Array.from(png.slice(0,8))).toEqual([137,80,78,71,13,10,26,10]);
+  await expect(page.getByTestId('download')).toContainText('Download file');
+  await expect(page.getByTestId('download')).toHaveAttribute('download','sample-0-edited.png');
+  const data=await page.evaluate(async()=>Array.from(new Uint8Array(await(await(await fetch(document.querySelector('[data-testid=download]').href)).blob()).arrayBuffer())));
+  expect(data.slice(0,8)).toEqual([137,80,78,71,13,10,26,10]);
+  await expect(page.getByTestId('size-comparison')).toContainText('Output file');
 });
 test('mixed JPG and PNG source formats are preserved separately in batch ZIP',async({page})=>{
   await page.goto('/bulk-image-resizer/');
@@ -531,31 +518,25 @@ test('JPEG output preview fills transparent source pixels with white before expo
   })).toEqual([255,255,255,255]);
 });
 
-test('batch ignores one malformed input and keeps other images for ZIP export',async({page})=>{
+test('bulk resize with invalid plus valid image directly downloads one success',async({page})=>{
   await page.goto('/zh/bulk-image-resizer/');
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   const png=await page.evaluate(async()=>{
     const c=document.createElement('canvas');c.width=48;c.height=32;
-    c.getContext('2d').fillRect(0,0,c.width,c.height);
-    const blob=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
-    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    c.getContext('2d').fillRect(0,0,48,32);
+    const b=await new Promise(r=>c.toBlob(r,'image/png'));
+    return Array.from(new Uint8Array(await b.arrayBuffer()));
   });
   await page.getByTestId('upload').setInputFiles([
     {name:'bad-source.png',mimeType:'image/png',buffer:Buffer.from([1,2,3,4,5])},
     {name:'good-source.png',mimeType:'image/png',buffer:Buffer.from(png)}
   ]);
   await expect(page.getByTestId('skipped-inputs')).toContainText('bad-source.png');
-  await expect(page.locator('.file-summary')).toContainText('good-source.png');
   await page.getByTestId('process').click();
-  await expect(page.getByTestId('download')).toContainText('ZIP');
-  const data=await page.evaluate(async()=>{
-    const blob=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
-    return Array.from(new Uint8Array(await blob.arrayBuffer()));
-  });
-  const zip=await JSZip.loadAsync(Buffer.from(data));
-  expect(Object.keys(zip.files)).toEqual(['01-good-source-edited.png']);
+  await expect(page.getByTestId('download')).toHaveAttribute('download','good-source-edited.png');
+  const bytes=await page.evaluate(async()=>Array.from(new Uint8Array(await(await(await fetch(document.querySelector('[data-testid=download]').href)).blob()).arrayBuffer())));
+  expect(bytes.slice(0,8)).toEqual([137,80,78,71,13,10,26,10]);
 });
-
 test('batch exports successes and names individual files that fail a strict KB limit',async({page})=>{
   await page.goto('/bulk-image-resizer/');
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
@@ -586,16 +567,14 @@ test('batch exports successes and names individual files that fail a strict KB l
   await page.locator('[data-testid=output-advanced] summary').click();
   await page.getByTestId('target').fill('1');
   await page.getByTestId('process').click();
-  await expect(page.getByTestId('download')).toContainText('ZIP');
+  await expect(page.getByTestId('download')).toContainText('Download file');
   await expect(page.getByTestId('skipped-outputs')).toContainText('detailed.png');
   await expect(page.getByTestId('skipped-outputs')).toContainText('Could not reach');
-  await expect(page.getByTestId('result-meta')).toContainText('1 Output files');
+  await expect(page.getByTestId('result-meta')).toContainText('PNG');
   const bytes=await page.evaluate(async()=>{
     const blob=await(await fetch(document.querySelector('[data-testid=download]').href)).blob();
     return Array.from(new Uint8Array(await blob.arrayBuffer()));
   });
-  const zip=await JSZip.loadAsync(Buffer.from(bytes));
-  expect(Object.keys(zip.files)).toEqual(['01-small-edited.png']);
-  const file=await zip.file('01-small-edited.png').async('uint8array');
-  expect(Array.from(file.slice(0,8))).toEqual([137,80,78,71,13,10,26,10]);
+  await expect(page.getByTestId('download')).toHaveAttribute('download','small-edited.png');
+  expect(bytes.slice(0,8)).toEqual([137,80,78,71,13,10,26,10]);
 });
