@@ -329,6 +329,10 @@ test('batch of one always produces a ZIP containing a PNG, not a misleading imag
     return {name:link.download,bytes:Array.from(new Uint8Array(await blob.arrayBuffer()))};
   });
   expect(downloaded.name).toBe('plainmile-images.zip');
+  // JPEG/PNG/WebP payloads are already encoded: do not waste mobile CPU
+  // deflating every image again inside the ZIP container.
+  expect(downloaded.bytes[8] | (downloaded.bytes[9]<<8)).toBe(0);
+  await expect(page.getByTestId('size-comparison')).toContainText('Download ZIP size');
   const zip=await JSZip.loadAsync(Buffer.from(downloaded.bytes));
   const names=Object.keys(zip.files);
   expect(names).toEqual(['01-sample-0-edited.png']);
