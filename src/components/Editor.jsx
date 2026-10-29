@@ -270,7 +270,6 @@ export default function Editor({lang='en',tool='resize'}) {
                 disabled={busy||inspecting} aria-label={(lang==='zh'?'移除 ':'Remove ')+f.file.name}
                 onClick={()=>removeBatchFile(i)}>{lang==='zh'?'移除':'Remove'}</button>}
             </li>)}</ul>
-            {!batch&&files.length>6&&<span>+{files.length-6}</span>
           </div>}
         </div>
         {!sheet&&<div className="control-section">
