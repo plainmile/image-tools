@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  assertDimensions, aspectDimension, drawRect, validateFile, inputImageFormat, sanitizeStem,
+  assertDimensions, aspectDimension, fitLockedAspectDimensions, drawRect, validateFile, inputImageFormat, sanitizeStem,
   exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
 } from '../../src/lib/image-core.mjs';
 
@@ -14,6 +14,22 @@ test('dimensions: exact positive integers and resource limits', () => {
 test('aspect dimensions stay proportional', () => {
   assert.equal(aspectDimension(1200, 800, 600, 'width'), 400);
   assert.equal(aspectDimension(1200, 800, 200, 'height'), 300);
+});
+test('locked exact sizes limit both axes together rather than silently distorting tall images',()=>{
+  assert.deepEqual(fitLockedAspectDimensions(100,2000,800,'width'),
+    {width:500,height:10000,limited:true});
+  assert.deepEqual(fitLockedAspectDimensions(100,2000,10,'width'),
+    {width:10,height:200,limited:false});
+  assert.deepEqual(fitLockedAspectDimensions(100,2000,10000,'height'),
+    {width:500,height:10000,limited:false});
+  assert.deepEqual(fitLockedAspectDimensions(1200,800,200,'height'),
+    {width:300,height:200,limited:false});
+  // 8,000 by 8,000 is 64 MP, despite each axis being below 10,000.
+  assert.deepEqual(fitLockedAspectDimensions(200,200,8000,'width'),
+    {width:5656,height:5656,limited:true});
+  assert.throws(()=>aspectDimension(100,2000,800,'width'),/Height/);
+  assert.throws(()=>fitLockedAspectDimensions(100,2000,0,'width'),/Width/);
+  assert.throws(()=>fitLockedAspectDimensions(100,2000,10,'depth'),/Invalid dimension/);
 });
 test('contain mode never crops the original image', () => {
   const d = drawRect(1200, 600, 600, 600, 'contain');

@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
-import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,aspectDimension,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,fitLockedAspectDimensions,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
@@ -20,7 +20,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Resize preview for the first image only (not the final encoded bytes). Download the ZIP to inspect all outputs.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Resize preview for the first image only (not the final encoded bytes). Download the ZIP to inspect all outputs.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.',aspectLimited:'To keep the original proportions within browser limits, both dimensions were reduced together.'
   },
   zh: {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,7 +39,7 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张图片的尺寸与裁剪效果（不是最终编码文件）；请下载 ZIP 检查每张结果。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张图片的尺寸与裁剪效果（不是最终编码文件）；请下载 ZIP 检查每张结果。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。',aspectLimited:'为保持原图比例并符合浏览器尺寸上限，已同时缩小宽度和高度。'
   }
 };
 function localizedImageError(error,lang) {
@@ -173,16 +173,17 @@ export default function Editor({lang='en',tool='resize'}) {
     document.addEventListener('paste',paste);
     return()=>document.removeEventListener('paste',paste);
   },[busy,inspecting,batch,lang,files]);
-  function changeWidth(v){
-    setWidth(v);
-    if(keep&&files[0]&&v!==''&&Number.isInteger(Number(v))&&Number(v)>0&&Number(v)<=MAX_AXIS)
-      setHeight(aspectDimension(files[0].width,files[0].height,v,'width'));
+  function changeDimension(value,changed){
+    const valid=value!==''&&Number.isInteger(Number(value))&&Number(value)>0&&Number(value)<=MAX_AXIS;
+    if(keep&&files[0]&&valid){
+      const next=fitLockedAspectDimensions(files[0].width,files[0].height,value,changed);
+      setWidth(next.width);setHeight(next.height);
+      setStatus(previous=>next.limited?t.aspectLimited:previous===t.aspectLimited?t.pending:previous);
+    }else if(changed==='width')setWidth(value);
+    else setHeight(value);
   }
-  function changeHeight(v){
-    setHeight(v);
-    if(keep&&files[0]&&v!==''&&Number.isInteger(Number(v))&&Number(v)>0&&Number(v)<=MAX_AXIS)
-      setWidth(aspectDimension(files[0].width,files[0].height,v,'height'));
-  }
+  function changeWidth(v){changeDimension(v,'width');}
+  function changeHeight(v){changeDimension(v,'height');}
   async function run(e){
     e.preventDefault();if(!files.length||busy||inspecting)return;
     cancelRequested.current=false;
@@ -286,8 +287,11 @@ export default function Editor({lang='en',tool='resize'}) {
                 </select></label>
                 {!batch&&mode!=='within'&&<label className="check wide"><input type="checkbox" checked={keep} disabled={busy||inspecting} onChange={e=>{
                   setKeep(e.target.checked);
-                  if(e.target.checked&&files[0]&&Number(width)>0&&Number(width)<=MAX_AXIS)
-                    setHeight(aspectDimension(files[0].width,files[0].height,width,'width'));
+                  if(e.target.checked&&files[0]&&Number.isInteger(Number(width))&&Number(width)>0&&Number(width)<=MAX_AXIS){
+                    const next=fitLockedAspectDimensions(files[0].width,files[0].height,width,'width');
+                    setWidth(next.width);setHeight(next.height);
+                    setStatus(previous=>next.limited?t.aspectLimited:previous===t.aspectLimited?t.pending:previous);
+                  }
                 }}/>{t.keep}</label>}
               </div>
             </details>
