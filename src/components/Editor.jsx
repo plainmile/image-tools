@@ -212,7 +212,7 @@ export default function Editor({lang='en',tool='resize'}) {
       if(!results.length)throw new Error(t.noExport+(failed[0]?' '+failed[0].reason:''));
       let blob,name;
       const isZip=results.length>1;
-       if(!isZip){blob=results[0].blob;name=results[0].name;}
+      if(!isZip){blob=results[0].blob;name=results[0].name;}
       else{
         if(batch){setPhase('zip');setStatus(t.packaging);}
         const {default: JSZip}=await import('jszip');
