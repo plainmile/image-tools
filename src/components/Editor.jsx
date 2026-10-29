@@ -18,7 +18,7 @@ const dict = {
     choose:'Choose a file to start.',pending:'File selected.',local:'Processed in this browser tab.',
     batch:'Resize up to 30 images. By default, images keep their proportions without white borders, and smaller images are not enlarged. Download one image directly, or multiple as a ZIP.',empty:'The selected image will appear here.',
     single:'Choose one image for this tool.',count:'Output files',
-    loading:'Reading image…',limit:'Total selected files must be 160 MB or less.',
+    loading:'Reading image…',loadingPreview:'Rendering image preview…',previewFailed:'Preview unavailable. Check the dimensions or choose another image.',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
     estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Resize preview for the first image only (not the final encoded bytes). Download the result to inspect all outputs.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',partial:'Batch stopped. Finished images are ready to download.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.',aspectLimited:'To keep the original proportions within browser limits, both dimensions were reduced together.'
   },
@@ -37,7 +37,7 @@ const dict = {
     choose:'请选择图片。',pending:'已选择图片。',local:'图片仅在当前浏览器标签页处理。',
     batch:'一次最多处理 30 张图片。默认保持每张图片比例、不留白，也不会放大小图。成功导出一张时直接下载，多张时打包 ZIP。',empty:'选择图片后在这里查看预览。',
     single:'该工具一次只能处理一张图片。',count:'输出文件',
-    loading:'正在读取图片…',limit:'所选文件总大小不能超过 160 MB。',
+    loading:'正在读取图片…',loadingPreview:'正在生成图片预览…',previewFailed:'无法生成预览，请检查尺寸或换一张图片。',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
     estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'这里只预览第一张图片的尺寸与裁剪效果（不是最终编码文件）；请下载结果检查每张图片。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',partial:'已停止批量处理，已完成的图片可以下载。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。',aspectLimited:'为保持原图比例并符合浏览器尺寸上限，已同时缩小宽度和高度。'
   }
@@ -81,6 +81,12 @@ export default function Editor({lang='en',tool='resize'}) {
   const [progress,setProgress]=useState(0),[phase,setPhase]=useState('');
   const cancelRequested=useRef(false);
   const [preview,setPreview]=useState(null),[ready,setReady]=useState(false);
+  // A rendered preview belongs to one file AND one set of settings.
+  // Reusing a canvas before a new image has decoded can show old pixels.
+  const [previewState,setPreviewState]=useState({key:null,state:'loading'});
+  const previewKey=preview?[preview,width,height,mode,format,zoom,cropX,cropY].join('|'):null;
+  const previewReady=previewState.key===previewKey&&previewState.state==='ready';
+  const previewFailed=previewState.key===previewKey&&previewState.state==='error';
   const [inspecting,setInspecting]=useState(false);
   const canvasRef=useRef(null),selectionId=useRef(0);
   useEffect(()=>{setReady(true);return ()=>{selectionId.current+=1;};},[]);
@@ -88,32 +94,39 @@ export default function Editor({lang='en',tool='resize'}) {
   useEffect(()=>{
     if (!preview || !canvasRef.current || output) return;
     let active=true;
+    const fail=()=>{
+      if(!active)return;
+      setPreviewState({key:previewKey,state:'error'});
+      setStatus(t.previewFailed);
+    };
     const image=new Image();
     image.onload=()=>{
       if(!active || !canvasRef.current)return;
-      const canvas=canvasRef.current;
-      let requestedW=sheet?600:Number(width),requestedH=sheet?600:Number(height);
-      if(!Number.isFinite(requestedW)||!Number.isFinite(requestedH)||requestedW<=0||requestedH<=0)return;
-      if(mode==='within'){
-        try{
+      try{
+        const canvas=canvasRef.current;
+        let requestedW=sheet?600:Number(width),requestedH=sheet?600:Number(height);
+        if(!Number.isFinite(requestedW)||!Number.isFinite(requestedH)||requestedW<=0||requestedH<=0)throw new Error('Invalid preview dimensions');
+        if(mode==='within'){
           const fitted=fitWithin(image.naturalWidth,image.naturalHeight,requestedW,requestedH);
           requestedW=fitted.width; requestedH=fitted.height;
-        }catch{return;}
-      }
-      const scale=Math.min(1,440/requestedW,440/requestedH);
-      const w=Math.max(1,Math.round(requestedW*scale)),h=Math.max(1,Math.round(requestedH*scale));
-      canvas.width=w;canvas.height=h;
-      const context=canvas.getContext('2d');
-      if(!context)return;
-      context.clearRect(0,0,w,h);
-      if(format==='jpeg'||sheet||(format==='original'&&files[0]&&inputImageFormat(files[0].file)==='jpeg')){context.fillStyle='#fff';context.fillRect(0,0,w,h);}
-      const region=drawRect(image.naturalWidth,image.naturalHeight,w,h,
-        sheet?'cover':mode,Number(zoom)/100,Number(cropX)/100,Number(cropY)/100);
-      context.imageSmoothingEnabled=true;
-      context.imageSmoothingQuality='high';
-      context.drawImage(image,region.sx,region.sy,region.sw,region.sh,region.dx,region.dy,region.dw,region.dh);
+        }
+        const scale=Math.min(1,440/requestedW,440/requestedH);
+        const w=Math.max(1,Math.round(requestedW*scale)),h=Math.max(1,Math.round(requestedH*scale));
+        canvas.width=w;canvas.height=h;
+        const context=canvas.getContext('2d');
+        if(!context)throw new Error('Canvas unavailable');
+        context.clearRect(0,0,w,h);
+        if(format==='jpeg'||sheet||(format==='original'&&files[0]&&inputImageFormat(files[0].file)==='jpeg')){context.fillStyle='#fff';context.fillRect(0,0,w,h);}
+        const region=drawRect(image.naturalWidth,image.naturalHeight,w,h,
+          sheet?'cover':mode,Number(zoom)/100,Number(cropX)/100,Number(cropY)/100);
+        context.imageSmoothingEnabled=true;
+        context.imageSmoothingQuality='high';
+        context.drawImage(image,region.sx,region.sy,region.sw,region.sh,region.dx,region.dy,region.dw,region.dh);
+        setPreviewState({key:previewKey,state:'ready'});
+        setStatus(previous=>previous===t.previewFailed?t.pending:previous);
+      }catch{fail();}
     };
-    image.onerror=()=>{};
+    image.onerror=fail;
     image.src=preview;
     return ()=>{active=false;image.onload=null;image.onerror=null;};
   },[preview,output,width,height,mode,format,zoom,cropX,cropY,sheet,files]);
@@ -368,7 +381,11 @@ export default function Editor({lang='en',tool='resize'}) {
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
           {output&&!output.isZip ? <img alt={lang==='zh'?'处理后的图片':'Processed image'} src={output.url}/> :
-           preview ? <canvas ref={canvasRef} aria-label={sheet?t.cropPreview:t.preview}/> :
+           preview ? <>
+             <canvas key={previewKey} ref={canvasRef} role="img" data-testid="editor-preview-canvas"
+               aria-label={sheet?t.cropPreview:t.preview} aria-busy={!previewReady&&!previewFailed}/>
+             {!previewReady&&<p className="image-preview-status" data-testid="editor-preview-status" role="status">{previewFailed?t.previewFailed:t.loadingPreview}</p>}
+           </> :
            <p className="preview-empty">{t.empty}</p>}
         </div>
         {batch&&!!files.length?<p className="preview-caption">{t.batchPreview}</p>:

@@ -12,7 +12,7 @@ const copy = {
     drop:'Drop one image here, or choose a file.',
     introCrop:'Choose the part to keep. Drag the frame, resize its corner, or draw a new frame.',
     introRotate:'Rotate or flip the picture. Preview updates before you save.',
-    empty:'Choose one image to see a preview.',checking:'Checking image…',
+    empty:'Choose one image to see a preview.',checking:'Checking image…',loadingPreview:'Rendering preview…',previewFailed:'Preview unavailable. Try another image.',
     unsupported:'Please select one JPG, PNG or WebP image.',
     selected:'Ready to edit.',ratio:'Crop shape',free:'Free crop',
     square:'Square (1:1)',landscape:'Landscape (4:3)',wide:'Wide (16:9)',portrait:'Portrait (3:4)',
@@ -37,7 +37,7 @@ const copy = {
     drop:'拖入一张图片，或点击选择文件。',
     introCrop:'框选想保留的部分，拖动框选区域或拉动右下角来调整。',
     introRotate:'旋转或翻转图片，保存前可查看实际效果。',
-    empty:'请选择图片查看预览。',checking:'正在检查图片…',
+    empty:'请选择图片查看预览。',checking:'正在检查图片…',loadingPreview:'正在生成图片预览…',previewFailed:'预览生成失败，请更换图片后重试。',
     unsupported:'请仅选择一张 JPG、PNG 或 WebP 图片。',
     selected:'图片已准备好。',ratio:'裁剪比例',free:'自由裁剪',
     square:'正方形 (1:1)',landscape:'横向 (4:3)',wide:'宽屏 (16:9)',portrait:'竖向 (3:4)',
@@ -88,6 +88,7 @@ export default function Transform({lang='en',tool='crop'}) {
   const [coordDraft,setCoordDraft]=useState({});
   const [degrees,setDegrees]=useState(0),[flipH,setFlipH]=useState(false),[flipV,setFlipV]=useState(false);
   const [format,setFormat]=useState('original'),[quality,setQuality]=useState(90);
+  const [rotatePreviewState,setRotatePreviewState]=useState({key:null,state:'loading'});
   const request=useRef(0),stage=useRef(null),drag=useRef(null),previewCanvas=useRef(null);
   useEffect(()=>{setReady(true);return()=>{request.current+=1;};},[]);
   useEffect(()=>()=>{if(source)URL.revokeObjectURL(source);},[source]);
@@ -187,6 +188,9 @@ export default function Transform({lang='en',tool='crop'}) {
   }
   const sourceFormat=selected?inputImageFormat(selected.file):null;
   const chosenFormat=format==='original'?sourceFormat:format;
+  const rotatePreviewKey=!isCrop&&source?[source,degrees,flipH,flipV,chosenFormat].join('|'):null;
+  const rotatePreviewReady=rotatePreviewState.key===rotatePreviewKey&&rotatePreviewState.state==='ready';
+  const rotatePreviewFailed=rotatePreviewState.key===rotatePreviewKey&&rotatePreviewState.state==='error';
   const hasAlpha=sourceFormat==='png'||sourceFormat==='webp';
   const isLossy=chosenFormat==='jpeg'||chosenFormat==='webp';
   const edited=isCrop?Boolean(crop):degrees!==0||flipH||flipV;
@@ -199,27 +203,35 @@ export default function Transform({lang='en',tool='crop'}) {
   useEffect(()=>{
     if(isCrop||!source||!selected||result||!previewCanvas.current)return;
     let valid=true;
+    const fail=()=>{
+      if(!valid)return;
+      setRotatePreviewState({key:rotatePreviewKey,state:'error'});
+      setStatus(t.previewFailed);
+    };
     const img=new Image();
     img.onload=()=>{
       if(!valid||!previewCanvas.current)return;
-      let dims;
-      try { dims=rotationDimensions(img.naturalWidth,img.naturalHeight,degrees); }
-      catch { return; }
-      const scale=Math.min(1,480/dims.width,330/dims.height);
-      const canvas=previewCanvas.current;
-      canvas.width=Math.max(1,Math.round(dims.width*scale));
-      canvas.height=Math.max(1,Math.round(dims.height*scale));
-      const ctx=canvas.getContext('2d');
-      if(!ctx)return;
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      if(chosenFormat==='jpeg'){
-        ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
-      }
-      ctx.scale(canvas.width/dims.width,canvas.height/dims.height);
-      drawRotation(ctx,img,img.naturalWidth,img.naturalHeight,degrees,flipH,flipV);
+      try{
+        const dims=rotationDimensions(img.naturalWidth,img.naturalHeight,degrees);
+        const scale=Math.min(1,480/dims.width,330/dims.height);
+        const canvas=previewCanvas.current;
+        canvas.width=Math.max(1,Math.round(dims.width*scale));
+        canvas.height=Math.max(1,Math.round(dims.height*scale));
+        const ctx=canvas.getContext('2d');
+        if(!ctx)throw new Error('Canvas unavailable');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        if(chosenFormat==='jpeg'){
+          ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+        }
+        ctx.scale(canvas.width/dims.width,canvas.height/dims.height);
+        drawRotation(ctx,img,img.naturalWidth,img.naturalHeight,degrees,flipH,flipV);
+        setRotatePreviewState({key:rotatePreviewKey,state:'ready'});
+        setStatus(previous=>previous===t.previewFailed?t.selected:previous);
+      }catch{fail();}
     };
+    img.onerror=fail;
     img.src=source;
-    return()=>{valid=false;img.onload=null;};
+    return()=>{valid=false;img.onload=null;img.onerror=null;};
   },[source,selected,isCrop,result,degrees,flipH,flipV,chosenFormat]);
 
   async function exportFile(event){
@@ -328,7 +340,11 @@ export default function Transform({lang='en',tool='crop'}) {
              </div>}
            </div>:
            result?<img className="transform-result-image" src={result.url} alt={t.result}/>:
-           <canvas ref={previewCanvas} className="rotate-preview" data-testid="rotate-preview" role="img" aria-label={t.preview}/>}
+           <>
+             <canvas key={rotatePreviewKey} ref={previewCanvas} className="rotate-preview" data-testid="rotate-preview"
+               role="img" aria-label={t.preview} aria-busy={!rotatePreviewReady&&!rotatePreviewFailed}/>
+             {!rotatePreviewReady&&<p className="image-preview-status" data-testid="rotate-preview-status" role="status">{rotatePreviewFailed?t.previewFailed:t.loadingPreview}</p>}
+           </>}
         </div>
         {selected&&outputDims&&<p className="transform-output-size" data-testid="transform-dimensions">{t.dimensions}: {outputDims.width}×{outputDims.height} px</p>}
         {result&&<div className="result">

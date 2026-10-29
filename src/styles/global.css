@@ -86,7 +86,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 button.secondary { background: var(--surface); color: var(--text); border-color: #bcc5ce; }
 button.secondary:hover { background: var(--subtle); color: var(--text); }
 .editor-preview { min-width: 0; padding: 22px; border-left: 1px solid var(--line); background: var(--subtle); }
-.preview-frame { display: flex; align-items: center; justify-content: center; height: 320px; padding: 16px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.preview-frame { position: relative; display: flex; align-items: center; justify-content: center; height: 320px; padding: 16px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
 .preview-frame img, .preview-frame canvas { max-width: 100%; max-height: 100%; object-fit: contain; display: block; } 
 .preview-frame canvas { background: repeating-conic-gradient(#e3e5e7 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
 .preview-empty { color: var(--muted); font-size: 13px; text-align: center; max-width: 225px; }
@@ -198,7 +198,7 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 /* Direct image editing: preview the exact crop rectangle or transformed canvas. */
 .transform-help { font-size: 12px; color: var(--muted); margin: -3px 0 12px; }
 .transform-viewer {
-  min-height: 275px; display: flex; align-items: center; justify-content: center;
+  position: relative; min-height: 275px; display: flex; align-items: center; justify-content: center;
   padding: 12px; background: var(--surface); border: 1px solid var(--line); overflow: hidden;
 }
 .crop-stage {
@@ -238,3 +238,6 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 /* Keep the original crop draggable after export while showing the true result below. */
 .transform-crop-result { margin: 10px auto 8px; max-height: 210px; }
 .transform-refine-help { font-size: 12px; line-height: 1.5; }
+
+/* Accessible loading state while a new image is decoding; never show the previous bitmap. */
+.image-preview-status { position: absolute; left: 10px; right: 10px; bottom: 10px; margin: 0 auto; padding: 6px 10px; max-width: max-content; border-radius: 4px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); text-align: center; font-size: 12px; pointer-events: none; }
