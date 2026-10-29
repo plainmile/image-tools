@@ -64,6 +64,7 @@ Images and filenames stay in the page session. ZIP files and outputs are generat
 ### Privacy-focused redaction notes
 
 - HTML responses set `Cache-Control: public, no-transform` to prevent Cloudflare automatic analytics script injection. Keep **Web Analytics automatic injection disabled** for `image.plainmile.com` in Cloudflare as defense in depth.
+- Finished redaction ZIP downloads remain usable while switching between images. Single-image downloads reappear when returning to that unchanged image; changing any masks or output format invalidates the old download. JPEG exports flatten transparent pixels to white, with an explicit localized warning.
 - Manual covers have per-image Undo/Redo (up to 40 edits). Adding another batch of images keeps existing covers. An accidentally selected image can be removed individually without disturbing other masks; deleting an image that has masks requires confirmation, and the previous ZIP download is invalidated. The clear-all action also asks for confirmation before destroying edits.
 - Black/white previews are fully opaque; exports are flattened into new image pixels. Blur and mosaic must not be used to hide secrets.
 - Batch redaction is capped at 96 megapixels total to bound browser memory use. A failed image selection must release temporary object URLs.
