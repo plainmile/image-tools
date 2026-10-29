@@ -61,14 +61,19 @@ export function moveCrop(rect, dx, dy, sw, sh) {
   };
 }
 
-export function resizeCrop(rect, desiredWidth, desiredHeight, sw, sh, aspect = 'free') {
+export function resizeCrop(rect, desiredWidth, desiredHeight, sw, sh, aspect = 'free', axis = 'width') {
   validateCrop(rect, sw, sh);
   let width = clamp(Math.round(desiredWidth), 1, sw - rect.x);
   let height = clamp(Math.round(desiredHeight), 1, sh - rect.y);
   if (aspect !== 'free') {
     const ratio = Number(aspect);
     if (!Number.isFinite(ratio) || ratio <= 0) throw new Error('Invalid crop ratio.');
-    width = Math.min(width, Math.max(1, Math.floor((sh - rect.y) * ratio)));
+    if (axis !== 'width' && axis !== 'height') throw new Error('Invalid crop resize axis.');
+    // A fixed-ratio corner can be dragged vertically as well as horizontally.
+    // The caller chooses the dominant drag axis; otherwise a vertical-only
+    // gesture would change height but leave the width-driven rectangle static.
+    if (axis === 'height') width = Math.max(1, Math.round(height * ratio));
+    width = Math.min(width, sw - rect.x, Math.max(1, Math.floor((sh - rect.y) * ratio)));
     height = Math.max(1, Math.round(width / ratio));
     if (height > sh - rect.y) { height = sh - rect.y; width = Math.max(1, Math.round(height * ratio)); }
   }

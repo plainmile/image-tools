@@ -141,6 +141,39 @@ test('square crop keeps ratio while dragging and produces an actual square file'
   expect(result.w).toBe(result.h);
 });
 
+test('locked square crop corner grows from a vertical-only drag and exports correct pixels',async({page})=>{
+  await page.goto('/zh/crop-image/');
+  await expect(page.locator('[data-transform-ready=true]')).toBeVisible();
+  await page.getByTestId('transform-upload').setInputFiles({
+    name:'vertical-corner.png',mimeType:'image/png',buffer:await testPng(page,400,400)
+  });
+  await page.getByTestId('crop-aspect').selectOption('1');
+  await page.locator('.transform-coordinates summary').click();
+  const before=Number(await page.getByTestId('crop-width').inputValue());
+  expect(before).toBe(Number(await page.getByTestId('crop-height').inputValue()));
+  await page.locator('.crop-handle').scrollIntoViewIfNeeded();
+  const handle=await page.locator('.crop-handle').boundingBox();
+  const x=handle.x+handle.width/2,y=handle.y+handle.height/2;
+  await page.mouse.move(x,y);
+  await page.mouse.down();
+  await page.mouse.move(x,y+20,{steps:10});
+  await page.mouse.up();
+  const afterWidth=Number(await page.getByTestId('crop-width').inputValue());
+  const afterHeight=Number(await page.getByTestId('crop-height').inputValue());
+  expect(afterWidth).toBeGreaterThan(before);
+  expect(afterWidth).toBe(afterHeight);
+  await expect(page.getByTestId('transform-dimensions')).toContainText(afterWidth+'×'+afterHeight+' px');
+  await page.getByTestId('transform-process').click();
+  await expect(page.getByTestId('transform-download')).toBeVisible();
+  const output=await downloadedPixels(page);
+  expect(output.name).toBe('vertical-corner-cropped.png');
+  expect([output.w,output.h]).toEqual([afterWidth,afterHeight]);
+  // Exact coordinate editing still works after the drag and clears stale exports.
+  await page.getByTestId('crop-height').fill('200');
+  await expect(page.getByTestId('transform-dimensions')).toContainText('200×200 px');
+  await expect(page.getByTestId('transform-download')).toHaveCount(0);
+});
+
 test('right rotation swaps pixels and flip-horizontal mirrors the rotated preview',async({page})=>{
   await page.goto('/rotate-image/');
   await expect(page.locator('[data-transform-ready=true]')).toBeVisible();
