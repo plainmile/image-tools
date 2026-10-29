@@ -21,7 +21,7 @@ async function uploadSynthetic(page, count=1){
   // Wait until decoding finishes and source dimensions have populated the form.
   if(count<=30) await expect(page.locator('.file-summary')).toContainText('sample-0.png');
 }
-test('English and Chinese pages contain valid static SEO metadata',async({page})=>{
+test('English and Chinese pages contain valid static SEO metadata @public-smoke',async({page})=>{
   for(const route of ['/','/zh/','/resize-image/','/zh/resize-image/','/compress-image-to-size/','/zh/compress-image-to-size/','/signature-resizer/','/zh/signature-resizer/','/convert-image/','/zh/convert-image/','/crop-image/','/zh/crop-image/','/rotate-image/','/zh/rotate-image/','/bulk-image-resizer/','/zh/bulk-image-resizer/','/passport-photo-print/','/zh/passport-photo-print/','/redact-image/','/zh/redact-image/','/privacy/','/zh/privacy/']){
     const response=await page.goto(route);expect(response.status()).toBe(200);
     const canonical=await page.locator('link[rel=canonical]').getAttribute('href');
@@ -30,7 +30,7 @@ test('English and Chinese pages contain valid static SEO metadata',async({page})
     expect(await page.locator('link[hreflang=zh-CN]').count()).toBe(1);
   }
 });
-test('real JPG is generated at exact requested dimensions with correct decoded pixel data',async({page})=>{
+test('real JPG is generated at exact requested dimensions with correct decoded pixel data @public-smoke',async({page})=>{
   await page.goto('/resize-image/');await uploadSynthetic(page);
   await selectResizeMode(page,'cover');
   await page.getByTestId('format').selectOption('jpeg');
@@ -43,7 +43,7 @@ test('real JPG is generated at exact requested dimensions with correct decoded p
   });
   expect(values).toMatchObject({width:64,height:64,type:'image/jpeg'});expect(values.bytes).toBeGreaterThan(100);
 });
-test('compression to KB limit verifies actual bytes',async({page})=>{
+test('compression to KB limit verifies actual bytes @public-smoke',async({page})=>{
   await page.goto('/compress-image-to-size/');await uploadSynthetic(page);
   await page.getByTestId('width').fill('100');await page.getByTestId('height').fill('80');
   await page.getByTestId('target').fill('20');await page.getByTestId('process').click();
@@ -78,7 +78,7 @@ test('100 KB cap rejects a 101,000-byte JPEG but retains a valid sub-100,000-byt
   await expect(page.getByTestId('exact-bytes')).toContainText('99500');
 });
 
-test('bulk ZIP contains actual processed images',async({page})=>{
+test('bulk ZIP contains actual processed images @public-smoke',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,2);
   await page.getByTestId('width').fill('55');await page.getByTestId('height').fill('35');
   await page.getByTestId('process').click();await expect(page.getByTestId('download')).toBeVisible();
@@ -133,7 +133,7 @@ test('plain tool-first layout and localized labels',async({page})=>{
   await page.getByTestId('process').click();
   await expect(page.getByTestId('download')).toBeVisible();
 });
-test('375px layout has no horizontal page overflow',async({page})=>{
+test('375px layout has no horizontal page overflow @public-smoke',async({page})=>{
   await page.setViewportSize({width:375,height:812});
   for(const route of ['/zh/','/zh/resize-image/','/passport-photo-print/']){
     await page.goto(route);

@@ -42,7 +42,7 @@ test('redaction pages are indexed separately and language links are reciprocal',
     await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
   }
 });
-test('manual black box is flattened into new PNG pixels and leaves other pixels unchanged',async({page})=>{
+test('manual black box is flattened into new PNG pixels and leaves other pixels unchanged @public-smoke',async({page})=>{
   await page.goto('/redact-image/');
   await synthetic(page);
   await draw(page);
@@ -116,7 +116,7 @@ test('batch export requires a mask on each image and packages a ZIP',async({page
   expect(names).not.toContain('capture-0');
   expect(names).not.toContain('capture-1');
 });
-test('no source image is submitted to an external server',async({page})=>{
+test('no source image is submitted to an external server @public-smoke',async({page})=>{
   const unexpected=[];
   await page.goto('/redact-image/');
   const expectedOrigin=new URL(page.url()).origin;

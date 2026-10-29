@@ -18,6 +18,10 @@ jobs:
       - name: Test and build in Docker
         run: |
           docker run --rm -v "$PWD:/app" -w /app node:22-bookworm-slim sh -lc 'npm install --no-audit --no-fund && npm run test:unit && npm run build'
+      - name: Verify production smoke selection and HTTPS check syntax
+        run: |
+          bash -n tests/public_https_checks.sh
+          test "$(grep -rl '@public-smoke' tests/e2e/*.mjs | wc -l | tr -d ' ')" -ge 5
       - name: Verify public SEO routes and sitemap
         run: |
           set -euo pipefail
