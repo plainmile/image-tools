@@ -316,6 +316,15 @@ export async function encodeWithTarget(canvas, format, targetBytes, preferredQua
   return best;
 }
 
+// KB is decimal: 100 KB = 100,000 bytes. This stricter bound also fits
+// receiving portals that use 100 KiB = 102,400 bytes for their size limit.
+export function kbLimitToBytes(targetKb = 0) {
+  const kb = Number(targetKb || 0);
+  if (!Number.isFinite(kb) || kb < 0 || kb > 20_000)
+    throw new Error('Target size must be between 0 and 20,000 KB.');
+  return Math.floor(kb * 1000);
+}
+
 export async function processImage(file, options = {}) {
   validateFile(file);
   const format = options.format === 'original' ? inputImageFormat(file) : (options.format || 'jpeg');
@@ -323,11 +332,7 @@ export async function processImage(file, options = {}) {
   let { width, height } = options.mode === 'within'
     ? { width: integer(options.width, 'Width'), height: integer(options.height, 'Height') }
     : assertDimensions(options.width, options.height);
-  const targetKb = Number(options.targetKb || 0);
-  if (!Number.isFinite(targetKb) || targetKb < 0 || targetKb > 20_000) {
-    throw new Error('Target size must be between 0 and 20,000 KB.');
-  }
-  const targetBytes = targetKb ? Math.floor(targetKb * 1024) : 0;
+  const targetBytes = kbLimitToBytes(options.targetKb);
   const preferredQuality = clamp(Number(options.quality ?? 0.9), 0.05, 0.95);
   const image = await readImage(file);
   if (options.mode === 'within') ({ width, height } = fitWithin(image.naturalWidth, image.naturalHeight, width, height));
