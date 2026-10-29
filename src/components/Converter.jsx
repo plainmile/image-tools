@@ -50,6 +50,7 @@ const language = {
 function localizedError(error, lang) {
   const message=String(error?.message||error||'Unknown error');
   if(lang!=='zh')return message;
+  if(message.includes('Image contents do not match'))return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
   if(message.includes('Animated PNG/WebP'))return '暂不支持动画 PNG/WebP：转换会丢失动画帧。';
   if(message.includes('32-megapixel'))return '原图超过单张输出 3200 万像素限制，请先缩小图片尺寸。';
   if(message.includes('128 MB'))return 'ZIP 输出超过 128 MB，请减少图片数量或使用 JPG/WebP。';
