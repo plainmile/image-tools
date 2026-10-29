@@ -22,6 +22,13 @@ test('localized skip navigation targets the main landmark',async({page})=>{
   }
 });
 
+test('skip navigation respects the system reduced-motion preference',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/');
+  const behavior=await page.locator('html').evaluate(element=>getComputedStyle(element).scrollBehavior);
+  expect(behavior).toBe('auto');
+});
+
 test('resize and convert show actual original versus exported byte sizes',async({page})=>{
   const file=await sample(page);
   await page.goto('/resize-image/');
