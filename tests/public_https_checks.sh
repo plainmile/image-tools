@@ -22,7 +22,7 @@ check_public() {
     code=$(curl --silent --show-error --connect-timeout 8 --max-time 20 \
       --output "$body" --dump-header "$headers" --write-out '%{http_code}' \
       "$base$path") || code='000'
-    ray=$(grep -i '^cf-ray:' "$headers" | tail -n 1 | tr -cd 'A-Za-z0-9-' || true)
+    ray=$(grep -i '^cf-ray:' "$headers" | tail -n 1 | cut -d ':' -f2- | tr -cd 'A-Za-z0-9-' || true)
     printf 'HTTPS %s: %s (attempt %s/3, CF-Ray %s)\n' "$path" "$code" "$attempt" "${ray:-unavailable}"
     if [[ "$code" == "$expected" ]] && { [[ -z "$needle" ]] || grep -Fq "$needle" "$body"; }; then
       return 0
@@ -38,7 +38,11 @@ check_public() {
 
 if [[ "$mode" == preflight ]]; then
   # Before deploying anything, prove the shared TLS edge is already healthy.
-  check_public '/healthz' 200 'ok'
+  check_public '/healthz' 200
+  if ! grep -qx 'ok' "$body"; then
+    echo '::error title=Public HTTPS health mismatch::Origin healthz must contain exactly ok'
+    exit 1
+  fi
 else
   check_public '/' 200 'href="/resize-image/"'
   check_public '/zh/' 200 'href="/zh/resize-image/"'
