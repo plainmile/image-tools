@@ -78,6 +78,48 @@ test('100 KB cap rejects a 101,000-byte JPEG but retains a valid sub-100,000-byt
   await expect(page.getByTestId('exact-bytes')).toContainText('99500');
 });
 
+test('narrow signatures with a KB limit can downscale instead of stopping at 48 pixels',async({page})=>{
+  await page.goto('/signature-resizer/');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  // A real, high-detail 32x600 PNG stays above 5,000 bytes unless its pixel
+  // dimensions are reduced. No mocked encoders or invalid file padding.
+  const png=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');canvas.width=32;canvas.height=600;
+    const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(32,600);
+    let seed=123456789;
+    for(let i=0;i<pixels.data.length;i+=4){
+      seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+      pixels.data[i]=seed&255;pixels.data[i+1]=(seed>>>8)&255;
+      pixels.data[i+2]=(seed>>>16)&255;pixels.data[i+3]=255;
+    }
+    ctx.putImageData(pixels,0,0);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  expect(png.length).toBeGreaterThan(5000);
+  await page.getByTestId('upload').setInputFiles({
+    name:'narrow-signature.png',mimeType:'image/png',buffer:Buffer.from(png)
+  });
+  await expect(page.locator('.file-summary')).toContainText('32×600');
+  await page.getByTestId('target').fill('5');
+  await page.getByRole('checkbox',{name:'Allow smaller dimensions if needed'}).check();
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+  const result=await page.evaluate(async()=>{
+    const url=document.querySelector('[data-testid="download"]').href;
+    const blob=await(await fetch(url)).blob();
+    const bitmap=await createImageBitmap(blob);
+    const dimensions={width:bitmap.width,height:bitmap.height,bytes:blob.size,mime:blob.type};
+    bitmap.close();return dimensions;
+  });
+  expect(result.mime).toBe('image/png');
+  expect(result.width).toBeLessThan(32);
+  expect(result.height).toBeLessThan(600);
+  expect(result.bytes).toBeLessThanOrEqual(5000);
+  await expect(page.getByTestId('result-meta')).toContainText(result.width+'×'+result.height);
+  await expect(page.getByTestId('exact-bytes')).toContainText(String(result.bytes));
+});
+
 test('bulk ZIP contains actual processed images @public-smoke',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,2);
   await page.getByTestId('width').fill('55');await page.getByTestId('height').fill('35');
