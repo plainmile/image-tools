@@ -34,6 +34,28 @@ test('moving and resizing never take the crop outside the image',()=>{
   assert.deepEqual(validateCrop(ratio,100,60),{width:ratio.width,height:ratio.height});
 });
 
+test('locked crop resize follows vertical-only gestures and remains within image bounds',()=>{
+  const base={x:20,y:20,width:200,height:200};
+  // Previously height input was discarded and these would all stay 200x200.
+  assert.deepEqual(resizeCrop(base,200,240,400,400,'1','height'),
+    {x:20,y:20,width:240,height:240});
+  assert.deepEqual(resizeCrop(base,200,140,400,400,'1','height'),
+    {x:20,y:20,width:140,height:140});
+  assert.deepEqual(resizeCrop(base,260,200,400,400,'1','width'),
+    {x:20,y:20,width:260,height:260});
+  // Horizontal-only gestures retain their existing default behavior.
+  assert.deepEqual(resizeCrop(base,260,200,400,400,'1'),
+    {x:20,y:20,width:260,height:260});
+  const landscape={x:10,y:20,width:160,height:120};
+  const taller=resizeCrop(landscape,160,150,500,400,String(4/3),'height');
+  assert.deepEqual(taller,{x:10,y:20,width:200,height:150});
+  const nearEdge={x:320,y:300,width:40,height:40};
+  const bounded=resizeCrop(nearEdge,40,150,400,400,'1','height');
+  assert.deepEqual(bounded,{x:320,y:300,width:80,height:80});
+  assert.deepEqual(validateCrop(bounded,400,400),{width:80,height:80});
+  assert.throws(()=>resizeCrop(base,200,240,400,400,'1','diagonal'),/axis/);
+});
+
 test('quarter turns swap pixel dimensions, while 180 and 360 degrees preserve them',()=>{
   assert.deepEqual(rotationDimensions(640,480,90),{width:480,height:640});
   assert.deepEqual(rotationDimensions(640,480,-90),{width:480,height:640});
