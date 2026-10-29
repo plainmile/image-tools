@@ -8,7 +8,7 @@ Image processing and manual redaction run entirely in your browser. There is no 
 
 ## First release
 
-- Convert one or up to 30 JPG/PNG/WebP still images without changing pixel dimensions. One converted image downloads directly; multiple inputs use ZIP. Animated APNG/WebP files are rejected before canvas export rather than silently losing frames. Conversion re-encodes pixels and strips original EXIF/metadata.
+- Convert one or up to 30 JPG/PNG/WebP still images without changing pixel dimensions. One successful conversion downloads directly even when other selected files were invalid or failed to encode; two or more successful outputs use ZIP. Skipped files are listed separately. Animated APNG/WebP files are rejected before canvas export rather than silently losing frames. Conversion re-encodes pixels and strips original EXIF/metadata.
 
 - Crop JPG/PNG/WebP locally with draggable selection, optional aspect-ratio presets and exact coordinates. Rotate/flip images by 90-degree steps with a live preview and no EXIF retention.
 - Resize proportionally without padding, borders or cropping by default (fit within maximum dimensions, no upscaling); exact-size fit-with-padding and crop-to-fill remain explicit choices. By default, regular resize and bulk resize retain the original JPG, PNG or WebP format (including existing alpha). Explicit JPEG output converts transparency to white; this is disclosed in the editor. In single-image exact-size modes, the optional Sync width and height control reduces both dimensions together when the requested aspect-locked size would exceed the 10,000-pixel edge or 32-megapixel browser budget; the editor explains the adjustment.
