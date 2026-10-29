@@ -132,7 +132,13 @@ jobs:
         # Complete 3-browser 300+ E2E runs in PR/main CI. Here verify a small
         # real-binary, mobile, privacy, SEO and security subset over the CDN.
         run: |
-          docker run --rm --network host -v "$PWD:/work:ro" -e IMAGE_BASE_URL=https://image.plainmile.com mcr.microsoft.com/playwright:v1.55.0-noble bash -lc '
+          # Persist failure traces outside the short-lived Playwright container.
+          # All test images are synthetic; no visitor uploads are collected.
+          result_dir="$RUNNER_TEMP/image-tools-public-e2e"
+          mkdir -p "$result_dir"
+          docker run --rm --network host -v "$PWD:/work:ro" -v "$result_dir:/tmp/test/test-results" \
+            -e IMAGE_BASE_URL=https://image.plainmile.com -e IMAGE_PUBLIC_E2E=1 \
+            mcr.microsoft.com/playwright:v1.55.0-noble bash -lc '
             set -eu
             mkdir -p /tmp/test/tests/e2e
             cp /work/tests/e2e/*.mjs /tmp/test/tests/e2e/
@@ -142,6 +148,15 @@ jobs:
             npm install --no-audit --no-fund @playwright/test@1.55.0 jszip@3.10.1
             npx playwright test --grep @public-smoke --max-failures=3
           '
+
+      - name: Preserve failed public browser navigation traces
+        if: ${{ failure() && steps.public_e2e.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tools-public-e2e-diagnostics
+          path: ${{ runner.temp }}/image-tools-public-e2e/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Diagnose origin TLS read-only if public HTTPS checks fail
         if: ${{ failure() && (steps.preflight.outcome == 'failure' || steps.public_smoke.outcome == 'failure' || steps.public_e2e.outcome == 'failure') }}

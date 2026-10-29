@@ -23,7 +23,7 @@ async function uploadSynthetic(page, count=1){
 }
 test('English and Chinese pages contain valid static SEO metadata @public-smoke',async({page})=>{
   for(const route of ['/','/zh/','/resize-image/','/zh/resize-image/','/compress-image-to-size/','/zh/compress-image-to-size/','/signature-resizer/','/zh/signature-resizer/','/convert-image/','/zh/convert-image/','/crop-image/','/zh/crop-image/','/rotate-image/','/zh/rotate-image/','/bulk-image-resizer/','/zh/bulk-image-resizer/','/passport-photo-print/','/zh/passport-photo-print/','/redact-image/','/zh/redact-image/','/privacy/','/zh/privacy/']){
-    const response=await page.goto(route);expect(response.status()).toBe(200);
+    const response=await page.goto(route,{waitUntil:'domcontentloaded'});expect(response.status()).toBe(200);
     const canonical=await page.locator('link[rel=canonical]').getAttribute('href');
     expect(canonical).toBe('https://image.plainmile.com'+route);
     expect(await page.locator('link[hreflang=en]').count()).toBe(1);
@@ -178,7 +178,7 @@ test('plain tool-first layout and localized labels',async({page})=>{
 test('375px layout has no horizontal page overflow @public-smoke',async({page})=>{
   await page.setViewportSize({width:375,height:812});
   for(const route of ['/zh/','/zh/resize-image/','/passport-photo-print/']){
-    await page.goto(route);
+    await page.goto(route,{waitUntil:'domcontentloaded'});
     if(route!=='/zh/') await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
     const layout=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
     expect(layout.scroll).toBeLessThanOrEqual(layout.width+1);
