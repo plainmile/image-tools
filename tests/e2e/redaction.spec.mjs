@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import JSZip from 'jszip';
 
 async function synthetic(page,count=1){
   const bytes=await page.evaluate(async()=>{
@@ -434,4 +435,84 @@ test('clear all images requests confirmation when any masks exist',async({page})
   await synthetic(page);
   await expect(page.locator('.redactor-file')).toHaveCount(1);
   await expect(page.getByTestId('redact-count')).toHaveText('0');
+});
+
+
+test('removing one edited image confirms data loss, preserves other masks and invalidates the old ZIP',async({page})=>{
+  await page.goto('/zh/redact-image/');
+  await synthetic(page,3);
+  await draw(page,[.2,.2],[.6,.6]);
+  await page.locator('.redactor-file').nth(1).click();
+  await draw(page,[.1,.1],[.5,.5]);
+  await page.locator('.redactor-file').nth(2).click();
+  await draw(page,[.3,.2],[.7,.7]);
+  await expect(page.getByTestId('redact-remove-image')).toHaveCount(3);
+  await page.locator('.redactor-file').nth(1).click();
+  await expect(page.locator('.redactor-file.chosen')).toHaveAttribute('aria-pressed','true');
+
+  const previousZip=page.waitForEvent('download');
+  await page.getByTestId('redact-download-all').click();
+  await previousZip;
+  await expect(page.getByTestId('redact-download-again')).toBeVisible();
+
+  page.once('dialog',dialog=>{
+    expect(dialog.message()).toContain('capture-1.png');
+    expect(dialog.message()).toContain('遮挡框');
+    void dialog.dismiss();
+  });
+  await page.getByTestId('redact-remove-image').nth(1).click();
+  await expect(page.getByTestId('redact-remove-image')).toHaveCount(3);
+  await expect(page.getByTestId('redact-download-again')).toBeVisible();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+
+  page.once('dialog',dialog=>{expect(dialog.message()).toContain('capture-1.png');void dialog.accept();});
+  await page.getByTestId('redact-remove-image').nth(1).click();
+  await expect(page.getByTestId('redact-remove-image')).toHaveCount(2);
+  await expect(page.locator('.redactor-gallery')).not.toContainText('capture-1.png');
+  await expect(page.locator('.redactor-file.chosen')).toContainText('capture-2.png');
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(page.getByTestId('redact-download-again')).toHaveCount(0);
+  await expect(page.getByTestId('redact-status')).toContainText('已移除图片');
+  await page.locator('.redactor-file').first().click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+
+  const download=page.waitForEvent('download');
+  await page.getByTestId('redact-download-all').click();
+  expect((await download).suggestedFilename()).toBe('plainmile-redacted-images.zip');
+  const raw=await page.evaluate(async()=>{
+    const link=document.querySelector('[data-testid="redact-download-again"]');
+    return [...new Uint8Array(await (await fetch(link.href)).arrayBuffer())];
+  });
+  const zip=await JSZip.loadAsync(Buffer.from(raw));
+  expect(Object.keys(zip.files)).toEqual(['redacted-01.png','redacted-02.png']);
+  for(const name of Object.keys(zip.files)){
+    const bytes=Buffer.from(await zip.file(name).async('uint8array'));
+    expect(Array.from(bytes.subarray(0,8))).toEqual([137,80,78,71,13,10,26,10]);
+  }
+});
+
+test('removing an unedited image needs no confirmation and keeps edited work on mobile',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  await page.goto('/redact-image/');
+  await synthetic(page,2);
+  await draw(page);
+  await page.locator('.redactor-file').nth(1).click();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  let confirmations=0;
+  page.on('dialog',dialog=>{confirmations+=1;void dialog.dismiss();});
+  await page.getByTestId('redact-remove-image').nth(1).click();
+  expect(confirmations).toBe(0);
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.locator('.redactor-file.chosen')).toContainText('capture-0.png');
+  await expect(page.locator('.redactor-file.chosen')).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(page.getByTestId('redact-download-all')).toHaveCount(0);
+  const layout=await page.evaluate(()=>({
+    scroll:document.documentElement.scrollWidth,
+    width:document.documentElement.clientWidth
+  }));
+  expect(layout.scroll).toBeLessThanOrEqual(layout.width+1);
+  const download=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  expect((await download).suggestedFilename()).toBe('redacted-image.png');
 });
