@@ -23,6 +23,7 @@ async function draw(page,from=[.2,.25],to=[.65,.65]){
   await expect(page.getByTestId('redact-upload')).toBeEnabled();
   // Playwright mouse coordinates are viewport based; ensure the entire image is in view
   // before dragging, including on short Firefox/WebKit headless viewports.
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','true');
   await page.getByTestId('redact-overlay').scrollIntoViewIfNeeded();
   const box=await page.getByTestId('redact-overlay').boundingBox();
   await page.mouse.move(box.x+box.width*from[0],box.y+box.height*from[1]);
@@ -585,4 +586,48 @@ test('JPEG export warns of transparency loss and flattens transparent pixels to 
   expect(result.masked.slice(0,3).every(x=>x<=15)).toBe(true);
   await page.locator('#redact-format').selectOption('png');
   await expect(page.getByTestId('redact-alpha-warning')).toHaveCount(0);
+});
+
+test('slow preview switching never shows old image or accepts wrongly placed privacy boxes',async({page})=>{
+  await page.addInitScript(()=>{
+    const original=window.createImageBitmap.bind(window);
+    let secondImageCalls=0;
+    window.createImageBitmap=(file,...args)=>{
+      if(file?.name==='slow-preview.png'&&++secondImageCalls===2){
+        return new Promise((resolve,reject)=>{
+          window.__releaseSlowPreview=()=>original(file,...args).then(resolve,reject);
+        });
+      }
+      return original(file,...args);
+    };
+  });
+  await page.goto('/zh/redact-image/');
+  const bytes=await synthetic(page);
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','true');
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'slow-preview.png',mimeType:'image/png',buffer:Buffer.from(bytes)
+  });
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','false');
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('aria-busy','true');
+  await expect(page.locator('.redactor-preview-loading')).toContainText('加载当前图片');
+  // Changing the key clears the previous image immediately, even before decode.
+  const alpha=await page.evaluate(()=>{
+    const canvas=document.querySelector('.redactor-preview-canvas');
+    return canvas.getContext('2d').getImageData(10,10,1,1).data[3];
+  });
+  expect(alpha).toBe(0);
+  await page.getByTestId('redact-overlay').scrollIntoViewIfNeeded();
+  const rect=await page.getByTestId('redact-overlay').boundingBox();
+  await page.mouse.move(rect.x+rect.width*.2,rect.y+rect.height*.3);
+  await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width*.6,rect.y+rect.height*.7,{steps:8});
+  await page.mouse.up();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+  await expect(page.getByTestId('redact-download')).toBeDisabled();
+  await page.evaluate(()=>window.__releaseSlowPreview());
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','true');
+  await expect(page.locator('.redactor-preview-loading')).toHaveCount(0);
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
 });

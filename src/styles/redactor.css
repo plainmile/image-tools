@@ -77,3 +77,6 @@
 
 .redactor-saved-result{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
 .redactor-saved-result .download{min-width:160px}
+
+/* Never show an old screenshot as the new selection while decoding. */
+.redactor-preview-loading{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;margin:0;padding:12px;background:var(--subtle);color:var(--muted);font-size:13px;text-align:center;pointer-events:none;}
