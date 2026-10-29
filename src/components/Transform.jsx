@@ -64,6 +64,7 @@ const ASPECTS=[['free','free'],['1','square'],[String(4/3),'landscape'],[String(
 function errorMessage(error,lang) {
   const message=String(error?.message||error||'Unknown error');
   if (lang !== 'zh') return message;
+  if (message.includes('Image contents do not match')) return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
   if (message.includes('Animated PNG/WebP')) return '暂不支持动画 PNG/WebP，以免丢失动画帧。';
   if (message.includes('32-megapixel')) return '输出超过 3200 万像素限制，请缩小裁剪区域。';
   if (message.includes('40 MB')) return '单张文件不能超过 40 MB。';
