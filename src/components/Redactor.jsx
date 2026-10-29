@@ -43,12 +43,15 @@ export default function Redactor({lang='en'}){
   const t=labels[lang];
   const [items,setItems]=useState([]),[activeId,setActiveId]=useState(null);
   const [tool,setTool]=useState('draw'),[effect,setEffect]=useState('solid'),[strength,setStrength]=useState(24);
-  const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[draft,setDraft]=useState(null),[lastDownload,setLastDownload]=useState(null),[previewId,setPreviewId]=useState(null);
+  const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[draft,setDraft]=useState(null),[lastDownload,setLastDownload]=useState(null),[previewState,setPreviewState]=useState(null);
   const canvasRef=useRef(null),dragRef=useRef(null),urls=useRef([]),sequence=useRef(0),selection=useRef(0),busyRef=useRef(false),itemsRef=useRef([]);
   const current=items.find(v=>v.id===activeId)||null,boxes=current?.masks||[];
-  // A new image is not safe to edit until its own pixels have replaced the
-  // previous canvas. Preview decoding can lag behind a gallery selection.
-  const previewReady=Boolean(current&&previewId===current.id);
+  // Privacy previews are only ready when the image AND current mask/effect state
+  // have actually been painted. An old canvas must not appear as an updated
+  // redaction while decode is pending after adding/removing/changing a mask.
+  const previewReady=Boolean(current&&previewState?.id===current.id&&
+    previewState.masks===current.masks&&previewState.effect===effect&&
+    previewState.strength===strength);
   const visibleDownload=Boolean(lastDownload&&(lastDownload.kind==='zip'||lastDownload.sourceId===activeId));
   useEffect(()=>{itemsRef.current=items;},[items]);
   useEffect(()=>()=>{if(lastDownload?.url)URL.revokeObjectURL(lastDownload.url);},[lastDownload]);
@@ -168,9 +171,9 @@ export default function Redactor({lang='en'}){
         ctx.scale(canvas.width/bmp.width,canvas.height/bmp.height);
         ctx.drawImage(bmp,0,0);
         paintRedactions(ctx,bmp,current.masks,effect,strength);
-        if(!stopped)setPreviewId(current.id);
+        if(!stopped)setPreviewState({id:current.id,masks:current.masks,effect,strength});
       }finally{bmp.close();}
-    })().catch(e=>{if(!stopped){setPreviewId(null);setMessage(redactError(e,lang));}});
+    })().catch(e=>{if(!stopped){setPreviewState(null);setMessage(redactError(e,lang));}});
     return()=>{stopped=true;};
   },[current?.id,current?.masks,effect,strength]);
   async function download(all=false){
@@ -257,7 +260,7 @@ export default function Redactor({lang='en'}){
           </div>
           <div className="redactor-control"><label htmlFor="redact-format">{t.format}</label><select id="redact-format" value={format} onChange={e=>{setFormat(e.target.value);discardDownload();}} disabled={busy}><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select>
             {format==='jpeg'&&items.some(item=>inputImageFormat(item.file)!=='jpeg')&&<p className="redactor-warning" data-testid="redact-alpha-warning">{t.jpegAlpha}</p>}
-            <div className="redactor-actions"><button type="button" data-testid="redact-download" disabled={busy||!current?.masks.length} onClick={()=>void download(false)}>{t.download}</button>{items.length>1&&<button type="button" data-testid="redact-download-all" disabled={busy} onClick={()=>void download(true)}>{t.zip}</button>}</div>
+            <div className="redactor-actions"><button type="button" data-testid="redact-download" disabled={busy||!previewReady||!current?.masks.length} onClick={()=>void download(false)}>{t.download}</button>{items.length>1&&<button type="button" data-testid="redact-download-all" disabled={busy||!previewReady} onClick={()=>void download(true)}>{t.zip}</button>}</div>
           </div>
         </aside>
       </div>

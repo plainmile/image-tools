@@ -588,6 +588,56 @@ test('JPEG export warns of transparency loss and flattens transparent pixels to 
   await expect(page.getByTestId('redact-alpha-warning')).toHaveCount(0);
 });
 
+test('same-image privacy edits hide stale previews and suspend export until the new masks are painted',async({page})=>{
+  await page.goto('/zh/redact-image/');
+  await synthetic(page);
+  const stage=page.locator('.redactor-stage');
+  await expect(stage).toHaveAttribute('data-preview-ready','true');
+
+  // Freeze a single image decode without a timer: this must exercise the
+  // second preview of the SAME file, not the earlier gallery-switch case.
+  const freezeNextPreview=async()=>{
+    await page.evaluate(()=>{
+      const decode=window.createImageBitmap.bind(window);
+      let paused=false;
+      window.createImageBitmap=(file,...args)=>{
+        if(!paused&&file?.name==='capture-0.png'){
+          paused=true;
+          return new Promise((resolve,reject)=>{
+            window.__releaseMaskPreview=()=>decode(file,...args).then(resolve,reject);
+          });
+        }
+        return decode(file,...args);
+      };
+      window.__releaseMaskPreview=null;
+    });
+  };
+  const assertBlocked=async()=>{
+    await expect.poll(()=>page.evaluate(()=>typeof window.__releaseMaskPreview)).toBe('function');
+    await expect(stage).toHaveAttribute('data-preview-ready','false');
+    await expect(stage).toHaveAttribute('aria-busy','true');
+    await expect(page.locator('.redactor-preview-loading')).toBeVisible();
+    await expect(page.getByTestId('redact-download')).toBeDisabled();
+  };
+  await freezeNextPreview();
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await assertBlocked();
+  await page.evaluate(()=>window.__releaseMaskPreview());
+  await expect(stage).toHaveAttribute('data-preview-ready','true');
+  await expect(page.getByTestId('redact-download')).toBeEnabled();
+
+  // Changing an existing mask from solid to blur is equally safety-critical:
+  // the canvas still has a black box until the blur preview finishes.
+  await freezeNextPreview();
+  await page.getByTestId('redact-area-effect').selectOption('blur');
+  await assertBlocked();
+  await page.evaluate(()=>window.__releaseMaskPreview());
+  await expect(stage).toHaveAttribute('data-preview-ready','true');
+  await expect(page.getByTestId('redact-download')).toBeEnabled();
+  await expect(page.locator('.redactor-preview-loading')).toHaveCount(0);
+});
+
 test('slow preview switching never shows old image or accepts wrongly placed privacy boxes',async({page})=>{
   await page.addInitScript(()=>{
     const original=window.createImageBitmap.bind(window);
