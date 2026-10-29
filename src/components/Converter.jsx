@@ -63,7 +63,7 @@ function localizedError(error, lang) {
 export default function Converter({lang='en'}) {
   const t=language[lang];
   const [ready,setReady]=useState(false),[busy,setBusy]=useState(false),[inspecting,setInspecting]=useState(false);
-  const [files,setFiles]=useState([]),[rejected,setRejected]=useState([]),[wasBatch,setWasBatch]=useState(false);
+  const [files,setFiles]=useState([]),[rejected,setRejected]=useState([]);
   const [format,setFormat]=useState('jpeg'),[quality,setQuality]=useState(90);
   const [preview,setPreview]=useState(null),[result,setResult]=useState(null);
   const [status,setStatus]=useState(''),[phase,setPhase]=useState(''),[processed,setProcessed]=useState(0);
@@ -99,7 +99,7 @@ export default function Converter({lang='en'}) {
         return;
       }
       setFiles(valid);setResult(null);setFailedAttempt([]);setPreview(URL.createObjectURL(valid[0].file));
-      setWasBatch(chosen.length>1);setProcessed(0);
+      setProcessed(0);
       setStatus(t.selected+(invalid.length?' '+t.check:''));
     }catch(error){
       if(request===sequence.current)setStatus(localizedError(error,lang)+(files.length?t.kept:''));
@@ -125,14 +125,13 @@ export default function Converter({lang='en'}) {
     setFiles(remaining);
     setPreview(remaining.length?URL.createObjectURL(remaining[0].file):null);
     setResult(null);setFailedAttempt([]);setProcessed(0);
-    setWasBatch(remaining.length>1);
     if(!remaining.length)setRejected([]);
     setStatus(remaining.length?t.selected:t.choose);
   }
   function reset(){
     if(busy||inspecting)return;
     sequence.current+=1;setFiles([]);setRejected([]);setResult(null);setFailedAttempt([]);
-    setPreview(null);setStatus('');setProcessed(0);setWasBatch(false);
+    setPreview(null);setStatus('');setProcessed(0);
   }
   async function convert(event){
     event.preventDefault();
@@ -166,7 +165,10 @@ export default function Converter({lang='en'}) {
         setStatus(t.noOutput+' '+t.check+(result?.url?t.kept:''));return;
       }
       let blob,name;
-      if(!wasBatch&&succeeded.length===1){
+      // Download the only successful image directly, even if the original
+      // selection contained invalid files or some conversions failed.
+      const isZip=succeeded.length>1;
+      if(!isZip){
         blob=succeeded[0].blob;name=succeeded[0].name;
       }else{
         setPhase('zip');setStatus(t.packaging);
@@ -177,7 +179,7 @@ export default function Converter({lang='en'}) {
         name='plainmile-converted-images.zip';
       }
       setFailedAttempt([]);
-      setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded});
+      setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded,isZip});
       setStatus(t.done+(failed.length?' '+t.check:''));
     }catch(error){
       setStatus(localizedError(error,lang)+(result?.url?t.kept:''));
@@ -242,20 +244,20 @@ export default function Converter({lang='en'}) {
       <aside className="editor-preview" aria-label={t.preview}>
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
-          {result?.url&&!wasBatch?<img src={result.url} alt={t.output}/>:
+          {result?.url&&!result.isZip?<img src={result.url} alt={t.output}/>:
             preview?<img src={preview} alt={t.preview}/>:
             <p className="preview-empty">{t.empty}</p>}
         </div>
         {result?.url&&<div className="result">
           <strong>{t.output}</strong>
           <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)} · {result.blob.size} {lang==='zh'?'字节':'bytes'}</p>
-           <p data-testid="convert-size-comparison">{result.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(result.succeeded.reduce((sum,item)=>sum+item.sourceBytes,0))} · {wasBatch?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'转换结果':'Converted output')}: {formatBytes(result.blob.size)}</p>
+           <p data-testid="convert-size-comparison">{result.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(result.succeeded.reduce((sum,item)=>sum+item.sourceBytes,0))} · {result.isZip?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'转换结果':'Converted output')}: {formatBytes(result.blob.size)}</p>
           {result.failed.length>0&&!failedAttempt.length&&<details open className="batch-errors" data-testid="convert-failed-output">
             <summary>{t.failed} ({result.failed.length})</summary>
             <ul>{result.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
           </details>}
           <a data-testid="convert-download" className="download" download={result.name} href={result.url}>
-            {wasBatch?t.zip:t.download} · {formatBytes(result.blob.size)}
+            {result.isZip?t.zip:t.download} · {formatBytes(result.blob.size)}
           </a>
         </div>}
         {failedAttempt.length>0&&<details open className="batch-errors" data-testid="convert-failed-output">
