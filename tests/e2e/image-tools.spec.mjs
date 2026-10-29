@@ -638,3 +638,27 @@ test('Chinese bulk output error identifies a file that misses the KB limit',asyn
   await expect(page.getByTestId('skipped-outputs')).toContainText('无法达到指定 KB');
   await expect(page.getByTestId('skipped-outputs')).not.toContainText('Could not reach');
 });
+
+test('failed 4x6 JPEG print export releases its full-size canvas',async({page})=>{
+  await page.goto('/passport-photo-print/');
+  await uploadSynthetic(page);
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob=function(callback,type,...args){
+      if(this.width===1200&&this.height===1800&&type==='image/jpeg'){
+        window.__failedPrintCanvas=this;
+        callback(null);
+        return;
+      }
+      return original.call(this,callback,type,...args);
+    };
+  });
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('status')).toContainText('Image encoding failed');
+  await expect(page.getByTestId('download')).toHaveCount(0);
+  const freed=await page.evaluate(()=>({
+    width:window.__failedPrintCanvas?.width,
+    height:window.__failedPrintCanvas?.height
+  }));
+  expect(freed).toEqual({width:0,height:0});
+});
