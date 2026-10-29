@@ -353,10 +353,12 @@ export async function processImage(file, options = {}) {
       if (targetBytes && result.blob.size > targetBytes) throw new Error('Actual file size exceeds the target.');
       return { ...result, width, height, format, bytes: result.blob.size };
     }
-    if (width <= 48 || height <= 48) break;
+    // Narrow signatures and long strips may need downscaling even when one
+    // side already measures 48 pixels or less. Stop only if neither side can
+    // shrink further; the normal output pixel budget still applies.
     const nextWidth = Math.max(1, Math.floor(width * 0.82));
     const nextHeight = Math.max(1, Math.floor(height * 0.82));
-    if (nextWidth === width || nextHeight === height) break;
+    if (nextWidth === width && nextHeight === height) break;
     width = nextWidth;
     height = nextHeight;
   }
