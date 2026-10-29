@@ -71,3 +71,7 @@ Images and filenames stay in the page session. ZIP files and outputs are generat
 ## Manual-only redaction
 
 OCR has been removed. Users draw every cover themselves. The live preview uses the same pixel effects as export. Solid black is recommended for confidential data; mosaic and blur only visually obscure content.
+
+### Cloudflare static-asset cache after security-header changes
+
+The origin adds CSP and other security headers to HTML and hashed `/_astro/` assets. Cloudflare can retain an older copy of an unchanged asset URL after the origin's headers are updated. The public browser E2E requests a fresh query-string cache key to validate the deployed origin, and logs a warning when the original cached URL still lacks these headers. If that warning persists, purge the **affected static-asset URL** in Cloudflare rather than assuming the origin is misconfigured; the browser's HTML security policy still needs to pass on the normal URL. No private image files are involved in this check.
