@@ -3,12 +3,12 @@ import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import {
   MAX_FILES, MAX_BATCH_BYTES, MAX_BATCH_OUTPUT_PIXELS,
   inspectImage, assertDimensions, processImage, inputImageFormat,
-  addBatchOutputBytes, exportFilename, formatBytes
+  addBatchOutputBytes, exportFilename, formatBytes, mergeSelectedImages
 } from '../lib/image-core.mjs';
 
 const language = {
   en: {
-    upload:'Select images',hint:'JPG, PNG, WebP · 40 MB per image, 30 at once',
+    upload:'Select images',addMore:'Add more images',appendHint:'New images are added to this batch. Clear to start over.',alreadyAdded:'These images were already selected; nothing changed.',duplicateSkipped:'Duplicate selections were skipped.',hint:'JPG, PNG, WebP · 40 MB per image, 30 at once',
     drop:'Drop images here or choose files.',choose:'Choose images to get started.',
     reading:'Checking files…',selected:'Ready to convert.',format:'Convert to',
     quality:'Quality',qualityHint:'Only affects JPG and WebP. PNG is lossless.',
@@ -27,7 +27,7 @@ const language = {
     paste:'You can paste a screenshot (Ctrl+V / ⌘V).',kept:' Previous images and download are kept.',
   },
   zh: {
-    upload:'选择图片',hint:'支持 JPG、PNG、WebP · 单张 40 MB，最多 30 张',
+    upload:'选择图片',addMore:'继续添加图片',appendHint:'新选图片会加入当前批次；清空可重新开始。',alreadyAdded:'这些图片已经选过，当前批次保持不变。',duplicateSkipped:'已跳过重复选择的图片。',hint:'支持 JPG、PNG、WebP · 单张 40 MB，最多 30 张',
     drop:'可拖入图片，也可直接选择文件。',choose:'请选择需要转换的图片。',
     reading:'正在检查图片…',selected:'图片已准备好。',format:'转换为',
     quality:'画质',qualityHint:'只影响 JPG 和 WebP，PNG 为无损格式。',
@@ -50,6 +50,7 @@ const language = {
 function localizedError(error, lang) {
   const message=String(error?.message||error||'Unknown error');
   if(lang!=='zh')return message;
+  if(message.includes('Maximum 30 files per batch')||message.includes('Total selected files must be'))return '最多选择 30 张图片，总大小不超过 160 MB（包括已选的）。';
   if(message.includes('Image contents do not match'))return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
   if(message.includes('Animated PNG/WebP'))return '暂不支持动画 PNG/WebP：转换会丢失动画帧。';
   if(message.includes('32-megapixel'))return '原图超过单张输出 3200 万像素限制，请先缩小图片尺寸。';
@@ -104,9 +105,17 @@ export default function Converter({lang='en'}) {
         setStatus(t.noOutput+' '+t.check+(files.length?t.kept:''));
         return;
       }
-      setFiles(valid);setResult(null);setFailedAttempt([]);setPreview(URL.createObjectURL(valid[0].file));
+      // Appending must never discard previous files or a usable download if
+      // the expanded batch exceeds the count/byte limits.
+      const merged=mergeSelectedImages(files,valid);
+      if(!merged.added){
+        setStatus(t.alreadyAdded+(invalid.length?' '+t.check:''));
+        return;
+      }
+      setFiles(merged.items);setResult(null);setFailedAttempt([]);
+      if(!files.length)setPreview(URL.createObjectURL(merged.items[0].file));
       setProcessed(0);
-      setStatus(t.selected+(invalid.length?' '+t.check:''));
+      setStatus(t.selected+(invalid.length?' '+t.check:'')+(merged.duplicates?' '+t.duplicateSkipped:''));
     }catch(error){
       if(request===sequence.current)setStatus(localizedError(error,lang)+(files.length?t.kept:''));
     }finally{
@@ -202,12 +211,12 @@ export default function Converter({lang='en'}) {
         <div className="control-section">
           <h2 className="panel-title">{t.upload}</h2>
           <label className="upload" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();void choose(Array.from(e.dataTransfer?.files||[]));}}>
-            <strong>{t.drop}</strong>
+            <strong>{files.length?t.addMore:t.drop}</strong>
             <input type="file" data-testid="convert-upload" multiple
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
               disabled={!ready||busy||inspecting}
               onChange={e=>{const selected=Array.from(e.target.files||[]);e.target.value='';void choose(selected);}}/>
-            <span>{t.hint} · {t.paste}</span>
+            <span>{t.hint} · {t.paste}{files.length?' '+t.appendHint:''}</span>
           </label>
           {files.length>0&&<div className="file-summary">
             <strong>{t.showFiles}: {files.length}</strong>
