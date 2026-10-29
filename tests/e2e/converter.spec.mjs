@@ -117,10 +117,59 @@ test('converter skips corrupt inputs without losing valid outputs, and makes no 
   await page.getByTestId('convert-format').selectOption('png');
   await page.getByTestId('convert-process').click();
   await expect(page.getByTestId('convert-download')).toBeVisible();
-  const bytes=await page.evaluate(async()=>Array.from(new Uint8Array(await(await(await fetch(document.querySelector('[data-testid=convert-download]').href)).blob()).arrayBuffer())));
-  const zip=await JSZip.loadAsync(Buffer.from(bytes));
-  expect(Object.keys(zip.files)).toEqual(['01-good-converted.png']);
+  const downloaded=await page.evaluate(async()=>{
+    const link=document.querySelector('[data-testid=convert-download]');
+    const blob=await(await fetch(link.href)).blob();
+    const bitmap=await createImageBitmap(blob);
+    const pixels={width:bitmap.width,height:bitmap.height};
+    bitmap.close();
+    return {name:link.download,type:blob.type,pixels};
+  });
+  expect(downloaded).toEqual({
+    name:'good-converted.png',type:'image/png',pixels:{width:37,height:19}
+  });
+  await expect(page.getByTestId('convert-download')).toContainText('Download image');
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('Converted output');
+  await expect(page.getByTestId('convert-failed-input')).toContainText('bad.png');
   expect(posts).toEqual([]);
+});
+
+test('batch with one encoding failure downloads the one success directly and lists the failed image',async({page})=>{
+  await page.goto('/zh/convert-image/');
+  await expect(page.locator('[data-converter-ready=true]')).toBeVisible();
+  const {png}=await makeImages(page);
+  await page.getByTestId('convert-upload').setInputFiles([
+    {name:'first.png',mimeType:'image/png',buffer:Buffer.from(png)},
+    {name:'second.png',mimeType:'image/png',buffer:Buffer.from(png)}
+  ]);
+  await expect(page.locator('.file-summary')).toContainText('2');
+  await page.getByTestId('convert-format').selectOption('png');
+  // Simulate a browser encoder failure only on the second image, after
+  // both files passed the initial input-validation and decode checks.
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    let attempt=0;
+    HTMLCanvasElement.prototype.toBlob=function(done,...args){
+      attempt++;
+      if(attempt===2){done(null);return;}
+      return original.call(this,done,...args);
+    };
+  });
+  await page.getByTestId('convert-process').click();
+  const download=page.getByTestId('convert-download');
+  await expect(download).toHaveAttribute('download','first-converted.png');
+  await expect(download).toContainText('下载图片');
+  await expect(page.getByTestId('convert-result-meta')).toContainText('1 张');
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('转换结果');
+  await expect(page.getByTestId('convert-failed-output')).toContainText('second.png');
+  const output=await page.evaluate(async()=>{
+    const link=document.querySelector('[data-testid=convert-download]');
+    const blob=await (await fetch(link.href)).blob();
+    const bitmap=await createImageBitmap(blob);
+    const result={type:blob.type,width:bitmap.width,height:bitmap.height};
+    bitmap.close();return result;
+  });
+  expect(output).toEqual({type:'image/png',width:37,height:19});
 });
 
 test('bulk image resizing has an actionable cancel control during processing',async({page})=>{
