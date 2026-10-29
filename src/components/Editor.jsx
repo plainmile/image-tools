@@ -7,7 +7,7 @@ const dict = {
     upload:'Choose image', hint:'JPG, PNG or WebP · up to 40 MB each',
     width:'Width (px)',height:'Height (px)',keep:'Sync width and height',
     mode:'Resize method',within:'Keep proportions (recommended)',contain:'Keep whole image, add space',cover:'Crop edges to fit',format:'Format',originalFormat:'Same as original',
-    target:'Maximum size (KB; 0 = no limit)',quality:'Quality',
+    target:'Maximum size (KB; 0 = no limit)',targetHint:'100 KB = 100,000 bytes. Actual output bytes are checked.',quality:'Quality',
     advancedResize:'Need exact width and height? More options',activeResize:'Current method',modeWithinHelp:'Default: keep the original proportions without cropping or borders. Width and height are maximums, not exact output dimensions.',modeContainHelp:'Keep everything and use the exact width and height you entered. Empty space may appear around the picture.',modeCoverHelp:'Fill the exact width and height you entered without empty borders. Some edges of the picture may be cut off.',
     downscale:'Allow smaller dimensions if needed',exactSizeNotice:'Exact width and height will be preserved. If the KB limit cannot be met, processing stops instead of changing the dimensions.',
     run:'Resize image',runCompress:'Compress image',runSignature:'Resize signature',runBatch:'Resize images',working:'Processing…',download:'Download file',
@@ -26,7 +26,7 @@ const dict = {
     upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
     width:'宽度（像素）',height:'高度（像素）',keep:'同步修改宽高',
     mode:'缩放方式',within:'按比例缩放（推荐）',contain:'保留整张图，空白补齐',cover:'裁剪边缘，填满尺寸',format:'输出格式',originalFormat:'保持原始格式',
-    target:'最大大小（KB；0 表示不限）',quality:'画质',
+    target:'最大大小（KB；0 表示不限）',targetHint:'100 KB 按 100,000 字节计算，并检查实际输出字节数。',quality:'画质',
     advancedResize:'需要固定宽高？展开其他方式',activeResize:'当前方式',modeWithinHelp:'默认按比例缩放：不裁剪、不加白边，宽高是上限，实际尺寸可能更小。',modeContainHelp:'完整保留图片，并补齐到填写的宽高。四周可能出现空白（PNG 可能是透明的）。',modeCoverHelp:'裁成填写的宽高，不会有白边，但图片边缘可能被裁掉。',
     downscale:'必要时允许减小像素',exactSizeNotice:'已选择固定宽高：即使设置了 KB 上限，也不会偷偷缩小图片。无法同时满足时会提示失败。',
     run:'调整尺寸',runCompress:'压缩图片',runSignature:'调整签名',runBatch:'批量调整',working:'正在处理…',download:'下载文件',
@@ -285,7 +285,7 @@ export default function Editor({lang='en',tool='resize'}) {
     }catch{return null;}
   }):[];
   const sizeOptions=<>
-    <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} disabled={busy||inspecting} onChange={e=>setTarget(e.target.value)}/></label>
+    <label className="wide">{t.target}<input data-testid="target" type="number" min="0" max="20000" step="1" value={target} disabled={busy||inspecting} onChange={e=>setTarget(e.target.value)}/><small data-testid="target-kb-hint">{t.targetHint}</small></label>
     <label>{t.quality}: {quality}%<input type="range" min="5" max="95" value={quality} disabled={losslessOutput||busy||inspecting} onChange={e=>setQuality(e.target.value)}/><small>{t.qualityNote}</small></label>
     {mode==='within'?<label className="check"><input type="checkbox" checked={downscale} disabled={busy||inspecting} onChange={e=>setDownscale(e.target.checked)}/>{t.downscale}</label>:<p className="resize-mode-help wide" data-testid="exact-size-note">{t.exactSizeNotice}</p>}
   </>;

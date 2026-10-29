@@ -49,8 +49,35 @@ test('compression to KB limit verifies actual bytes',async({page})=>{
   await page.getByTestId('target').fill('20');await page.getByTestId('process').click();
   await expect(page.getByTestId('download')).toBeVisible();
   const bytes=await page.evaluate(async()=> (await (await fetch(document.querySelector('[data-testid=download]').href)).blob()).size);
-  expect(bytes).toBeLessThanOrEqual(20*1024);
+  expect(bytes).toBeLessThanOrEqual(20*1000);
 });
+test('100 KB cap rejects a 101,000-byte JPEG but retains a valid sub-100,000-byte export',async({page})=>{
+  await page.goto('/zh/compress-image-to-size/');
+  await uploadSynthetic(page);
+  await expect(page.getByTestId('target-kb-hint')).toContainText('100,000 字节');
+  await page.getByTestId('target').fill('100');
+  // Wrap actual JPEG encoder output with trailing padding to exercise the
+  // 100,000 / 102,400 boundary across Chromium, Firefox and WebKit.
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob=function(callback,mime,quality){
+      return original.call(this,(real)=>{
+        if(!real)return callback(null);
+        const size=quality>=0.895?101000:99500;
+        callback(new Blob([real,new Uint8Array(Math.max(0,size-real.size))],{type:real.type}));
+      },mime,quality);
+    };
+  });
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toBeVisible();
+  const bytes=await page.evaluate(async()=>{
+    const url=document.querySelector('[data-testid=download]').href;
+    return (await(await fetch(url)).blob()).size;
+  });
+  expect(bytes).toBe(99500);
+  await expect(page.getByTestId('exact-bytes')).toContainText('99500');
+});
+
 test('bulk ZIP contains actual processed images',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,2);
   await page.getByTestId('width').fill('55');await page.getByTestId('height').fill('35');

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  assertDimensions, aspectDimension, fitLockedAspectDimensions, drawRect, validateFile, inputImageFormat, sanitizeStem,
+  assertDimensions, aspectDimension, fitLockedAspectDimensions, drawRect, validateFile, inputImageFormat, sanitizeStem, kbLimitToBytes,
   exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
 } from '../../src/lib/image-core.mjs';
 
@@ -56,6 +56,18 @@ test('safe exported names and accurate file size', () => {
   assert.equal(sanitizeStem('../../a:bad?.png'), '..-..-a-bad-');
   assert.equal(exportFilename('scan.webp', 'jpeg'), 'scan-edited.jpg');
   assert.equal(formatBytes(1024), '1.0 KB');
+});
+
+test('KB upload limit is decimal bytes so 100 KB passes both 100,000-byte and 100-KiB portals', () => {
+  assert.equal(kbLimitToBytes(0), 0);
+  assert.equal(kbLimitToBytes(undefined), 0);
+  assert.equal(kbLimitToBytes(1), 1000);
+  assert.equal(kbLimitToBytes(1.5), 1500);
+  assert.equal(kbLimitToBytes('100'), 100000);
+  assert.equal(kbLimitToBytes(20_000), 20_000_000);
+  assert.throws(()=>kbLimitToBytes(-1), /Target size/);
+  assert.throws(()=>kbLimitToBytes(20_001), /Target size/);
+  assert.throws(()=>kbLimitToBytes(Infinity), /Target size/);
 });
 
 test('browser batch memory limit is explicit', () => {
