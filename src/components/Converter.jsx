@@ -56,8 +56,14 @@ function localizedError(error, lang) {
   if(message.includes('128 MB'))return 'ZIP 输出超过 128 MB，请减少图片数量或使用 JPG/WebP。';
   if(message.includes('120-megapixel'))return '本批输出超过 1.2 亿像素限制，请分批转换。';
   if(message.includes('40 MB'))return '单张文件不能超过 40 MB。';
+  if(message.includes('Supported images:'))return '仅支持 JPG、PNG 和 WebP 图片，不支持 GIF、SVG 或 HEIC。';
+  if(message.includes('80 megapixels'))return '原图超过 8000 万像素，请先缩小图片。';
+  if(message.includes('file is empty'))return '所选文件为空，请重新选择图片。';
+  if(message.includes('PNG metadata'))return '图片包含过多 PNG 元数据，无法安全确认是否为动画。';
+  if(message.includes('Image encoding failed'))return '图片编码失败，请尝试降低尺寸或更换输出格式。';
+  if(message.includes('cannot encode the selected output format'))return '当前浏览器不支持该输出格式，请尝试 JPG 或 PNG。';
   if(message.includes('decoded'))return '图片损坏或无法解码。';
-  return message;
+  return '图片处理失败，请检查格式或尺寸后重试。';
 }
 
 export default function Converter({lang='en'}) {

@@ -21,12 +21,16 @@ function redactError(error,lang){
       ['Selected files exceed the 100 MB','已选图片总大小超过 100 MB，请分批处理。'],
       ['Each image must be at most 40 MB','每张图片应小于或等于 40 MB，请选择较小的文件。'],
       ['Only JPEG, PNG and WebP','仅支持 JPG、PNG 和 WebP 图片。'],
+      ['image file is empty','所选图片为空，请重新选择。'],
+      ['Unsupported image format','仅支持 JPG、PNG 和 WebP 图片。'],
+      ['Invalid redaction box','遮挡区域无效，请重新检查并画框。'],
+      ['Canvas unavailable','无法创建图片画布，请缩小图片或更换浏览器后重试。'],
       ['Image exceeds the 32-megapixel','单张图片超过 3200 万像素，请先缩小图片尺寸。'],
       ['Selected images exceed the 96-megapixel','整批图片超过 9600 万像素，请减少图片数量。'],
       ['Image encoding failed','图片编码失败，请尝试更换导出格式。'],
     ];
     const match=translations.find(([key])=>message.includes(key));
-    if(match)return match[1];
+    return match?match[1]:'图片处理失败，请检查图片格式或尺寸后重试。';
   }
   return message;
 }

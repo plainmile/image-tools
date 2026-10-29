@@ -9,6 +9,8 @@ test('validate input limits and unsupported types', () => {
   assert.throws(() => validateRedactionFiles([]), /Choose/);
   assert.throws(() => validateRedactionFiles(Array(13).fill({size:1,type:'image/png'})), /12/);
   assert.throws(() => validateRedactionFiles([{size:1,type:'image/svg+xml'}]), /JPEG/);
+  assert.throws(() => validateRedactionFiles([{size:0,type:'image/png'}]), /image file is empty/);
+  assert.throws(() => validateRedactionFiles([{size:40*1024*1024+1,type:'image/png'}]), /40 MB/);
   assert.equal(REDACT_MAX_FILES, 12);
   assert.equal(REDACT_MAX_BYTES, 100*1024*1024);
 });

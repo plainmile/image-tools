@@ -69,8 +69,14 @@ function errorMessage(error,lang) {
   if (message.includes('32-megapixel')) return '输出超过 3200 万像素限制，请缩小裁剪区域。';
   if (message.includes('40 MB')) return '单张文件不能超过 40 MB。';
   if (message.includes('80 megapixels')) return '原图超过 8000 万像素限制。';
+  if (message.includes('Supported images:')) return '仅支持 JPG、PNG 和 WebP，不支持 GIF、SVG 或 HEIC。';
+  if (message.includes('file is empty')) return '所选文件为空，请重新选择图片。';
+  if (message.includes('PNG metadata')) return '图片包含过多 PNG 元数据，无法安全确认是否为动画。';
+  if (message.includes('Image encoding failed')) return '图片编码失败，请尝试更换输出格式或减小图片尺寸。';
+  if (message.includes('does not support the output format')) return '当前浏览器不支持该输出格式，请更换为 JPG 或 PNG。';
+  if (message.includes('Crop area must be inside')) return '裁剪区域超出图片范围，请重新调整。';
   if (message.includes('decoded')) return '图片无法解码，可能已损坏或格式不受支持。';
-  return message;
+  return '图片处理失败，请检查图片格式、尺寸或重试。';
 }
 
 export default function Transform({lang='en',tool='crop'}) {

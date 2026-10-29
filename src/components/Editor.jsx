@@ -50,6 +50,7 @@ function localizedImageError(error,lang) {
     ['Animated PNG/WebP','暂不支持动画 PNG/WebP，避免导出时遗漏动画帧。'],
     ['cannot be decoded','图片无法解码，可能已损坏或格式不受支持。'],
     ['80 megapixels','原图超过 8000 万像素，请先缩小图片。'],
+    ['file is empty','所选文件为空，请重新选择图片。'],
     ['40 MB','单张图片不能超过 40 MB。'],
     ['Supported images:','仅支持 JPG、PNG 和 WebP，不支持 GIF、SVG 或 HEIC。'],
     ['32-megapixel','输出超过 3200 万像素，请减小尺寸。'],
@@ -65,7 +66,7 @@ function localizedImageError(error,lang) {
     ['Invalid image dimensions','图片像素尺寸无效，请检查输入。']
   ];
   const translation=translations.find(([match])=>message.includes(match));
-  return translation?translation[1]:message;
+  return translation?translation[1]:'图片处理失败，请检查格式、尺寸或文件完整性后重试。';
 }
 
 export default function Editor({lang='en',tool='resize'}) {

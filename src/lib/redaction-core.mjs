@@ -23,7 +23,8 @@ export function validateRedactionFiles(files) {
     throw new Error('Selected files exceed the 100 MB batch limit.');
   }
   for (const f of files) {
-    if (!f || f.size <= 0 || f.size > MAX_FILE_BYTES) throw new Error('Each image must be at most 40 MB.');
+    if (!f || f.size <= 0) throw new Error('The selected image file is empty.');
+    if (f.size > MAX_FILE_BYTES) throw new Error('Each image must be at most 40 MB.');
     // Some operating systems and clipboard sources leave File.type empty.
     // Use the same conservative extension fallback as every other image tool.
     // A mismatched explicit MIME (e.g. SVG renamed .png) is still rejected.
