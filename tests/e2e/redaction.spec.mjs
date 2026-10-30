@@ -86,7 +86,9 @@ test('batch export requires a mask on each image and packages a ZIP',async({page
   await draw(page);
   await page.getByTestId('redact-download-all').click();
   await expect(page.getByTestId('redact-status')).toContainText('Add at least one box');
-  await page.getByRole('button',{name:/capture-1.png/}).click();
+  await expect(page.getByTestId('redact-status')).toContainText('capture-1.png');
+  // The tool takes us to the first unfinished image; no manual hunting needed.
+  await expect(page.locator('.redactor-file.chosen')).toContainText('capture-1.png');
   await draw(page);
   await page.evaluate(()=>{
     const previous=URL.createObjectURL.bind(URL);
