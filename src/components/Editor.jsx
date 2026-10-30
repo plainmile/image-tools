@@ -84,6 +84,7 @@ export default function Editor({lang='en',tool='resize'}) {
   const [progress,setProgress]=useState(0),[phase,setPhase]=useState('');
   const cancelRequested=useRef(false);
   const [preview,setPreview]=useState(null),[previewIndex,setPreviewIndex]=useState(0),[ready,setReady]=useState(false);
+  const [showOriginal,setShowOriginal]=useState(false);
   const previewEntry=files[previewIndex]||files[0]||null;
   // A rendered preview belongs to one file AND one set of settings.
   // Reusing a canvas before a new image has decoded can show old pixels.
@@ -240,6 +241,7 @@ export default function Editor({lang='en',tool='resize'}) {
   async function run(e){
     e.preventDefault();if(!files.length||busy||inspecting)return;
     cancelRequested.current=false;
+    setShowOriginal(false);
     // Retain the previous usable download until this reprocessing attempt succeeds.
     setBusy(true);setFailedAttempt([]);setStatus(t.working);
     if(batch){setProgress(0);setPhase('processing');}
@@ -409,7 +411,7 @@ export default function Editor({lang='en',tool='resize'}) {
       <aside className="editor-preview" aria-label={t.preview}>
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
-          {output&&!output.isZip&&!batch ? <img alt={lang==='zh'?'处理后的图片':'Processed image'} src={output.url}/> :
+          {output&&!output.isZip&&!batch ? <img data-testid="editor-comparison-image" alt={showOriginal?(lang==='zh'?'原始图片':'Original image'):(lang==='zh'?'处理后的图片':'Processed image')} src={showOriginal&&preview?preview:output.url}/> :
            preview ? <>
              <canvas key={previewKey} ref={canvasRef} role="img" data-testid="editor-preview-canvas"
                aria-label={sheet?t.cropPreview:t.preview} aria-busy={!previewReady&&!previewFailed}/>
@@ -417,6 +419,11 @@ export default function Editor({lang='en',tool='resize'}) {
            </> :
            <p className="preview-empty">{t.empty}</p>}
         </div>
+        {output&&!output.isZip&&!batch&&preview&&<div className="preview-compare-controls">
+          <button type="button" className="secondary" data-testid="editor-preview-toggle" aria-pressed={showOriginal}
+            onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?(lang==='zh'?'查看处理结果':'View result'):(lang==='zh'?'查看原图':'View original')}</button>
+          <span role="status">{showOriginal?(lang==='zh'?'正在查看原图':'Showing original'):(lang==='zh'?'正在查看处理结果':'Showing result')}</span>
+        </div>}
         {batch&&!!files.length?<p className="preview-caption" data-testid="batch-preview-caption"><strong>{previewEntry?.file.name}</strong> · {t.batchPreview}</p>:
          !!files.length&&!output&&<p className="preview-caption">{sheet?t.cropPreview:files[0].file.name+' · '+files[0].width+'×'+files[0].height}</p>}
         {output&&<div className="result">
