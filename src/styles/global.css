@@ -94,6 +94,10 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .preview-frame canvas { background: repeating-conic-gradient(#e3e5e7 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
 .preview-empty { color: var(--muted); font-size: 13px; text-align: center; max-width: 225px; }
 .preview-caption { font-size: 12px; color: var(--muted); padding-top: 10px; overflow-wrap: anywhere; }
+/* Optional comparison appears only after successful single-image export. */
+.preview-compare-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
+.preview-compare-controls button.secondary { font-size:12px; min-height:32px; padding:5px 10px; }
+.preview-compare-controls span { color:var(--muted); font-size:12px; }
 .result { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }
 .result strong { font-size: 14px; }
 .result p { color: var(--muted); font-size: 13px; margin: 4px 0 13px; overflow-wrap: anywhere; }
