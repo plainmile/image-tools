@@ -5,8 +5,8 @@ import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import '../styles/redactor.css';
 
 const labels={
-  en:{upload:'Choose images',limit:'JPG, PNG or WebP · up to 12 images / 100 MB total',draw:'Draw rectangles',erase:'Remove rectangles',undo:'Undo',redo:'Redo',clear:'Clear all boxes',style:'Style for new rectangles',solid:'Solid black — secure concealment',mosaic:'Pixelate / mosaic',blur:'Gaussian blur',warning:'Use solid black for private text, account numbers or passwords. Pixelation and blur are visual effects, not secure concealment.',remove:'Remove',download:'Download image',zip:'Download all as ZIP',format:'Save as',jpegAlpha:'JPG replaces transparent pixels with white. Use PNG or WebP to keep transparency.',first:'Select images to start.',hint:'Choose a style, then drag to add a rectangle. Existing rectangles keep their own styles; change them in the area list.',local:'All editing happens in your browser; images are not uploaded.',need:'Add at least one box to each image before ZIP export.',ready:'Download ready',images:'Images',masks:'Redacted areas',strength:'Effect strength',drop:'Drop images here or paste a screenshot',working:'Processing…',loadingPreview:'Loading this image preview…',clearFiles:'Remove all images',confirmClear:'Remove every image and all redaction boxes? This cannot be undone.',added:'Images added. Previous masks are preserved.',removeImage:'Remove image',confirmRemove:'Remove "{name}" and all its redaction boxes? This cannot be undone.',removed:'Image removed. Other images and boxes are kept.',alreadyAdded:'Already selected. Your masks and download are unchanged.',duplicateSkipped:'Identical images were skipped.',skippedInputs:'Skipped invalid images',someSkipped:'Some invalid images were skipped; see details below.'},
-  zh:{upload:'选择图片',limit:'JPG、PNG 或 WebP · 最多 12 张 / 100 MB',draw:'手动画框',erase:'删除遮挡框',undo:'撤销',redo:'重做',clear:'清空本图',style:'新画遮挡框的方式',solid:'黑色实心遮挡（保护隐私）',mosaic:'像素马赛克',blur:'高斯模糊',warning:'密码、证件号和其他敏感文字请用实心黑块。马赛克和模糊仅供视觉处理，不能保证保密。',remove:'删除',download:'下载当前图片',zip:'全部打包 ZIP 下载',format:'导出格式',jpegAlpha:'JPG 无法保留透明背景，透明区域会变成白色。需要透明背景请选择 PNG 或 WebP。',first:'请选择图片。',hint:'先选择打码方式，再拖动画框。已画的区域不会随全局模式改变，可在下方逐个调整。',local:'所有操作均在浏览器本地完成，图片不会上传。',need:'批量导出前，请为每张图片至少画一个遮挡框。',ready:'文件可以下载',images:'图片列表',masks:'遮挡区域',strength:'效果强度',drop:'可拖放图片或粘贴截图',working:'正在处理…',loadingPreview:'正在加载当前图片预览…',clearFiles:'清空所有图片',confirmClear:'确定清空全部图片和遮挡框吗？此操作不可撤销。',added:'图片已加入列表，原来的遮挡框已保留。',removeImage:'移除图片',confirmRemove:'移除“{name}”及其所有遮挡框？此操作无法撤销。',removed:'已移除图片，其他图片和遮挡框均已保留。',alreadyAdded:'该图片已添加过，原有遮挡框和下载结果不变。',duplicateSkipped:'已跳过内容相同的重复图片。',skippedInputs:'未导入的无效图片',someSkipped:'部分无效图片已跳过，请查看原因。'}
+  en:{upload:'Choose images',limit:'JPG, PNG or WebP · up to 12 images / 100 MB total',draw:'Draw rectangles',erase:'Remove rectangles',undo:'Undo',redo:'Redo',clear:'Clear all boxes',style:'Style for new rectangles',solid:'Solid black — secure concealment',mosaic:'Pixelate / mosaic',blur:'Gaussian blur',warning:'Use solid black for private text, account numbers or passwords. Pixelation and blur are visual effects, not secure concealment.',remove:'Remove',download:'Download image',zip:'Download all as ZIP',format:'Save as',jpegAlpha:'JPG replaces transparent pixels with white. Use PNG or WebP to keep transparency.',first:'Select images to start.',hint:'Choose a style, then drag to add a rectangle. Existing rectangles keep their own styles; change them in the area list.',local:'All editing happens in your browser; images are not uploaded.',need:'Add at least one box to each image before ZIP export.',ready:'Download ready',images:'Images',masks:'Redacted areas',strength:'Effect strength',drop:'Drop images here or paste a screenshot',working:'Processing…',loadingPreview:'Loading this image preview…',clearFiles:'Remove all images',confirmClear:'Remove every image and all redaction boxes? This cannot be undone.',added:'Images added. Previous masks are preserved.',removeImage:'Remove image',confirmRemove:'Remove "{name}" and all its redaction boxes? This cannot be undone.',removed:'Image removed. Other images and boxes are kept.',alreadyAdded:'Already selected. Your masks and download are unchanged.',duplicateSkipped:'Identical images were skipped.',skippedInputs:'Skipped invalid images',someSkipped:'Some invalid images were skipped; see details below.',zipProgress:'Redacting images',zipPacking:'Creating ZIP…',imagesCount:'images',kept:' Previous download remains available.'},
+  zh:{upload:'选择图片',limit:'JPG、PNG 或 WebP · 最多 12 张 / 100 MB',draw:'手动画框',erase:'删除遮挡框',undo:'撤销',redo:'重做',clear:'清空本图',style:'新画遮挡框的方式',solid:'黑色实心遮挡（保护隐私）',mosaic:'像素马赛克',blur:'高斯模糊',warning:'密码、证件号和其他敏感文字请用实心黑块。马赛克和模糊仅供视觉处理，不能保证保密。',remove:'删除',download:'下载当前图片',zip:'全部打包 ZIP 下载',format:'导出格式',jpegAlpha:'JPG 无法保留透明背景，透明区域会变成白色。需要透明背景请选择 PNG 或 WebP。',first:'请选择图片。',hint:'先选择打码方式，再拖动画框。已画的区域不会随全局模式改变，可在下方逐个调整。',local:'所有操作均在浏览器本地完成，图片不会上传。',need:'批量导出前，请为每张图片至少画一个遮挡框。',ready:'文件可以下载',images:'图片列表',masks:'遮挡区域',strength:'效果强度',drop:'可拖放图片或粘贴截图',working:'正在处理…',loadingPreview:'正在加载当前图片预览…',clearFiles:'清空所有图片',confirmClear:'确定清空全部图片和遮挡框吗？此操作不可撤销。',added:'图片已加入列表，原来的遮挡框已保留。',removeImage:'移除图片',confirmRemove:'移除“{name}”及其所有遮挡框？此操作无法撤销。',removed:'已移除图片，其他图片和遮挡框均已保留。',alreadyAdded:'该图片已添加过，原有遮挡框和下载结果不变。',duplicateSkipped:'已跳过内容相同的重复图片。',skippedInputs:'未导入的无效图片',someSkipped:'部分无效图片已跳过，请查看原因。',zipProgress:'正在逐张打码',zipPacking:'正在生成 ZIP…',imagesCount:'张图片',kept:' 之前的下载结果仍可使用。'}
 };
 function redactError(error,lang){
   const message=String(error?.message||error||'Image could not be processed.');
@@ -44,7 +44,7 @@ export default function Redactor({lang='en'}){
   const t=labels[lang];
   const [items,setItems]=useState([]),[activeId,setActiveId]=useState(null),[rejected,setRejected]=useState([]);
   const [tool,setTool]=useState('draw'),[effect,setEffect]=useState('solid'),[strength,setStrength]=useState(24);
-  const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[draft,setDraft]=useState(null),[lastDownload,setLastDownload]=useState(null),[previewState,setPreviewState]=useState(null);
+  const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[exportProgress,setExportProgress]=useState(null),[ready,setReady]=useState(false),[draft,setDraft]=useState(null),[lastDownload,setLastDownload]=useState(null),[previewState,setPreviewState]=useState(null);
   const canvasRef=useRef(null),dragRef=useRef(null),urls=useRef([]),sequence=useRef(0),selection=useRef(0),busyRef=useRef(false),itemsRef=useRef([]);
   const current=items.find(v=>v.id===activeId)||null,boxes=current?.masks||[];
   // Privacy previews are only ready when the image AND current mask/effect state
@@ -236,6 +236,7 @@ export default function Redactor({lang='en'}){
       return;
     }
     busyRef.current=true;setBusy(true);
+    if(all)setExportProgress({done:0,total:list.length,phase:'redacting'});
     try{
       if(all){
         const {default: JSZip}=await import('jszip');
@@ -245,20 +246,22 @@ export default function Redactor({lang='en'}){
           const out=await flattenRedactedImage(list[i].file,list[i].masks,effect,format,strength);
           outputBytes=addRedactionOutputBytes(outputBytes,out.blob.size);
           zip.file('redacted-'+String(i+1).padStart(2,'0')+'.'+(format==='jpeg'?'jpg':format),out.blob);
+          setExportProgress({done:i+1,total:list.length,phase:'redacting'});
         }
+        setExportProgress({done:list.length,total:list.length,phase:'zip'});
         // JPEG, PNG and WebP output blobs are already encoded: deflating them
         // again adds CPU work without meaningful savings on mobile devices.
         const blob=await zip.generateAsync({type:'blob',compression:'STORE'});
         save(blob,'plainmile-redacted-images.zip');
         setLastDownload({url:URL.createObjectURL(blob),name:'plainmile-redacted-images.zip',bytes:blob.size,sourceBytes:list.reduce((sum,item)=>sum+item.file.size,0),kind:'zip'});
-        setMessage(t.ready+' · ZIP · '+formatBytes(blob.size));
+        setMessage(t.ready+' · ZIP · '+list.length+' '+t.imagesCount+' · '+formatBytes(blob.size));
       }else{
         const out=await flattenRedactedImage(current.file,current.masks,effect,format,strength);
         save(out.blob,out.filename);
         setLastDownload({url:URL.createObjectURL(out.blob),name:out.filename,bytes:out.blob.size,sourceBytes:current.file.size,kind:'single',sourceId:current.id});
         setMessage(t.ready+' · '+current.width+'×'+current.height+' · '+formatBytes(out.blob.size));
       }
-    }catch(e){setMessage(redactError(e,lang));}finally{busyRef.current=false;setBusy(false);}
+    }catch(e){setMessage(redactError(e,lang)+(visibleDownload?t.kept:''));}finally{setExportProgress(null);busyRef.current=false;setBusy(false);}
   }
   return <section className="redactor" data-redactor-ready={String(ready)}>
     <div className="redactor-top" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void choose(Array.from(e.dataTransfer?.files||[]));}}><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={!ready||busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit} · {t.drop}</span></div>
@@ -320,6 +323,10 @@ export default function Redactor({lang='en'}){
           <div className="redactor-control"><label htmlFor="redact-format">{t.format}</label><select id="redact-format" value={format} onChange={e=>{setFormat(e.target.value);discardDownload();}} disabled={busy}><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select>
             {format==='jpeg'&&items.some(item=>inputImageFormat(item.file)!=='jpeg')&&<p className="redactor-warning" data-testid="redact-alpha-warning">{t.jpegAlpha}</p>}
             <div className="redactor-actions"><button type="button" data-testid="redact-download" disabled={busy||!previewReady||!current?.masks.length} onClick={()=>void download(false)}>{t.download}</button>{items.length>1&&<button type="button" data-testid="redact-download-all" disabled={busy||!previewReady} onClick={()=>void download(true)}>{t.zip}</button>}</div>
+            {exportProgress&&<div className="redactor-export-progress" data-testid="redact-export-progress">
+              <span role="status">{exportProgress.phase==='zip'?t.zipPacking:t.zipProgress+' '+exportProgress.done+' / '+exportProgress.total}</span>
+              <progress aria-label={t.zipProgress} value={exportProgress.done} max={exportProgress.total}/>
+            </div>}
           </div>
         </aside>
       </div>
