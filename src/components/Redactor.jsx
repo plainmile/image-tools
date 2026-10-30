@@ -179,7 +179,17 @@ export default function Redactor({lang='en'}){
   async function download(all=false){
     if(busyRef.current)return;
     const list=all?items:[current];
-    if(!list.length||list.some(v=>!v?.masks?.length)){setMessage(t.need);return;}
+    const missing=list.find(v=>!v?.masks?.length);
+    if(!list.length||missing){
+      // Batch exports deliberately require a cover on every image. Take the
+      // user straight to the first unfinished image instead of leaving them
+      // to hunt through thumbnails for why ZIP export is blocked.
+      if(all&&missing){
+        setActiveId(missing.id);setTool('draw');setDraft(null);
+      }
+      setMessage(missing?.file?.name?t.need+' '+missing.file.name:t.need);
+      return;
+    }
     busyRef.current=true;setBusy(true);
     try{
       if(all){
