@@ -267,3 +267,33 @@ test('unrelated file metadata never triggers a content read',async()=>{
   const result=await mergeSelectedImages([make('a.png')],[make('b.png')]);
   assert.equal(result.added,1);
 });
+
+
+test('redaction batch can reuse content-aware dedup with 12 files and 100 MB limits',async()=>{
+  const options={
+    maxFiles:12,maxBytes:100*BYTES_PER_MB,
+    maxFilesError:'Select at most 12 images.',
+    maxBytesError:'Selected files exceed the 100 MB batch limit.'
+  };
+  const entry=(name,size=4)=>({file:{name,size,type:'image/png',lastModified:42}});
+  const existing=Array.from({length:12},(_,i)=>entry('mask-'+i+'.png'));
+  const duplicate=await mergeSelectedImages(existing,[existing[0]],options);
+  assert.equal(duplicate.added,0);
+  assert.equal(duplicate.duplicates,1);
+  assert.deepEqual(duplicate.items,existing);
+  await assert.rejects(()=>mergeSelectedImages(existing,[entry('new.png')],options),/Select at most 12/);
+  assert.equal(existing.length,12,'rejected additions do not mutate existing selections');
+
+  const limitEntry=entry('max.png',100*BYTES_PER_MB);
+  const repeated=await mergeSelectedImages([limitEntry],[limitEntry],options);
+  assert.equal(repeated.added,0);
+  await assert.rejects(()=>mergeSelectedImages([limitEntry],[entry('extra.png',1)],options),/100 MB/);
+  // An identical file should not consume another redaction slot even if
+  // the source was reselected via a different File object.
+  const bytes=new Uint8Array(170_000).fill(123);
+  const same=()=>({file:new File([bytes],'capture.png',{type:'image/png',lastModified:42})});
+  const initial=same();
+  const skip=await mergeSelectedImages([initial],[same()],options);
+  assert.equal(skip.duplicates,1);
+  assert.equal(skip.added,0);
+});

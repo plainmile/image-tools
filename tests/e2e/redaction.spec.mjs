@@ -336,9 +336,9 @@ test('pasted screenshots cannot replace redaction work while download is encodin
 });
 
 test('adding images never overwrites previously drawn redactions',async({page})=>{
-  await page.goto('/zh/redact-image/');await synthetic(page);await draw(page);
+  await page.goto('/zh/redact-image/');const bytes=await synthetic(page);await draw(page);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
-  await synthetic(page);
+  await page.getByTestId('redact-upload').setInputFiles({name:'different-image.png',mimeType:'image/png',buffer:Buffer.from(bytes)});
   await expect(page.locator('.redactor-file')).toHaveCount(2);
   await expect(page.getByTestId('redact-count')).toHaveText('0');
   await page.locator('.redactor-file').first().click();
@@ -681,5 +681,87 @@ test('slow preview switching never shows old image or accepts wrongly placed pri
   await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','true');
   await expect(page.locator('.redactor-preview-loading')).toHaveCount(0);
   await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+});
+
+
+async function uploadFixedFiles(page,files) {
+  await page.evaluate(files=>{
+    const dt=new DataTransfer();
+    for(const item of files){
+      const data=Uint8Array.from(item.bytes);
+      dt.items.add(new File([data],item.name,{type:'image/png',lastModified:1700000000000}));
+    }
+    const input=document.querySelector('[data-testid="redact-upload"]');
+    input.files=dt.files;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  },files);
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+}
+
+async function safeRedactionPng(page){
+  return await page.evaluate(async()=>{
+    const c=document.createElement('canvas');c.width=96;c.height=64;
+    const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,96,64);
+    ctx.fillStyle='#123456';ctx.fillRect(6,10,70,25);
+    return [...new Uint8Array(await(await new Promise(resolve=>c.toBlob(resolve,'image/png'))).arrayBuffer())];
+  });
+}
+
+test('reimporting an identical image preserves existing privacy masks and completed download',async({page})=>{
+  await page.goto('/zh/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const bytes=await safeRedactionPng(page);
+  const selected={name:'private-screenshot.png',bytes};
+  await uploadFixedFiles(page,[selected]);
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await downloaded;
+  const saved=page.getByTestId('redact-download-again');
+  const before=await saved.getAttribute('href');
+  await uploadFixedFiles(page,[selected]);
+  await expect(page.getByTestId('redact-status')).toContainText('已添加过');
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(saved).toHaveAttribute('href',before);
+});
+
+test('redactor never skips different valid PNG bytes despite matching filename, size and time',async({page})=>{
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const png=[
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgFUkBAACfAH6yIjP3AAAAAElFTkSuQmCC',
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNIEWEFAAFdAH5CFQ0QAAAAAElFTkSuQmCC'
+  ].map(b64=>Array.from(Buffer.from(b64,'base64')));
+  expect(png[0].length).toBe(png[1].length);
+  await uploadFixedFiles(page,[{name:'identical-metadata.png',bytes:png[0]}]);
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await uploadFixedFiles(page,[{name:'identical-metadata.png',bytes:png[1]}]);
+  await expect(page.locator('.redactor-file')).toHaveCount(2);
+  await expect(page.getByTestId('redact-status')).toContainText('Images added');
+  // A byte-identical third selection must not grow the batch.
+  await uploadFixedFiles(page,[{name:'identical-metadata.png',bytes:png[1]}]);
+  await expect(page.locator('.redactor-file')).toHaveCount(2);
+  await expect(page.getByTestId('redact-status')).toContainText('Already selected');
+});
+
+test('redactor can reselect an existing image at its twelve-file limit but rejects a thirteenth',async({page})=>{
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const bytes=await safeRedactionPng(page);
+  await uploadFixedFiles(page,Array.from({length:12},(_,i)=>({name:'shot-'+i+'.png',bytes})));
+  await expect(page.locator('.redactor-file')).toHaveCount(12);
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await uploadFixedFiles(page,[{name:'shot-0.png',bytes}]);
+  await expect(page.getByTestId('redact-status')).toContainText('Already selected');
+  await expect(page.locator('.redactor-file')).toHaveCount(12);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await uploadFixedFiles(page,[{name:'shot-12.png',bytes}]);
+  await expect(page.getByTestId('redact-status')).toContainText('at most 12');
+  await expect(page.locator('.redactor-file')).toHaveCount(12);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
 });
