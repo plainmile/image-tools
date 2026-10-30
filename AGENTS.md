@@ -18,7 +18,7 @@
 - Design standard: this is a practical editing utility, not a startup landing page. Keep a compact header, plain task names, file selection, settings, result preview and download near the top. Avoid marketing badges, oversized heroes, decorative gradients, emoji logos, unnecessary cards and repetitive privacy/AI slogans. Browser-local operation is a factual note, not a headline.
 - Public E2E must explicitly wait for the client-side editor to hydrate before setting synthetic file inputs, so fast test interactions cannot race Astro/React hydration over HTTPS.
 
-- Redaction safety invariant: opaque masks must permanently replace original pixels in newly encoded exports; reject invalid masks and do not export completely unredacted images in the ZIP.
+- Redaction safety invariant: opaque masks must permanently replace original pixels in newly encoded exports; reject invalid masks and do not export completely unredacted images in the ZIP. A single invalid/animated input must not cause unrelated valid files in the same picker to be dropped; retain existing masks/downloads on entirely invalid selections, and expose per-file skip reasons. Reject oversized picker selections before decoding.
 - Privacy on public HTTPS: prevent analytics auto-injection using `Cache-Control: public, no-transform`; public E2E must ensure no image bytes leave the origin.
 
 
