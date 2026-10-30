@@ -52,6 +52,7 @@ function localizedError(error, lang) {
   if(lang!=='zh')return message;
   if(message.includes('Maximum 30 files per batch')||message.includes('Total selected files must be'))return '最多选择 30 张图片，总大小不超过 160 MB（包括已选的）。';
   if(message.includes('Image contents do not match'))return '图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。';
+  if(message.includes('Could not verify duplicate image contents'))return '无法检查重复文件的内容，原批次保持不变，请重新选择。';
   if(message.includes('Animated PNG/WebP'))return '暂不支持动画 PNG/WebP：转换会丢失动画帧。';
   if(message.includes('32-megapixel'))return '原图超过单张输出 3200 万像素限制，请先缩小图片尺寸。';
   if(message.includes('128 MB'))return 'ZIP 输出超过 128 MB，请减少图片数量或使用 JPG/WebP。';
@@ -107,7 +108,8 @@ export default function Converter({lang='en'}) {
       }
       // Appending must never discard previous files or a usable download if
       // the expanded batch exceeds the count/byte limits.
-      const merged=mergeSelectedImages(files,valid);
+      const merged=await mergeSelectedImages(files,valid);
+      if(request!==sequence.current)return;
       if(!merged.added){
         setStatus(t.alreadyAdded+(invalid.length?' '+t.check:''));
         return;
