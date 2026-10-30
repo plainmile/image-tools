@@ -76,6 +76,9 @@ test('100 KB cap rejects a 101,000-byte JPEG but retains a valid sub-100,000-byt
   });
   expect(bytes).toBe(99500);
   await expect(page.getByTestId('exact-bytes')).toContainText('99500');
+  // The result display must use the same decimal KB as the 100 KB form limit.
+  await expect(page.getByTestId('result-meta')).toContainText('99.5 KB');
+  await expect(page.getByTestId('size-comparison')).toContainText('99.5 KB');
 });
 
 test('narrow signatures with a KB limit can downscale instead of stopping at 48 pixels',async({page})=>{
