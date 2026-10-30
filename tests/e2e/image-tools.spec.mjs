@@ -561,6 +561,8 @@ test('batch one and batch many preserve the same 800px default maxima and expose
   await expect(page.getByTestId('height')).toHaveValue('800');
   await page.getByTestId('batch-plan').locator('summary').click();
   await expect(page.getByTestId('batch-plan')).toContainText('120×80');
+  // Start a fresh selection for the single-vs-many comparison.
+  await page.getByRole('button',{name:'Clear'}).click();
   await uploadSynthetic(page,2);
   await expect(page.getByTestId('width')).toHaveValue('800');
   await expect(page.getByTestId('batch-plan').locator('li')).toHaveCount(2);

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, fitLockedAspectDimensions, drawRect, validateFile, inputImageFormat, sanitizeStem, kbLimitToBytes,
-  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
+  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, mergeSelectedImages, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -186,4 +186,32 @@ test('KB encoding checks minimum JPEG/WebP quality instead of reporting an impos
     const normal=await encodeWithTarget(canvas,format,1300,0.9);
     assert.equal(normal.quality,0.9);
   }
+});
+
+test('batch selection appends new images while skipping metadata-identical repeats',()=>{
+  const file=(name,size=200,lastModified=10)=>({name,size,lastModified,type:'image/png'});
+  const first={file:file('one.png')};
+  const b={file:file('two.png')};
+  const c={file:file('one.png',200,11)};
+  const original=[first];
+  const merged=mergeSelectedImages(original,[first,b,b,c]);
+  assert.equal(merged.added,2);
+  assert.equal(merged.duplicates,2);
+  assert.deepEqual(merged.items,[first,b,c]);
+  assert.deepEqual(original,[first], 'old selection is not mutated');
+  const repeated=mergeSelectedImages(merged.items,[first,b]);
+  assert.equal(repeated.added,0);
+  assert.equal(repeated.duplicates,2);
+  assert.deepEqual(repeated.items,merged.items);
+});
+
+test('combined batch limits are checked before changing the selected items',()=>{
+  const file=(name,size)=>({file:{name,type:'image/png',size,lastModified:1}});
+  const old=[file('existing.png',1000)];
+  const overCount=Array.from({length:30},(_,i)=>file('extra-'+i+'.png',20));
+  assert.throws(()=>mergeSelectedImages(old,overCount),/Maximum 30/);
+  const large=[file('already.png',MAX_BATCH_BYTES-500)];
+  assert.throws(()=>mergeSelectedImages(large,[file('new.png',501)]),/160 MB/);
+  assert.equal(old.length,1);
+  assert.equal(mergeSelectedImages(old,[file('extra.png',20)]).items.length,2);
 });

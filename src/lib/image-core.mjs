@@ -105,6 +105,37 @@ export function addBatchOutputBytes(total, next) {
   return total + next;
 }
 
+// A second picker/drop on a batch page adds images instead of unexpectedly
+// replacing the user's previous work. Skip exact file-metadata duplicates,
+// but preserve the selected files and output when nothing new was added.
+// File metadata is used only within this browser tab (no uploads or hashing).
+export function mergeSelectedImages(current, additions) {
+  if (!Array.isArray(current) || !Array.isArray(additions))
+    throw new Error('Invalid batch file selection.');
+  const fileOf = entry => entry?.file || entry;
+  const identity = entry => {
+    const file = fileOf(entry);
+    if (!file || typeof file.name !== 'string' || !Number.isSafeInteger(file.size) || file.size < 0)
+      throw new Error('Invalid batch file.');
+    return JSON.stringify([file.name, file.size, file.type || '', file.lastModified ?? null]);
+  };
+  const seen = new Set(current.map(identity));
+  const accepted = [];
+  let duplicates = 0;
+  for (const candidate of additions) {
+    const key = identity(candidate);
+    if (seen.has(key)) { duplicates += 1; continue; }
+    seen.add(key);
+    accepted.push(candidate);
+  }
+  const items = [...current, ...accepted];
+  if (items.length > MAX_FILES)
+    throw new Error('Maximum 30 files per batch.');
+  if (items.reduce((total, item) => total + fileOf(item).size, 0) > MAX_BATCH_BYTES)
+    throw new Error('Total selected files must be 160 MB or less.');
+  return { items, added: accepted.length, duplicates };
+}
+
 export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, mode = 'contain', zoom = 1, x = 0, y = 0) {
   if (![sourceWidth, sourceHeight, outputWidth, outputHeight].every((v) => Number.isFinite(v) && v > 0)) {
     throw new Error('Invalid image dimensions.');

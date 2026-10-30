@@ -1,10 +1,10 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
-import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,fitLockedAspectDimensions,drawRect,inputImageFormat,exportFilename,formatBytes } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,fitLockedAspectDimensions,drawRect,inputImageFormat,exportFilename,formatBytes,mergeSelectedImages } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
-    upload:'Choose image', hint:'JPG, PNG or WebP · up to 40 MB each',
+    upload:'Choose image', addMore:'Add more images', appendHint:'New images are added to this batch. Clear to start over.', alreadyAdded:'These images were already selected; nothing changed.', duplicateSkipped:'Duplicate selections were skipped.', hint:'JPG, PNG or WebP · up to 40 MB each',
     width:'Width (px)',height:'Height (px)',keep:'Sync width and height',
     mode:'Resize method',within:'Keep proportions (recommended)',contain:'Keep whole image, add space',cover:'Crop edges to fit',format:'Format',originalFormat:'Same as original',
     target:'Maximum size (KB; 0 = no limit)',targetHint:'100 KB = 100,000 bytes. Actual output bytes are checked.',quality:'Quality',
@@ -23,7 +23,7 @@ const dict = {
     estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Resize preview for the first image only (not the final encoded bytes). Download the result to inspect all outputs.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',partial:'Batch stopped. Finished images are ready to download.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.',aspectLimited:'To keep the original proportions within browser limits, both dimensions were reduced together.'
   },
   zh: {
-    upload:'选择图片',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
+    upload:'选择图片',addMore:'继续添加图片',appendHint:'新选图片会加入当前批次；清空可重新开始。',alreadyAdded:'这些图片已经选过，当前批次保持不变。',duplicateSkipped:'已跳过重复选择的图片。',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
     width:'宽度（像素）',height:'高度（像素）',keep:'同步修改宽高',
     mode:'缩放方式',within:'按比例缩放（推荐）',contain:'保留整张图，空白补齐',cover:'裁剪边缘，填满尺寸',format:'输出格式',originalFormat:'保持原始格式',
     target:'最大大小（KB；0 表示不限）',targetHint:'100 KB 按 100,000 字节计算，并检查实际输出字节数。',quality:'画质',
@@ -47,6 +47,8 @@ function localizedImageError(error,lang) {
   if(lang!=='zh')return message;
   const translations=[
     ['Image contents do not match','图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。'],
+    ['Maximum 30 files per batch','每批最多选择 30 张图片，包括已选图片。'],
+    ['Total selected files must be','已选图片总大小不能超过 160 MB。'],
     ['Animated PNG/WebP','暂不支持动画 PNG/WebP，避免导出时遗漏动画帧。'],
     ['cannot be decoded','图片无法解码，可能已损坏或格式不受支持。'],
     ['80 megapixels','原图超过 8000 万像素，请先缩小图片。'],
@@ -160,17 +162,22 @@ export default function Editor({lang='en',tool='resize'}) {
         setStatus((invalid[0]?.reason||t.choose)+(files.length?t.kept:''));
         return;
       }
-      // Commit the new selection only after at least one valid image was decoded.
-      // A bad replacement must never discard a finished download.
-      setFiles(valid);setOutput(null);
-      setPreview(URL.createObjectURL(valid[0].file));
+      // Commit only after the entire new batch passes limits. File picker and
+      // drop append rather than silently replacing earlier selected images.
+      const merged=batch?mergeSelectedImages(files,valid):{items:valid,added:valid.length,duplicates:0};
+      if(!merged.added){
+        setStatus(t.alreadyAdded+(invalid.length?' '+t.someSkipped:''));
+        return;
+      }
+      setFiles(merged.items);setOutput(null);
+      if(!batch||!files.length)setPreview(URL.createObjectURL(merged.items[0].file));
       if(!sheet&&!batch&&valid.length===1){
         const {width:w,height:h}=valid[0];
         const scale=Math.min(1,MAX_AXIS/w,MAX_AXIS/h,Math.sqrt(MAX_OUTPUT_PIXELS/(w*h)));
         setWidth(Math.max(1,Math.floor(w*scale)));
         setHeight(Math.max(1,Math.floor(h*scale)));
       }
-      setStatus(invalid.length?t.pending+' '+t.someSkipped:t.pending);
+      setStatus(invalid.length?t.pending+' '+t.someSkipped:merged.duplicates?t.pending+' '+t.duplicateSkipped:t.pending);
     }catch(err){
       if(id===selectionId.current)setStatus((localizedImageError(err,lang)||t.error)+(files.length?t.kept:''));
     }finally{if(id===selectionId.current)setInspecting(false);}
@@ -295,11 +302,11 @@ export default function Editor({lang='en',tool='resize'}) {
         <div className="control-section">
           <h2 className="panel-title">{t.files}</h2>
           <label className="upload" onDragOver={e=>e.preventDefault()} onDrop={drop}>
-            <strong>{t.upload}</strong>
-            <input aria-label={t.upload} data-testid="upload" type="file"
+            <strong>{batch&&files.length?t.addMore:t.upload}</strong>
+            <input aria-label={batch&&files.length?t.addMore:t.upload} data-testid="upload" type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
               disabled={!ready||busy||inspecting} multiple={batch} onChange={pick}/>
-            <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}. {t.drop} {t.paste}</span>
+            <span>{t.hint}{batch?' · '+MAX_FILES+' max':''}. {t.drop} {t.paste}{batch&&files.length?' '+t.appendHint:''}</span>
           </label>
           {rejected.length>0&&<details className="batch-errors" data-testid="skipped-inputs" open>
             <summary>{t.skippedInputs} ({rejected.length})</summary>
