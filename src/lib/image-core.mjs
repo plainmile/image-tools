@@ -357,7 +357,7 @@ export function kbLimitToBytes(targetKb = 0) {
   const kb = Number(targetKb || 0);
   if (!Number.isFinite(kb) || kb < 0 || kb > 20_000)
     throw new Error('Target size must be between 0 and 20,000 KB.');
-  return Math.floor(kb * 1000);
+  return Math.floor(kb * BYTES_PER_KB);
 }
 
 export async function processImage(file, options = {}) {
