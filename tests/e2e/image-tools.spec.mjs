@@ -518,7 +518,8 @@ test('signature resize has no unsolicited default file-size limit',async({page})
 });
 test('batch export has a short summary and a per-image dimensions list',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,3);
-  await expect(page.locator('.preview-caption')).toContainText('Resize preview for the first image only');
+  await expect(page.getByTestId('batch-preview-caption')).toContainText('Original preview with the current resize settings');
+  await expect(page.getByTestId('batch-preview-file')).toHaveCount(3);
   await page.getByTestId('width').fill('50');await page.getByTestId('height').fill('40');
   await page.getByTestId('process').click();
   await expect(page.getByTestId('download')).toContainText('ZIP');
