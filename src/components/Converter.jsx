@@ -74,6 +74,7 @@ export default function Converter({lang='en'}) {
   const [files,setFiles]=useState([]),[rejected,setRejected]=useState([]);
   const [format,setFormat]=useState('jpeg'),[quality,setQuality]=useState(90);
   const [preview,setPreview]=useState(null),[previewIndex,setPreviewIndex]=useState(0),[result,setResult]=useState(null);
+  const [showOriginal,setShowOriginal]=useState(false);
   const [status,setStatus]=useState(''),[phase,setPhase]=useState(''),[processed,setProcessed]=useState(0);
   const [failedAttempt,setFailedAttempt]=useState([]);
   const cancelled=useRef(false),sequence=useRef(0);
@@ -160,7 +161,7 @@ export default function Converter({lang='en'}) {
   async function convert(event){
     event.preventDefault();
     if(!files.length||busy||inspecting)return;
-    cancelled.current=false;setBusy(true);setFailedAttempt([]);
+    cancelled.current=false;setShowOriginal(false);setBusy(true);setFailedAttempt([]);
     setPhase('processing');setProcessed(0);setStatus(t.working+'…');
     try{
       let totalPixels=0,totalBytes=0,processedCount=0;
@@ -277,10 +278,15 @@ export default function Converter({lang='en'}) {
       <aside className="editor-preview" aria-label={t.preview}>
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
-          {result?.url&&!result.isZip&&files.length===1?<img src={result.url} alt={t.output}/>:
+          {result?.url&&!result.isZip&&files.length===1?<img data-testid="convert-comparison-image" src={showOriginal&&preview?preview:result.url} alt={showOriginal?(lang==='zh'?'原始图片':'Original image'):t.output}/>:
             preview?<img key={preview} src={preview} alt={t.preview}/>:
             <p className="preview-empty">{t.empty}</p>}
         </div>
+        {result?.url&&!result.isZip&&files.length===1&&preview&&<div className="preview-compare-controls">
+          <button type="button" className="secondary" data-testid="convert-preview-toggle" aria-pressed={showOriginal}
+            onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?(lang==='zh'?'查看转换结果':'View result'):(lang==='zh'?'查看原图':'View original')}</button>
+          <span role="status">{showOriginal?(lang==='zh'?'正在查看原图':'Showing original'):(lang==='zh'?'正在查看转换结果':'Showing result')}</span>
+        </div>}
         {files.length>1&&<p className="preview-caption" data-testid="convert-preview-caption"><strong>{files[previewIndex]?.file.name}</strong> · {t.previewSource}</p>}
         {result?.url&&<div className="result">
           <strong>{t.output}</strong>
