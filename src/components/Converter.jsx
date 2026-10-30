@@ -17,7 +17,7 @@ const language = {
     clear:'Clear',cancel:'Stop after current image',stopping:'Stopping after the current image…',
     cancelled:'Conversion stopped. No output was saved.',partial:'Conversion stopped. Finished images are ready to download.',
     max:'Select up to 30 images and 160 MB in total.',
-    output:'Converted output',preview:'Preview',empty:'Your selected image appears here.',
+    output:'Converted output',preview:'Preview',previewSource:'Selected original (not the converted result).',empty:'Your selected image appears here.',
     local:'All image processing takes place in this browser. No files are uploaded.',
     failed:'Skipped files',showFiles:'Files selected',check:'Please check the file(s) below.',
     jpeg:'JPG has no transparency; transparent areas are exported white.',
@@ -36,7 +36,7 @@ const language = {
     clear:'清空',cancel:'处理完当前图片后停止',stopping:'当前图片处理完后停止…',
     cancelled:'已停止转换，没有生成下载文件。',partial:'已停止转换，已完成的图片可以下载。',
     max:'最多选择 30 张图片，文件总大小不超过 160 MB。',
-    output:'转换结果',preview:'预览',empty:'选择图片后在这里查看。',
+    output:'转换结果',preview:'预览',previewSource:'当前展示原图预览（不是转换后文件）。',empty:'选择图片后在这里查看。',
     local:'图片仅在当前浏览器中处理，不上传文件。',
     failed:'跳过的图片',showFiles:'已选择的图片',check:'请查看下方文件错误。',
     jpeg:'JPG 不支持透明，原图透明区域会变成白色。',
@@ -73,7 +73,7 @@ export default function Converter({lang='en'}) {
   const [ready,setReady]=useState(false),[busy,setBusy]=useState(false),[inspecting,setInspecting]=useState(false);
   const [files,setFiles]=useState([]),[rejected,setRejected]=useState([]);
   const [format,setFormat]=useState('jpeg'),[quality,setQuality]=useState(90);
-  const [preview,setPreview]=useState(null),[result,setResult]=useState(null);
+  const [preview,setPreview]=useState(null),[previewIndex,setPreviewIndex]=useState(0),[result,setResult]=useState(null);
   const [status,setStatus]=useState(''),[phase,setPhase]=useState(''),[processed,setProcessed]=useState(0);
   const [failedAttempt,setFailedAttempt]=useState([]);
   const cancelled=useRef(false),sequence=useRef(0);
@@ -115,7 +115,7 @@ export default function Converter({lang='en'}) {
         return;
       }
       setFiles(merged.items);setResult(null);setFailedAttempt([]);
-      if(!files.length)setPreview(URL.createObjectURL(merged.items[0].file));
+      if(!files.length){setPreviewIndex(0);setPreview(URL.createObjectURL(merged.items[0].file));}
       setProcessed(0);
       setStatus(t.selected+(invalid.length?' '+t.check:'')+(merged.duplicates?' '+t.duplicateSkipped:''));
     }catch(error){
@@ -139,16 +139,23 @@ export default function Converter({lang='en'}) {
     if(busy||inspecting)return;
     const remaining=files.filter((_,i)=>i!==index);
     sequence.current+=1;
+    const nextPreviewIndex=!remaining.length?0:index===previewIndex?Math.min(index,remaining.length-1):index<previewIndex?previewIndex-1:previewIndex;
     setFiles(remaining);
-    setPreview(remaining.length?URL.createObjectURL(remaining[0].file):null);
+    setPreviewIndex(nextPreviewIndex);
+    setPreview(remaining.length?URL.createObjectURL(remaining[nextPreviewIndex].file):null);
     setResult(null);setFailedAttempt([]);setProcessed(0);
     if(!remaining.length)setRejected([]);
     setStatus(remaining.length?t.selected:t.choose);
   }
+  function showPreview(index){
+    if(busy||inspecting||!files[index]||previewIndex===index)return;
+    setPreviewIndex(index);
+    setPreview(URL.createObjectURL(files[index].file));
+  }
   function reset(){
     if(busy||inspecting)return;
     sequence.current+=1;setFiles([]);setRejected([]);setResult(null);setFailedAttempt([]);
-    setPreview(null);setStatus('');setProcessed(0);
+    setPreview(null);setPreviewIndex(0);setStatus('');setProcessed(0);
   }
   async function convert(event){
     event.preventDefault();
@@ -224,9 +231,14 @@ export default function Converter({lang='en'}) {
             <strong>{t.showFiles}: {files.length}</strong>
             <ul className={files.length>1?'selected-files':undefined}>{(files.length>1?files:files.slice(0,8)).map((item,i)=><li key={i} className={files.length>1?'selected-file-entry':undefined}>
               <span>{item.file.name} · {item.width}×{item.height} · {formatBytes(item.file.size)}</span>
-              {files.length>1&&<button type="button" className="secondary selected-file-remove" data-testid="convert-remove-file"
-                aria-label={(lang==='zh'?'移除 ':'Remove ')+item.file.name} disabled={busy||inspecting}
-                onClick={()=>removeFile(i)}>{lang==='zh'?'移除':'Remove'}</button>}
+              {files.length>1&&<span className="selected-file-actions">
+                <button type="button" className="secondary selected-file-preview" data-testid="convert-preview-file"
+                  aria-label={(lang==='zh'?'预览 ':'Preview ')+item.file.name} aria-pressed={previewIndex===i}
+                  disabled={busy||inspecting} onClick={()=>showPreview(i)}>{lang==='zh'?'预览':'Preview'}</button>
+                <button type="button" className="secondary selected-file-remove" data-testid="convert-remove-file"
+                  aria-label={(lang==='zh'?'移除 ':'Remove ')+item.file.name} disabled={busy||inspecting}
+                  onClick={()=>removeFile(i)}>{lang==='zh'?'移除':'Remove'}</button>
+              </span>}
             </li>)}</ul>
           </div>}
           {rejected.length>0&&<details open className="batch-errors" data-testid="convert-failed-input">
@@ -265,10 +277,11 @@ export default function Converter({lang='en'}) {
       <aside className="editor-preview" aria-label={t.preview}>
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
-          {result?.url&&!result.isZip?<img src={result.url} alt={t.output}/>:
-            preview?<img src={preview} alt={t.preview}/>:
+          {result?.url&&!result.isZip&&files.length===1?<img src={result.url} alt={t.output}/>:
+            preview?<img key={preview} src={preview} alt={t.preview}/>:
             <p className="preview-empty">{t.empty}</p>}
         </div>
+        {files.length>1&&<p className="preview-caption" data-testid="convert-preview-caption"><strong>{files[previewIndex]?.file.name}</strong> · {t.previewSource}</p>}
         {result?.url&&<div className="result">
           <strong>{t.output}</strong>
           <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)} · {result.blob.size} {lang==='zh'?'字节':'bytes'}</p>
