@@ -134,7 +134,10 @@ export default function Editor({lang='en',tool='resize'}) {
     image.src=preview;
     return ()=>{active=false;image.onload=null;image.onerror=null;};
   },[preview,output,width,height,mode,format,zoom,cropX,cropY,sheet,batch,previewEntry,files]);
-  useEffect(()=>()=>{if(output?.url)URL.revokeObjectURL(output.url);},[output]);
+  useEffect(()=>()=>{
+    if(output?.url)URL.revokeObjectURL(output.url);
+    output?.results?.forEach(item=>{if(item.downloadUrl)URL.revokeObjectURL(item.downloadUrl);});
+  },[output]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
   async function selectFiles(chosen){
     if(busy||inspecting||!chosen.length)return;
@@ -275,8 +278,11 @@ export default function Editor({lang='en',tool='resize'}) {
         const zip=new JSZip();results.forEach((r,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+r.name,r.blob));
         blob=await zip.generateAsync({type:'blob',compression:'STORE'});name='plainmile-images.zip';
       }
+      // Create direct image links only after ZIP creation succeeds; keep the
+      // archive as the primary one-click download for the entire batch.
+      const downloadableResults=isZip?results.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):results;
       const url=URL.createObjectURL(blob);
-      setOutput({url,blob,name,results,failed,isZip,inputCount:files.length,processedCount});
+      setOutput({url,blob,name,results:downloadableResults,failed,isZip,inputCount:files.length,processedCount});
       setStatus(stoppedEarly
         ? t.partial+' '+t.processed+' '+processedCount+' / '+files.length+(failed.length?' '+t.someSkipped:'')
         : failed.length?t.done+' '+t.someSkipped:t.done);
@@ -427,7 +433,7 @@ export default function Editor({lang='en',tool='resize'}) {
           </details>}
           {batch&&<details className="batch-export-details" data-testid="batch-export-details">
             <summary>{t.batchItems} ({output.results.length})</summary>
-            <ul>{output.results.map((r,i)=><li key={i}><span>{r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span></li>)}</ul>
+            <ul>{output.results.map((r,i)=><li key={i}><span>{r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span>{r.downloadUrl&&<a className="batch-file-download" data-testid="batch-download-item" href={r.downloadUrl} download={r.name}>{lang==='zh'?'下载此图':'Download image'}</a>}</li>)}</ul>
           </details>}
           <a data-testid="download" className="download" href={output.url} download={output.name}>{output.isZip?t.zipDownload:t.download} · {formatBytes(output.blob.size)}</a>
         </div>}

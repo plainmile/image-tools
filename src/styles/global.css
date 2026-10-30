@@ -195,6 +195,8 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .batch-export-details ul{max-height:250px;overflow-y:auto;margin:10px 0 0;padding:0;list-style:none;border-top:1px solid var(--line);}
 .batch-export-details li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:3px 14px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;overflow-wrap:anywhere;}
 .batch-export-details li span:first-child{font-weight:500;}
+/* Individual downloads are optional: leave the full ZIP as the prominent action. */
+.batch-export-details .batch-file-download{white-space:nowrap;font-weight:600;font-size:12px;}
 @media(max-width:380px){.output-advanced-grid{grid-template-columns:1fr;}.output-advanced-grid .wide{grid-column:1;}}
 
 
