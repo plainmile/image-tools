@@ -21,6 +21,8 @@ jobs:
       - name: Verify production smoke selection and HTTPS check syntax
         run: |
           bash -n tests/public_https_checks.sh
+          bash -n tests/public_https_checks_test.sh
+          bash tests/public_https_checks_test.sh
           test "$(grep -rl '@public-smoke' tests/e2e/*.mjs | wc -l | tr -d ' ')" -ge 5
       - name: Verify public SEO routes and sitemap
         run: |
