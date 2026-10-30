@@ -70,7 +70,10 @@ h2 { font-size: 18px; font-weight: 600; }
 .file-summary .selected-files { max-height: 216px; overflow-y: auto; padding-right: 4px; }
 .file-summary .selected-file-entry { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .file-summary .selected-file-entry > span { min-width: 0; overflow-wrap: anywhere; }
-button.secondary.selected-file-remove { flex: 0 0 auto; min-height: 29px; padding: 3px 9px; font-size: 12px; font-weight: 500; border-color: var(--line); }
+/* One uncomplicated preview action per selected batch file, even on mobile. */
+.file-summary .selected-file-actions { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+button.secondary.selected-file-remove, button.secondary.selected-file-preview { flex: 0 0 auto; min-height: 29px; padding: 3px 9px; font-size: 12px; font-weight: 500; border-color: var(--line); }
+button.secondary.selected-file-preview[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--subtle); }
 
 .field-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px 20px; }
 .field-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text); }
