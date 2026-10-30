@@ -13,7 +13,7 @@ const language = {
     reading:'Checking files…',selected:'Ready to convert.',format:'Convert to',
     quality:'Quality',qualityHint:'Only affects JPG and WebP. PNG is lossless.',
     convert:'Convert images',working:'Converting',packaging:'Creating ZIP…',
-    done:'Converted files are ready.',download:'Download image',zip:'Download ZIP',
+    done:'Converted files are ready.',download:'Download image',zip:'Download ZIP',individual:'Download converted files separately',
     clear:'Clear',cancel:'Stop after current image',stopping:'Stopping after the current image…',
     cancelled:'Conversion stopped. No output was saved.',partial:'Conversion stopped. Finished images are ready to download.',
     max:'Select up to 30 images and 160 MB in total.',
@@ -32,7 +32,7 @@ const language = {
     reading:'正在检查图片…',selected:'图片已准备好。',format:'转换为',
     quality:'画质',qualityHint:'只影响 JPG 和 WebP，PNG 为无损格式。',
     convert:'开始转换',working:'正在转换',packaging:'正在生成 ZIP…',
-    done:'转换完成，可以下载。',download:'下载图片',zip:'下载 ZIP 压缩包',
+    done:'转换完成，可以下载。',download:'下载图片',zip:'下载 ZIP 压缩包',individual:'逐张下载转换结果',
     clear:'清空',cancel:'处理完当前图片后停止',stopping:'当前图片处理完后停止…',
     cancelled:'已停止转换，没有生成下载文件。',partial:'已停止转换，已完成的图片可以下载。',
     max:'最多选择 30 张图片，文件总大小不超过 160 MB。',
@@ -79,7 +79,10 @@ export default function Converter({lang='en'}) {
   const cancelled=useRef(false),sequence=useRef(0);
   useEffect(()=>{setReady(true);return()=>{sequence.current+=1;};},[]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
-  useEffect(()=>()=>{if(result?.url)URL.revokeObjectURL(result.url);},[result]);
+  useEffect(()=>()=>{
+    if(result?.url)URL.revokeObjectURL(result.url);
+    result?.succeeded?.forEach(item=>{if(item.downloadUrl)URL.revokeObjectURL(item.downloadUrl);});
+  },[result]);
   useEffect(()=>{setResult(null);setFailedAttempt([]);setStatus(prev=>prev.startsWith(t.done)||prev.startsWith(t.partial)?t.selected:prev);},[format,quality]);
 
   async function choose(chosen) {
@@ -205,7 +208,8 @@ export default function Converter({lang='en'}) {
         name='plainmile-converted-images.zip';
       }
       setFailedAttempt([]);
-      setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded,isZip});
+      const downloadableSucceeded=isZip?succeeded.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):succeeded;
+      setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded:downloadableSucceeded,isZip});
       setStatus(stoppedEarly
         ? t.partial+' '+t.progress+' '+processedCount+' / '+files.length+(failed.length?' '+t.check:'')
         : t.done+(failed.length?' '+t.check:''));
@@ -286,6 +290,10 @@ export default function Converter({lang='en'}) {
           <strong>{t.output}</strong>
           <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)} · {result.blob.size} {lang==='zh'?'字节':'bytes'}</p>
            <p data-testid="convert-size-comparison">{result.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(result.succeeded.reduce((sum,item)=>sum+item.sourceBytes,0))} · {result.isZip?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'转换结果':'Converted output')}: {formatBytes(result.blob.size)}</p>
+          {result.isZip&&<details className="batch-export-details" data-testid="convert-export-details">
+            <summary>{t.individual} ({result.succeeded.length})</summary>
+            <ul>{result.succeeded.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.width}×{item.height} · {item.format.toUpperCase()} · {formatBytes(item.bytes)}</span><a className="batch-file-download" data-testid="convert-download-item" download={item.name} href={item.downloadUrl}>{t.download}</a></li>)}</ul>
+          </details>}
           {result.failed.length>0&&!failedAttempt.length&&<details open className="batch-errors" data-testid="convert-failed-output">
             <summary>{t.failed} ({result.failed.length})</summary>
             <ul>{result.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
