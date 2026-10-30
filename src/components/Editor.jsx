@@ -47,7 +47,7 @@ function localizedImageError(error,lang) {
   if(lang!=='zh')return message;
   const translations=[
     ['Image contents do not match','图片内容与 JPG、PNG 或 WebP 文件格式不一致，请选择原始图片。'],
-    ['Could not verify duplicate image contents','无法检查重复文件的内容，原批次保持不变，请重新选择。']
+    ['Could not verify duplicate image contents','无法检查重复文件的内容，原批次保持不变，请重新选择。'],
     ['Maximum 30 files per batch','每批最多选择 30 张图片，包括已选图片。'],
     ['Total selected files must be','已选图片总大小不能超过 160 MB。'],
     ['Animated PNG/WebP','暂不支持动画 PNG/WebP，避免导出时遗漏动画帧。'],
