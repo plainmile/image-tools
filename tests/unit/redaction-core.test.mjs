@@ -10,9 +10,12 @@ test('validate input limits and unsupported types', () => {
   assert.throws(() => validateRedactionFiles(Array(13).fill({size:1,type:'image/png'})), /12/);
   assert.throws(() => validateRedactionFiles([{size:1,type:'image/svg+xml'}]), /JPEG/);
   assert.throws(() => validateRedactionFiles([{size:0,type:'image/png'}]), /image file is empty/);
-  assert.throws(() => validateRedactionFiles([{size:40*1024*1024+1,type:'image/png'}]), /40 MB/);
+  assert.doesNotThrow(() => validateRedactionFiles([{size:40_000_000,type:'image/png'}]));
+  assert.throws(() => validateRedactionFiles([{size:40_000_001,type:'image/png'}]), /40 MB/);
   assert.equal(REDACT_MAX_FILES, 12);
-  assert.equal(REDACT_MAX_BYTES, 100*1024*1024);
+  assert.equal(REDACT_MAX_BYTES, 100_000_000);
+  assert.doesNotThrow(()=>validateRedactionFiles(Array(3).fill(null).map((_,i)=>({name:`${i}.png`,type:'image/png',size:i?30_000_000:40_000_000}))));
+  assert.throws(()=>validateRedactionFiles(Array(3).fill(null).map((_,i)=>({name:`${i}.png`,type:'image/png',size:i?30_000_001:40_000_000}))),/100 MB/);
 });
 test('geometry clamps to image and rejects tiny boxes', () => {
   assert.deepEqual(clampBox({x:-5,y:-5,w:20,h:20},50,50),
@@ -47,7 +50,7 @@ test('animated image redaction rejects before decoding any still frame',async()=
 });
 
 test('redaction ZIP budget is checked before JSZip allocation',()=>{
-  assert.equal(REDACT_MAX_ZIP_BYTES,128*1024*1024);
+  assert.equal(REDACT_MAX_ZIP_BYTES,128_000_000);
   assert.equal(addRedactionOutputBytes(20,30),50);
   assert.equal(addRedactionOutputBytes(REDACT_MAX_ZIP_BYTES-1,1),REDACT_MAX_ZIP_BYTES);
   assert.throws(()=>addRedactionOutputBytes(REDACT_MAX_ZIP_BYTES-1,2),/128 MB/);
