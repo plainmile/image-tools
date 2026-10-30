@@ -1,7 +1,7 @@
-import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, inputImageFormat } from './image-core.mjs';
+import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS, MAX_BATCH_OUTPUT_BYTES, BYTES_PER_MB, isAnimatedImage, inputImageFormat } from './image-core.mjs';
 
 export const REDACT_MAX_FILES = 12;
-export const REDACT_MAX_BYTES = 100 * 1024 * 1024;
+export const REDACT_MAX_BYTES = 100 * BYTES_PER_MB;
 export const REDACT_MAX_PIXELS = 32_000_000;
 export const REDACT_MAX_BATCH_PIXELS = 96_000_000;
 export const REDACT_MAX_ZIP_BYTES = MAX_BATCH_OUTPUT_BYTES;
