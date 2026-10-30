@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, fitLockedAspectDimensions, drawRect, validateFile, inputImageFormat, sanitizeStem, kbLimitToBytes,
-  exportFilename, formatBytes, MAX_FILES, MAX_BATCH_BYTES, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, mergeSelectedImages, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
+  exportFilename, formatBytes, MAX_FILE_BYTES, MAX_FILES, MAX_BATCH_BYTES, BYTES_PER_KB, BYTES_PER_MB, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, mergeSelectedImages, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -55,7 +55,16 @@ test('reject unsupported images and huge inputs', () => {
 test('safe exported names and accurate file size', () => {
   assert.equal(sanitizeStem('../../a:bad?.png'), '..-..-a-bad-');
   assert.equal(exportFilename('scan.webp', 'jpeg'), 'scan-edited.jpg');
-  assert.equal(formatBytes(1024), '1.0 KB');
+  assert.equal(BYTES_PER_KB,1000);
+  assert.equal(BYTES_PER_MB,1000000);
+  assert.equal(formatBytes(999),'999 B');
+  assert.equal(formatBytes(1000),'1.0 KB');
+  assert.equal(formatBytes(1024),'1.0 KB');
+  assert.equal(formatBytes(100000),'100.0 KB');
+  assert.equal(formatBytes(99500),'99.5 KB');
+  assert.equal(formatBytes(999999),'1000.0 KB');
+  assert.equal(formatBytes(1000000),'1.00 MB');
+  assert.equal(formatBytes(1048576),'1.05 MB');
 });
 
 test('KB upload limit is decimal bytes so 100 KB passes both 100,000-byte and 100-KiB portals', () => {
@@ -71,7 +80,13 @@ test('KB upload limit is decimal bytes so 100 KB passes both 100,000-byte and 10
 });
 
 test('browser batch memory limit is explicit', () => {
-  assert.equal(MAX_BATCH_BYTES, 160 * 1024 * 1024);
+  assert.equal(MAX_FILE_BYTES, 40_000_000);
+  assert.equal(MAX_BATCH_BYTES, 160_000_000);
+  assert.doesNotThrow(()=>validateFile({name:'exact.png',size:40_000_000,type:'image/png'}));
+  assert.throws(()=>validateFile({name:'oversize.png',size:40_000_001,type:'image/png'}),/40 MB/);
+  const same=(name,size)=>({file:{name,type:'image/png',size,lastModified:12}});
+  assert.equal(mergeSelectedImages([same('a.png',80_000_000)],[same('b.png',80_000_000)]).items.length,2);
+  assert.throws(()=>mergeSelectedImages([same('a.png',80_000_000)],[same('b.png',80_000_001)]),/160 MB/);
 });
 test('JPEG density is patched to 300 dpi for existing JFIF', () => {
   const jpeg = Uint8Array.from([
@@ -119,7 +134,7 @@ test('original format is determined from MIME or safe extension fallback', () =>
 });
 
 test('ZIP output budget protects the browser from unbounded in-memory archives', () => {
-  assert.equal(MAX_BATCH_OUTPUT_BYTES, 128 * 1024 * 1024);
+  assert.equal(MAX_BATCH_OUTPUT_BYTES, 128_000_000);
   assert.equal(addBatchOutputBytes(20, 50), 70);
   assert.equal(addBatchOutputBytes(MAX_BATCH_OUTPUT_BYTES - 7, 7), MAX_BATCH_OUTPUT_BYTES);
   assert.throws(() => addBatchOutputBytes(MAX_BATCH_OUTPUT_BYTES - 7, 8), /128 MB/);
