@@ -109,11 +109,31 @@ export function addBatchOutputBytes(total, next) {
   return total + next;
 }
 
-// A second picker/drop on a batch page adds images instead of unexpectedly
-// replacing the user's previous work. Skip exact file-metadata duplicates,
-// but preserve the selected files and output when nothing new was added.
-// File metadata is used only within this browser tab (no uploads or hashing).
-export function mergeSelectedImages(current, additions) {
+// Batch file pickers append rather than replace. Metadata is a cheap way
+// to find *possible* duplicates, but different files in separate folders
+// can share every metadata field. Compare the actual bytes before skipping
+// anything, entirely in the browser and in small fixed-size chunks.
+async function sameFileBytes(first, second) {
+  if (first === second) return true;
+  if (typeof first?.slice !== 'function' || typeof second?.slice !== 'function')
+    return false; // Never silently drop a file whose content cannot be checked.
+  const CHUNK_BYTES = 64 * 1024;
+  for (let offset = 0; offset < first.size; offset += CHUNK_BYTES) {
+    const end = Math.min(first.size, offset + CHUNK_BYTES);
+    const [a, b] = await Promise.all([
+      first.slice(offset, end).arrayBuffer(),
+      second.slice(offset, end).arrayBuffer()
+    ]);
+    if (a.byteLength !== end - offset || b.byteLength !== a.byteLength)
+      throw new Error('Could not verify duplicate image contents.');
+    const left = new Uint8Array(a), right = new Uint8Array(b);
+    for (let i = 0; i < left.length; i += 1)
+      if (left[i] !== right[i]) return false;
+  }
+  return true;
+}
+
+export async function mergeSelectedImages(current, additions) {
   if (!Array.isArray(current) || !Array.isArray(additions))
     throw new Error('Invalid batch file selection.');
   const fileOf = entry => entry?.file || entry;
@@ -123,21 +143,39 @@ export function mergeSelectedImages(current, additions) {
       throw new Error('Invalid batch file.');
     return JSON.stringify([file.name, file.size, file.type || '', file.lastModified ?? null]);
   };
-  const seen = new Set(current.map(identity));
+  const seen = new Map();
+  let totalBytes = 0;
+  for (const entry of current) {
+    const key = identity(entry);
+    if (!seen.has(key)) seen.set(key, []);
+    seen.get(key).push(entry);
+    totalBytes += fileOf(entry).size;
+  }
+  if (current.length > MAX_FILES) throw new Error('Maximum 30 files per batch.');
+  if (totalBytes > MAX_BATCH_BYTES) throw new Error('Total selected files must be 160 MB or less.');
+
   const accepted = [];
   let duplicates = 0;
   for (const candidate of additions) {
-    const key = identity(candidate);
-    if (seen.has(key)) { duplicates += 1; continue; }
-    seen.add(key);
+    const key = identity(candidate), matches = seen.get(key) || [];
+    let duplicate = false;
+    for (const existing of matches) {
+      if (await sameFileBytes(fileOf(existing), fileOf(candidate))) {
+        duplicate = true;
+        break;
+      }
+    }
+    if (duplicate) { duplicates += 1; continue; }
+    if (current.length + accepted.length + 1 > MAX_FILES)
+      throw new Error('Maximum 30 files per batch.');
+    totalBytes += fileOf(candidate).size;
+    if (totalBytes > MAX_BATCH_BYTES)
+      throw new Error('Total selected files must be 160 MB or less.');
+    if (!seen.has(key)) seen.set(key, []);
+    seen.get(key).push(candidate);
     accepted.push(candidate);
   }
-  const items = [...current, ...accepted];
-  if (items.length > MAX_FILES)
-    throw new Error('Maximum 30 files per batch.');
-  if (items.reduce((total, item) => total + fileOf(item).size, 0) > MAX_BATCH_BYTES)
-    throw new Error('Total selected files must be 160 MB or less.');
-  return { items, added: accepted.length, duplicates };
+  return { items: [...current, ...accepted], added: accepted.length, duplicates };
 }
 
 export function drawRect(sourceWidth, sourceHeight, outputWidth, outputHeight, mode = 'contain', zoom = 1, x = 0, y = 0) {
