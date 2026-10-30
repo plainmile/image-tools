@@ -133,7 +133,14 @@ async function sameFileBytes(first, second) {
   return true;
 }
 
-export async function mergeSelectedImages(current, additions) {
+export async function mergeSelectedImages(current, additions, limits = {}) {
+  // Other batch tools (e.g. redaction) enforce their own smaller quotas.
+  // Defaults keep resize/converter behavior and existing error messages intact.
+  const {
+    maxFiles = MAX_FILES, maxBytes = MAX_BATCH_BYTES,
+    maxFilesError = 'Maximum 30 files per batch.',
+    maxBytesError = 'Total selected files must be 160 MB or less.'
+  } = limits;
   if (!Array.isArray(current) || !Array.isArray(additions))
     throw new Error('Invalid batch file selection.');
   const fileOf = entry => entry?.file || entry;
@@ -151,8 +158,8 @@ export async function mergeSelectedImages(current, additions) {
     seen.get(key).push(entry);
     totalBytes += fileOf(entry).size;
   }
-  if (current.length > MAX_FILES) throw new Error('Maximum 30 files per batch.');
-  if (totalBytes > MAX_BATCH_BYTES) throw new Error('Total selected files must be 160 MB or less.');
+  if (current.length > maxFiles) throw new Error(maxFilesError);
+  if (totalBytes > maxBytes) throw new Error(maxBytesError);
 
   const accepted = [];
   let duplicates = 0;
@@ -166,11 +173,11 @@ export async function mergeSelectedImages(current, additions) {
       }
     }
     if (duplicate) { duplicates += 1; continue; }
-    if (current.length + accepted.length + 1 > MAX_FILES)
-      throw new Error('Maximum 30 files per batch.');
+    if (current.length + accepted.length + 1 > maxFiles)
+      throw new Error(maxFilesError);
     totalBytes += fileOf(candidate).size;
-    if (totalBytes > MAX_BATCH_BYTES)
-      throw new Error('Total selected files must be 160 MB or less.');
+    if (totalBytes > maxBytes)
+      throw new Error(maxBytesError);
     if (!seen.has(key)) seen.set(key, []);
     seen.get(key).push(candidate);
     accepted.push(candidate);
