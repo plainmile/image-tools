@@ -765,3 +765,76 @@ test('redactor can reselect an existing image at its twelve-file limit but rejec
   await expect(page.locator('.redactor-file')).toHaveCount(12);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
 });
+
+
+test('mixed invalid redaction input retains valid files and explains every rejection in Chinese',async({page})=>{
+  await page.goto('/zh/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const bytes=await safeRedactionPng(page);
+  await page.getByTestId('redact-upload').setInputFiles([
+    {name:'valid.png',mimeType:'image/png',buffer:Buffer.from(bytes)},
+    {name:'broken.png',mimeType:'image/png',buffer:Buffer.from([0,1,2,3])},
+    {name:'unsupported.gif',mimeType:'image/gif',buffer:Buffer.from('GIF89a')}
+  ]);
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.locator('.redactor-gallery')).toContainText('valid.png');
+  await expect(page.getByTestId('redact-status')).toContainText('部分无效图片已跳过');
+  const errors=page.getByTestId('redact-failed-input');
+  await expect(errors).toContainText('未导入的无效图片 (2)');
+  await expect(errors).toContainText('broken.png');
+  await expect(errors).toContainText('unsupported.gif');
+  await expect(errors).toContainText('仅支持 JPG、PNG 和 WebP');
+  await draw(page);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  const download=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  expect((await download).suggestedFilename()).toBe('redacted-image.png');
+});
+
+test('an entirely invalid redaction retry preserves masks and the last completed ZIP',async({page})=>{
+  await page.goto('/redact-image/');
+  await synthetic(page,2);
+  await draw(page);
+  await page.locator('.redactor-file').nth(1).click();
+  await draw(page);
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download-all').click();
+  await downloaded;
+  const saved=page.getByTestId('redact-download-again');
+  const previous=await saved.getAttribute('href');
+  await page.getByTestId('redact-upload').setInputFiles([
+    {name:'nope.gif',mimeType:'image/gif',buffer:Buffer.from('GIF89a')},
+    {name:'broken.png',mimeType:'image/png',buffer:Buffer.from([1,2,3,4])}
+  ]);
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  await expect(page.locator('.redactor-file')).toHaveCount(2);
+  await expect(page.getByTestId('redact-failed-input')).toContainText('nope.gif');
+  await expect(page.getByTestId('redact-failed-input')).toContainText('broken.png');
+  await expect(saved).toHaveAttribute('href',previous);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await page.locator('.redactor-file').first().click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(saved).toHaveAttribute('href',previous);
+});
+
+test('new valid file plus same-content repeat and corrupt image appends only the valid file',async({page})=>{
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  const bytes=await safeRedactionPng(page);
+  await uploadFixedFiles(page,[{name:'private.png',bytes}]);
+  await draw(page);
+  await uploadFixedFiles(page,[
+    {name:'private.png',bytes},
+    {name:'new.png',bytes},
+    {name:'corrupt.png',bytes:[0,1,2,3]}
+  ]);
+  await expect(page.locator('.redactor-file')).toHaveCount(2);
+  await expect(page.getByTestId('redact-status')).toContainText('Identical images were skipped');
+  await expect(page.getByTestId('redact-status')).toContainText('Some invalid images were skipped');
+  await expect(page.getByTestId('redact-failed-input')).toContainText('corrupt.png');
+  await page.locator('.redactor-file').first().click();
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await page.locator('.redactor-file').nth(1).click();
+  await expect(page.getByTestId('redact-count')).toHaveText('0');
+});

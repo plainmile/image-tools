@@ -72,6 +72,10 @@
 .redactor-top:hover{border-color:var(--line);}
 .redactor-control input[type=range]{max-width:100%;accent-color:var(--accent);}
 
+/* Invalid selections remain visible near the picker without blocking valid files. */
+.redactor-rejections{margin:0 18px 12px;}
+@media(max-width:420px){.redactor-rejections{margin:0 12px 12px;}}
+
 /* Clearing a batch is a separate explicit action; adding images never discards masks. */
 .redactor-actions [data-testid=redact-clear-images]{white-space:nowrap;}
 

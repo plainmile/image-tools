@@ -5,8 +5,8 @@ import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import '../styles/redactor.css';
 
 const labels={
-  en:{upload:'Choose images',limit:'JPG, PNG or WebP · up to 12 images / 100 MB total',draw:'Draw rectangles',erase:'Remove rectangles',undo:'Undo',redo:'Redo',clear:'Clear all boxes',style:'Style for new rectangles',solid:'Solid black — secure concealment',mosaic:'Pixelate / mosaic',blur:'Gaussian blur',warning:'Use solid black for private text, account numbers or passwords. Pixelation and blur are visual effects, not secure concealment.',remove:'Remove',download:'Download image',zip:'Download all as ZIP',format:'Save as',jpegAlpha:'JPG replaces transparent pixels with white. Use PNG or WebP to keep transparency.',first:'Select images to start.',hint:'Choose a style, then drag to add a rectangle. Existing rectangles keep their own styles; change them in the area list.',local:'All editing happens in your browser; images are not uploaded.',need:'Add at least one box to each image before ZIP export.',ready:'Download ready',images:'Images',masks:'Redacted areas',strength:'Effect strength',drop:'Drop images here or paste a screenshot',working:'Processing…',loadingPreview:'Loading this image preview…',clearFiles:'Remove all images',confirmClear:'Remove every image and all redaction boxes? This cannot be undone.',added:'Images added. Previous masks are preserved.',removeImage:'Remove image',confirmRemove:'Remove "{name}" and all its redaction boxes? This cannot be undone.',removed:'Image removed. Other images and boxes are kept.',alreadyAdded:'Already selected. Your masks and download are unchanged.',duplicateSkipped:'Identical images were skipped.'},
-  zh:{upload:'选择图片',limit:'JPG、PNG 或 WebP · 最多 12 张 / 100 MB',draw:'手动画框',erase:'删除遮挡框',undo:'撤销',redo:'重做',clear:'清空本图',style:'新画遮挡框的方式',solid:'黑色实心遮挡（保护隐私）',mosaic:'像素马赛克',blur:'高斯模糊',warning:'密码、证件号和其他敏感文字请用实心黑块。马赛克和模糊仅供视觉处理，不能保证保密。',remove:'删除',download:'下载当前图片',zip:'全部打包 ZIP 下载',format:'导出格式',jpegAlpha:'JPG 无法保留透明背景，透明区域会变成白色。需要透明背景请选择 PNG 或 WebP。',first:'请选择图片。',hint:'先选择打码方式，再拖动画框。已画的区域不会随全局模式改变，可在下方逐个调整。',local:'所有操作均在浏览器本地完成，图片不会上传。',need:'批量导出前，请为每张图片至少画一个遮挡框。',ready:'文件可以下载',images:'图片列表',masks:'遮挡区域',strength:'效果强度',drop:'可拖放图片或粘贴截图',working:'正在处理…',loadingPreview:'正在加载当前图片预览…',clearFiles:'清空所有图片',confirmClear:'确定清空全部图片和遮挡框吗？此操作不可撤销。',added:'图片已加入列表，原来的遮挡框已保留。',removeImage:'移除图片',confirmRemove:'移除“{name}”及其所有遮挡框？此操作无法撤销。',removed:'已移除图片，其他图片和遮挡框均已保留。',alreadyAdded:'该图片已添加过，原有遮挡框和下载结果不变。',duplicateSkipped:'已跳过内容相同的重复图片。'}
+  en:{upload:'Choose images',limit:'JPG, PNG or WebP · up to 12 images / 100 MB total',draw:'Draw rectangles',erase:'Remove rectangles',undo:'Undo',redo:'Redo',clear:'Clear all boxes',style:'Style for new rectangles',solid:'Solid black — secure concealment',mosaic:'Pixelate / mosaic',blur:'Gaussian blur',warning:'Use solid black for private text, account numbers or passwords. Pixelation and blur are visual effects, not secure concealment.',remove:'Remove',download:'Download image',zip:'Download all as ZIP',format:'Save as',jpegAlpha:'JPG replaces transparent pixels with white. Use PNG or WebP to keep transparency.',first:'Select images to start.',hint:'Choose a style, then drag to add a rectangle. Existing rectangles keep their own styles; change them in the area list.',local:'All editing happens in your browser; images are not uploaded.',need:'Add at least one box to each image before ZIP export.',ready:'Download ready',images:'Images',masks:'Redacted areas',strength:'Effect strength',drop:'Drop images here or paste a screenshot',working:'Processing…',loadingPreview:'Loading this image preview…',clearFiles:'Remove all images',confirmClear:'Remove every image and all redaction boxes? This cannot be undone.',added:'Images added. Previous masks are preserved.',removeImage:'Remove image',confirmRemove:'Remove "{name}" and all its redaction boxes? This cannot be undone.',removed:'Image removed. Other images and boxes are kept.',alreadyAdded:'Already selected. Your masks and download are unchanged.',duplicateSkipped:'Identical images were skipped.',skippedInputs:'Skipped invalid images',someSkipped:'Some invalid images were skipped; see details below.'},
+  zh:{upload:'选择图片',limit:'JPG、PNG 或 WebP · 最多 12 张 / 100 MB',draw:'手动画框',erase:'删除遮挡框',undo:'撤销',redo:'重做',clear:'清空本图',style:'新画遮挡框的方式',solid:'黑色实心遮挡（保护隐私）',mosaic:'像素马赛克',blur:'高斯模糊',warning:'密码、证件号和其他敏感文字请用实心黑块。马赛克和模糊仅供视觉处理，不能保证保密。',remove:'删除',download:'下载当前图片',zip:'全部打包 ZIP 下载',format:'导出格式',jpegAlpha:'JPG 无法保留透明背景，透明区域会变成白色。需要透明背景请选择 PNG 或 WebP。',first:'请选择图片。',hint:'先选择打码方式，再拖动画框。已画的区域不会随全局模式改变，可在下方逐个调整。',local:'所有操作均在浏览器本地完成，图片不会上传。',need:'批量导出前，请为每张图片至少画一个遮挡框。',ready:'文件可以下载',images:'图片列表',masks:'遮挡区域',strength:'效果强度',drop:'可拖放图片或粘贴截图',working:'正在处理…',loadingPreview:'正在加载当前图片预览…',clearFiles:'清空所有图片',confirmClear:'确定清空全部图片和遮挡框吗？此操作不可撤销。',added:'图片已加入列表，原来的遮挡框已保留。',removeImage:'移除图片',confirmRemove:'移除“{name}”及其所有遮挡框？此操作无法撤销。',removed:'已移除图片，其他图片和遮挡框均已保留。',alreadyAdded:'该图片已添加过，原有遮挡框和下载结果不变。',duplicateSkipped:'已跳过内容相同的重复图片。',skippedInputs:'未导入的无效图片',someSkipped:'部分无效图片已跳过，请查看原因。'}
 };
 function redactError(error,lang){
   const message=String(error?.message||error||'Image could not be processed.');
@@ -42,7 +42,7 @@ function save(blob,name){
 }
 export default function Redactor({lang='en'}){
   const t=labels[lang];
-  const [items,setItems]=useState([]),[activeId,setActiveId]=useState(null);
+  const [items,setItems]=useState([]),[activeId,setActiveId]=useState(null),[rejected,setRejected]=useState([]);
   const [tool,setTool]=useState('draw'),[effect,setEffect]=useState('solid'),[strength,setStrength]=useState(24);
   const [format,setFormat]=useState('png'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[draft,setDraft]=useState(null),[lastDownload,setLastDownload]=useState(null),[previewState,setPreviewState]=useState(null);
   const canvasRef=useRef(null),dragRef=useRef(null),urls=useRef([]),sequence=useRef(0),selection=useRef(0),busyRef=useRef(false),itemsRef=useRef([]);
@@ -67,44 +67,72 @@ export default function Redactor({lang='en'}){
     return()=>{selection.current++;urls.current.forEach(url=>URL.revokeObjectURL(url));window.removeEventListener('paste',paste);};
   },[]);
   async function choose(files){
-    // Cancelling an OS file picker is not an error and must not disturb masks.
+    // Cancelling an OS picker must not disturb any existing privacy masks.
     if(busyRef.current||!files.length)return;
     busyRef.current=true;
     const token=++selection.current,next=[];
-    setBusy(true);setMessage('');
+    setBusy(true);setMessage('');setRejected([]);
     try{
-      // Keep already-redacted images; a second upload must not discard completed work.
+      // Reject a *whole oversized picker selection* before decoding, so many
+      // large files cannot exhaust a phone's memory. Existing work survives.
+      if(files.length>REDACT_MAX_FILES)throw Error('Select at most 12 images.');
+      if(files.reduce((sum,file)=>sum+Number(file?.size||0),0)>REDACT_MAX_BYTES)
+        throw Error('Selected files exceed the 100 MB batch limit.');
+
       const existing=itemsRef.current;
-      // A second picker may contain old files. Skip only byte-identical
-      // repeats; files with matching names and sizes but different pixels
-      // must still be added. Apply the redactor's own 12-file/100-MB limits.
-      const merged=await mergeSelectedImages(existing,files.map(file=>({file})),{
+      const candidates=[],invalid=[];
+      for(const file of files){
+        if(token!==selection.current)return;
+        try{
+          validateRedactionFiles([file]);
+          const bitmap=await decodeBitmap(file);
+          const width=bitmap.width,height=bitmap.height;
+          bitmap.close();
+          candidates.push({file,width,height});
+        }catch(error){
+          // A corrupt/animated/unsupported image must not discard other
+          // valid images from the same selection. Never export this input.
+          invalid.push({name:file?.name||'image',reason:redactError(error,lang)});
+        }
+      }
+      if(token!==selection.current)return;
+      setRejected(invalid);
+      if(!candidates.length){
+        setMessage(invalid[0]?.reason||t.first);
+        return;
+      }
+      // Byte-identical repeats remain a no-op even at the 12-image limit.
+      // Files with colliding metadata and different bytes are kept.
+      const merged=await mergeSelectedImages(existing,candidates,{
         maxFiles:REDACT_MAX_FILES,maxBytes:REDACT_MAX_BYTES,
         maxFilesError:'Select at most 12 images.',
         maxBytesError:'Selected files exceed the 100 MB batch limit.'
       });
       if(token!==selection.current)return;
       if(!merged.added){
-        // A no-op must keep the active image, drawn privacy covers and
-        // any completed ZIP/single-image download available.
-        setMessage(t.alreadyAdded);
+        setMessage(t.alreadyAdded+(invalid.length?' '+t.someSkipped:''));
         return;
       }
-      const additions=merged.items.slice(existing.length).map(entry=>entry.file);
-      validateRedactionFiles([...existing.map(entry=>entry.file),...additions]);
-      for(const file of additions){
-        const bmp=await decodeBitmap(file);
-        const width=bmp.width,height=bmp.height;bmp.close();
-        next.push({id:'file-'+(++sequence.current),file,width,height,url:URL.createObjectURL(file),masks:[],undo:[],redo:[]});
+      const additions=merged.items.slice(existing.length);
+      validateRedactionFiles([...existing.map(entry=>entry.file),...additions.map(entry=>entry.file)]);
+      validateRedactionPixels([...existing,...additions]);
+      for(const entry of additions){
+        if(token!==selection.current)return;
+        next.push({...entry,id:'file-'+(++sequence.current),
+          url:URL.createObjectURL(entry.file),masks:[],undo:[],redo:[]});
       }
-      validateRedactionPixels([...existing,...next]);
-      if(token!==selection.current){next.forEach(v=>URL.revokeObjectURL(v.url));return;}
+      if(token!==selection.current){next.forEach(entry=>URL.revokeObjectURL(entry.url));return;}
       const combined=[...existing,...next];
       urls.current.push(...next.map(v=>v.url));
       itemsRef.current=combined;
-      setItems(combined);setActiveId(next[0].id);setTool('draw');discardDownload();setMessage(t.added+(merged.duplicates?' '+t.duplicateSkipped:''));
-    }catch(error){next.forEach(v=>URL.revokeObjectURL(v.url));setMessage(redactError(error,lang));}
-    finally{if(token===selection.current){busyRef.current=false;setBusy(false);}}
+      setItems(combined);setActiveId(next[0].id);setTool('draw');discardDownload();
+      setMessage(t.added+(invalid.length?' '+t.someSkipped:'')+(merged.duplicates?' '+t.duplicateSkipped:''));
+    }catch(error){
+      next.forEach(entry=>URL.revokeObjectURL(entry.url));
+      if(token===selection.current)setMessage(redactError(error,lang));
+    }finally{
+      if(token===selection.current){busyRef.current=false;setBusy(false);}
+    }
   }
   function removeImage(id){
     if(busyRef.current)return;
@@ -126,7 +154,7 @@ export default function Redactor({lang='en'}){
     // The previous download might contain the now-removed source: never
     // leave a stale redacted ZIP or single-image file available.
     discardDownload();
-    setMessage(remaining.length?t.removed:t.first);
+    setRejected([]);setMessage(remaining.length?t.removed:t.first);
   }
   function clearImages(){
     if(busyRef.current)return;
@@ -134,7 +162,7 @@ export default function Redactor({lang='en'}){
     selection.current++;
     urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=[];
     itemsRef.current=[];dragRef.current=null;
-    setItems([]);setActiveId(null);setDraft(null);discardDownload();setMessage('');
+    setItems([]);setActiveId(null);setDraft(null);discardDownload();setMessage('');setRejected([]);
   }
   function modify(fn){
     if(!current||busy)return;
@@ -234,6 +262,10 @@ export default function Redactor({lang='en'}){
   }
   return <section className="redactor" data-redactor-ready={String(ready)}>
     <div className="redactor-top" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void choose(Array.from(e.dataTransfer?.files||[]));}}><label className="redactor-upload">{t.upload}<input data-testid="redact-upload" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple disabled={!ready||busy} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void choose(files);}}/></label><span className="redactor-hint">{t.limit} · {t.drop}</span></div>
+    {rejected.length>0&&<details open className="batch-errors redactor-rejections" data-testid="redact-failed-input">
+      <summary>{t.skippedInputs} ({rejected.length})</summary>
+      <ul>{rejected.map((entry,i)=><li key={i}><span>{entry.name}</span><span>{entry.reason}</span></li>)}</ul>
+    </details>}
     {items.length>0&&<>
       <div className="redactor-gallery" aria-label={t.images}>{items.map((v,i)=><div className="redactor-gallery-entry" role="group" aria-label={v.file.name} key={v.id}>
         <button className={'redactor-file '+(v.id===activeId?'chosen':'')} type="button" disabled={busy} aria-pressed={v.id===activeId} onClick={()=>{setActiveId(v.id);setDraft(null);}}>
