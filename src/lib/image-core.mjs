@@ -1,9 +1,13 @@
-export const MAX_FILE_BYTES = 40 * 1024 * 1024;
+// Public KB/MB values are decimal, including upload caps and the output-size
+// form. Keep the safety limits in the same units users actually see.
+export const BYTES_PER_KB = 1_000;
+export const BYTES_PER_MB = 1_000_000;
+export const MAX_FILE_BYTES = 40 * BYTES_PER_MB;
 export const MAX_FILES = 30;
-export const MAX_BATCH_BYTES = 160 * 1024 * 1024;
+export const MAX_BATCH_BYTES = 160 * BYTES_PER_MB;
 export const MAX_BATCH_OUTPUT_PIXELS = 120_000_000;
 // Limit output blobs held in memory before JSZip creates another ZIP buffer.
-export const MAX_BATCH_OUTPUT_BYTES = 128 * 1024 * 1024;
+export const MAX_BATCH_OUTPUT_BYTES = 128 * BYTES_PER_MB;
 export const MAX_SOURCE_PIXELS = 80_000_000;
 export const MAX_OUTPUT_PIXELS = 32_000_000;
 export const MAX_AXIS = 10_000;
@@ -200,9 +204,9 @@ export function exportFilename(filename, format, suffix = 'edited') {
 }
 
 export function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  if (bytes < BYTES_PER_KB) return `${bytes} B`;
+  if (bytes < BYTES_PER_MB) return `${(bytes / BYTES_PER_KB).toFixed(1)} KB`;
+  return `${(bytes / BYTES_PER_MB).toFixed(2)} MB`;
 }
 
 // Canvas export is a still-image operation: reject animations instead of
