@@ -238,6 +238,7 @@ export default function Editor({lang='en',tool='resize'}) {
   async function run(e){
     e.preventDefault();if(!files.length||busy||inspecting)return;
     cancelRequested.current=false;
+    setShowOriginal(false);
     // Retain the previous usable download until this reprocessing attempt succeeds.
     setBusy(true);setFailedAttempt([]);setStatus(t.working);
     if(batch){setProgress(0);setPhase('processing');}
@@ -277,7 +278,6 @@ export default function Editor({lang='en',tool='resize'}) {
         blob=await zip.generateAsync({type:'blob',compression:'STORE'});name='plainmile-images.zip';
       }
       const url=URL.createObjectURL(blob);
-      setShowOriginal(false);
       setOutput({url,blob,name,results,failed,isZip,inputCount:files.length,processedCount});
       setStatus(stoppedEarly
         ? t.partial+' '+t.processed+' '+processedCount+' / '+files.length+(failed.length?' '+t.someSkipped:'')
