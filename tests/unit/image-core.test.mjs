@@ -79,14 +79,14 @@ test('KB upload limit is decimal bytes so 100 KB passes both 100,000-byte and 10
   assert.throws(()=>kbLimitToBytes(Infinity), /Target size/);
 });
 
-test('browser batch memory limit is explicit', () => {
+test('browser batch memory limit is explicit', async () => {
   assert.equal(MAX_FILE_BYTES, 40_000_000);
   assert.equal(MAX_BATCH_BYTES, 160_000_000);
   assert.doesNotThrow(()=>validateFile({name:'exact.png',size:40_000_000,type:'image/png'}));
   assert.throws(()=>validateFile({name:'oversize.png',size:40_000_001,type:'image/png'}),/40 MB/);
   const same=(name,size)=>({file:{name,type:'image/png',size,lastModified:12}});
-  assert.equal(mergeSelectedImages([same('a.png',80_000_000)],[same('b.png',80_000_000)]).items.length,2);
-  assert.throws(()=>mergeSelectedImages([same('a.png',80_000_000)],[same('b.png',80_000_001)]),/160 MB/);
+  assert.equal((await mergeSelectedImages([same('a.png',80_000_000)],[same('b.png',80_000_000)])).items.length,2);
+  await assert.rejects(()=>mergeSelectedImages([same('a.png',80_000_000)],[same('b.png',80_000_001)]),/160 MB/);
 });
 test('JPEG density is patched to 300 dpi for existing JFIF', () => {
   const jpeg = Uint8Array.from([
@@ -203,30 +203,67 @@ test('KB encoding checks minimum JPEG/WebP quality instead of reporting an impos
   }
 });
 
-test('batch selection appends new images while skipping metadata-identical repeats',()=>{
+test('batch selection appends new images while skipping repeated File objects',async()=>{
   const file=(name,size=200,lastModified=10)=>({name,size,lastModified,type:'image/png'});
   const first={file:file('one.png')};
   const b={file:file('two.png')};
   const c={file:file('one.png',200,11)};
   const original=[first];
-  const merged=mergeSelectedImages(original,[first,b,b,c]);
+  const merged=await mergeSelectedImages(original,[first,b,b,c]);
   assert.equal(merged.added,2);
   assert.equal(merged.duplicates,2);
   assert.deepEqual(merged.items,[first,b,c]);
   assert.deepEqual(original,[first], 'old selection is not mutated');
-  const repeated=mergeSelectedImages(merged.items,[first,b]);
+  const repeated=await mergeSelectedImages(merged.items,[first,b]);
   assert.equal(repeated.added,0);
   assert.equal(repeated.duplicates,2);
   assert.deepEqual(repeated.items,merged.items);
 });
 
-test('combined batch limits are checked before changing the selected items',()=>{
+test('combined batch limits are checked before changing the selected items',async()=>{
   const file=(name,size)=>({file:{name,type:'image/png',size,lastModified:1}});
   const old=[file('existing.png',1000)];
   const overCount=Array.from({length:30},(_,i)=>file('extra-'+i+'.png',20));
-  assert.throws(()=>mergeSelectedImages(old,overCount),/Maximum 30/);
+  await assert.rejects(()=>mergeSelectedImages(old,overCount),/Maximum 30/);
   const large=[file('already.png',MAX_BATCH_BYTES-500)];
-  assert.throws(()=>mergeSelectedImages(large,[file('new.png',501)]),/160 MB/);
+  await assert.rejects(()=>mergeSelectedImages(large,[file('new.png',501)]),/160 MB/);
   assert.equal(old.length,1);
-  assert.equal(mergeSelectedImages(old,[file('extra.png',20)]).items.length,2);
+  assert.equal((await mergeSelectedImages(old,[file('extra.png',20)])).items.length,2);
+});
+
+test('metadata-colliding but different image bytes must both survive batch selection',async()=>{
+  const bytes=new Uint8Array(150_000).fill(1);
+  const make=(content)=>({file:new File([content],'same-name.png',{
+    type:'image/png',lastModified:1710000000000
+  })});
+  const first=make(bytes);
+  const identical=make(bytes);
+  const changed=new Uint8Array(bytes);
+  // Different only in the final chunk. Checking a short prefix is unsafe.
+  changed[changed.length-1]=2;
+  const different=make(changed);
+  const selected=await mergeSelectedImages([first],[identical,different]);
+  assert.equal(selected.duplicates,1);
+  assert.equal(selected.added,1);
+  assert.equal(selected.items.length,2);
+  assert.equal(selected.items[0],first);
+  assert.equal(selected.items[1],different);
+  assert.equal((await mergeSelectedImages(selected.items,[make(changed)])).added,0);
+});
+
+test('unverifiable metadata collisions are not silently treated as duplicates',async()=>{
+  const a={file:{name:'image.png',size:5,type:'image/png',lastModified:123}};
+  const b={file:{name:'image.png',size:5,type:'image/png',lastModified:123}};
+  const result=await mergeSelectedImages([a],[b]);
+  assert.equal(result.added,1);
+  assert.equal(result.duplicates,0);
+  assert.deepEqual(result.items,[a,b]);
+});
+
+test('unrelated file metadata never triggers a content read',async()=>{
+  const make=(name)=>({file:{name,size:2,type:'image/png',lastModified:123,
+    slice:()=>{throw new Error('unexpected file read');}
+  }});
+  const result=await mergeSelectedImages([make('a.png')],[make('b.png')]);
+  assert.equal(result.added,1);
 });
