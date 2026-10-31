@@ -31,9 +31,50 @@ for(const [route,ready,upload,run,details,link,zipLink] of [
         bitmap.close();return result;
       }));
     });
-    expect(files.map(x=>x.name)).toEqual(route.includes('convert')?['first-converted.jpg','second-converted.jpg']:['first-edited.png','second-edited.png']);
+    expect(files.map(x=>x.name)).toEqual(route.includes('convert')?['01-first-converted.jpg','02-second-converted.jpg']:['01-first-edited.png','02-second-edited.png']);
     for(const f of files){expect(f.width).toBe(72);expect(f.height).toBe(48);expect(f.bytes).toBeGreaterThan(20);}
     const zipBytes=await page.getByTestId(zipLink).evaluate(async a=>[...new Uint8Array(await(await fetch(a.href)).arrayBuffer())]);
-    expect(Object.keys((await JSZip.loadAsync(Buffer.from(zipBytes))).files)).toHaveLength(2);
+    expect(Object.keys((await JSZip.loadAsync(Buffer.from(zipBytes))).files)).toEqual(files.map(x=>x.name));
+  });
+}
+
+// Distinct images from different folders can share the same basename and
+// metadata. They must both survive selection and never download as the same name.
+async function sameNamedPictures(page){
+  const buffers=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');canvas.width=72;canvas.height=48;
+    const ctx=canvas.getContext('2d');const files=[];
+    for(const color of ['#da3929','#244fae']){
+      ctx.fillStyle=color;ctx.fillRect(0,0,72,48);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+      files.push([...new Uint8Array(await blob.arrayBuffer())]);
+    }
+    return files;
+  });
+  return buffers.map(bytes=>({name:'same.png',mimeType:'image/png',buffer:Buffer.from(bytes)}));
+}
+
+for(const [route,ready,upload,run,details,item,archive,stem] of [
+  ['/bulk-image-resizer/','[data-editor-ready=true]','upload','process','batch-export-details','batch-download-item','download','edited.png'],
+  ['/zh/convert-image/','[data-converter-ready=true]','convert-upload','convert-process','convert-export-details','convert-download-item','convert-download','converted.jpg']
+]){
+  test('different same-name inputs never collide in individual exports '+route,async({page})=>{
+    await page.goto(route);
+    await expect(page.locator(ready)).toBeVisible();
+    await page.getByTestId(upload).setInputFiles(await sameNamedPictures(page));
+    await page.getByTestId(run).click();
+    await expect(page.getByTestId(archive)).toHaveAttribute('download',/\\.zip$/);
+    await page.getByTestId(details).locator('summary').click();
+    const direct=await page.getByTestId(item).evaluateAll(async links=>Promise.all(links.map(async a=>({
+      name:a.download,bytes:[...new Uint8Array(await (await fetch(a.href)).arrayBuffer())]
+    }))));
+    expect(direct.map(x=>x.name)).toEqual(['01-same-'+stem,'02-same-'+stem]);
+    expect(direct[0].bytes).not.toEqual(direct[1].bytes);
+    const archiveBytes=await page.getByTestId(archive).evaluate(async a=>[...new Uint8Array(await (await fetch(a.href)).arrayBuffer())]);
+    const zip=await JSZip.loadAsync(Buffer.from(archiveBytes));
+    expect(Object.keys(zip.files)).toEqual(direct.map(x=>x.name));
+    for(const file of direct){
+      expect([...await zip.file(file.name).async('uint8array')]).toEqual(file.bytes);
+    }
   });
 }
