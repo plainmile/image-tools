@@ -838,3 +838,58 @@ test('new valid file plus same-content repeat and corrupt image appends only the
   await page.locator('.redactor-file').nth(1).click();
   await expect(page.getByTestId('redact-count')).toHaveText('0');
 });
+
+
+test('large-image blur preview matches exported native-resolution effect',async({page})=>{
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  // A sharp black/white boundary reveals blur-radius scaling errors that
+  // ordinary same-size preview fixtures cannot detect.
+  const bytes=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=2400;canvas.height=1200;
+    const ctx=canvas.getContext('2d',{alpha:false});
+    ctx.fillStyle='#000';ctx.fillRect(0,0,1200,1200);
+    ctx.fillStyle='#fff';ctx.fillRect(1200,0,1200,1200);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'large-test.png',mimeType:'image/png',buffer:Buffer.from(bytes)
+  });
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  await page.getByTestId('redact-effect').selectOption('blur');
+  await draw(page,[.20,.20],[.80,.80]);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','true');
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await downloaded;
+  const pixels=await page.evaluate(async()=>{
+    const preview=document.querySelector('.redactor-preview-canvas');
+    const link=document.querySelector('[data-testid="redact-download-again"]');
+    const image=await createImageBitmap(await(await fetch(link.href)).blob());
+    const full=document.createElement('canvas');
+    full.width=image.width;full.height=image.height;
+    const fullCtx=full.getContext('2d');
+    fullCtx.drawImage(image,0,0);
+    const previewCtx=preview.getContext('2d');
+    const delta=[16,24,36].map(dx=>{
+      const x=1200+dx,y=600;
+      const xPreview=Math.round(x*preview.width/image.width);
+      const yPreview=Math.round(y*preview.height/image.height);
+      const actual=fullCtx.getImageData(x,y,1,1).data[0];
+      const shown=previewCtx.getImageData(xPreview,yPreview,1,1).data[0];
+      return {actual,shown,difference:Math.abs(actual-shown)};
+    });
+    const sizes={previewWidth:preview.width,outputWidth:image.width};
+    image.close();
+    return {sizes,delta};
+  });
+  expect(pixels.sizes.outputWidth).toBe(2400);
+  expect(pixels.sizes.previewWidth).toBeLessThan(2400);
+  // If blur fails silently, exported white-side pixels remain 255.
+  expect(pixels.delta[1].actual).toBeGreaterThan(130);
+  expect(pixels.delta[1].actual).toBeLessThan(245);
+  for(const point of pixels.delta)expect(point.difference).toBeLessThanOrEqual(23);
+});
