@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   REDACT_MAX_FILES, REDACT_MAX_BYTES, validateRedactionFiles,
-  verifyImageSize, validateRedactionPixels, REDACT_MAX_BATCH_PIXELS, REDACT_MAX_ZIP_BYTES, addRedactionOutputBytes, clampBox, boxBetween, decodeBitmap,
+  verifyImageSize, validateRedactionPixels, REDACT_MAX_BATCH_PIXELS, REDACT_MAX_ZIP_BYTES, addRedactionOutputBytes, clampBox, boxBetween, decodeBitmap, paintRedactions, supportsCanvasBlur,
 } from '../../src/lib/redaction-core.mjs';
 
 test('validate input limits and unsupported types', () => {
@@ -64,4 +64,14 @@ test('redaction accepts image filename fallback only when explicit MIME is absen
   assert.doesNotThrow(()=>validateRedactionFiles([{name:'unusual-name',type:'image/webp',size:512}]));
   assert.throws(()=>validateRedactionFiles([{name:'renamed.png',type:'image/svg+xml',size:512}]),/JPEG/);
   assert.throws(()=>validateRedactionFiles([{name:'animation.gif',type:'',size:512}]),/JPEG/);
+});
+
+test('unavailable browser blur fails closed instead of silently redrawing private pixels',()=>{
+  // Node has no canvas filter support; the production browser path performs
+  // an additional real-pixel capability probe before enabling the option.
+  assert.equal(supportsCanvasBlur(),false);
+  const bitmap={width:100,height:100};
+  const masks=[{x:10,y:10,w:60,h:60,effect:'blur',strength:24}];
+  assert.throws(()=>paintRedactions({},bitmap,masks,'blur'),/Gaussian blur is not supported/);
+  assert.throws(()=>paintRedactions({},bitmap,[],'solid',24,0),/Invalid redaction preview scale/);
 });
