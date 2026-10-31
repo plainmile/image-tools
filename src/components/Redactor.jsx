@@ -215,7 +215,10 @@ export default function Redactor({lang='en'}){
         const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas unavailable');
         ctx.scale(canvas.width/bmp.width,canvas.height/bmp.height);
         ctx.drawImage(bmp,0,0);
-        paintRedactions(ctx,bmp,current.masks,effect,strength);
+        // Geometry is drawn in source pixels via ctx.scale(), but CSS blur
+        // filters are evaluated in physical preview-canvas pixels.
+        const pixelScale=Math.min(canvas.width/bmp.width,canvas.height/bmp.height);
+        paintRedactions(ctx,bmp,current.masks,effect,strength,pixelScale);
         if(!stopped)setPreviewState({id:current.id,masks:current.masks,effect,strength});
       }finally{bmp.close();}
     })().catch(e=>{if(!stopped){setPreviewState(null);setMessage(redactError(e,lang));}});
