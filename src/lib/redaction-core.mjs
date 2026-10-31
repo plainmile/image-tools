@@ -92,7 +92,12 @@ export function canvasBlob(canvas, mime='image/png', quality) {
       resolve(blob) : reject(new Error('Image encoding failed.')), mime, quality);
   });
 }
-export function paintRedactions(ctx, bitmap, masks, effect, strength=24) {
+export function paintRedactions(ctx, bitmap, masks, effect, strength=24, previewScale=1) {
+  // Canvas 2D filters apply in output-bitmap pixels, NOT transformed source
+  // coordinates. A downsized preview must scale the blur radius too, or it
+  // makes the final full-resolution export appear more obscured than it is.
+  if (!Number.isFinite(previewScale) || previewScale <= 0 || previewScale > 1)
+    throw new Error('Invalid redaction preview scale.');
   // Solid privacy covers must be rendered last. Otherwise an overlapping
   // blur/mosaic drawn later from the ORIGINAL bitmap can reveal a covered secret.
   const ordered=[...masks.filter(item=>(item.effect??effect)!=='solid'),
@@ -124,7 +129,7 @@ export function paintRedactions(ctx, bitmap, masks, effect, strength=24) {
       sample.width = 0; sample.height = 0;
     } else if (style === 'blur') {
       ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
-      ctx.filter = 'blur(' + amount + 'px)';
+      ctx.filter = 'blur(' + (amount * previewScale) + 'px)';
       ctx.drawImage(bitmap, 0, 0);
       ctx.restore();
     } else {
