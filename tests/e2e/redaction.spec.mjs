@@ -573,7 +573,33 @@ test('JPEG export warns of transparency loss and flattens transparent pixels to 
   await page.getByTestId('redact-upload').setInputFiles({name:'transparent.png',mimeType:'image/png',buffer:Buffer.from(data)});
   await expect(page.getByTestId('redact-upload')).toBeEnabled();
   await draw(page,[.3,.3],[.7,.7]);
+  const stage=page.locator('.redactor-stage');
+  const corner=()=>page.locator('.redactor-preview-canvas').evaluate(canvas=>
+    Array.from(canvas.getContext('2d').getImageData(4,4,1,1).data));
+  await expect(stage).toHaveAttribute('data-preview-ready','true');
+  expect((await corner())[3]).toBe(0); // PNG stays transparent.
+
+  // Delay decoding deliberately: a format change must hide stale pixels and
+  // suspend export until the JPEG-white live preview is fully repainted.
+  await page.evaluate(()=>{
+    const decode=window.createImageBitmap.bind(window);
+    let held=false;
+    window.createImageBitmap=(...args)=>{
+      if(!held){held=true;return new Promise((resolve,reject)=>{
+        window.__releaseJpegFormatPreview=()=>decode(...args).then(resolve,reject);
+      });}
+      return decode(...args);
+    };
+  });
   await page.locator('#redact-format').selectOption('jpeg');
+  await expect.poll(()=>page.evaluate(()=>typeof window.__releaseJpegFormatPreview)).toBe('function');
+  await expect(stage).toHaveAttribute('data-preview-ready','false');
+  await expect(stage).toHaveAttribute('aria-busy','true');
+  await expect(page.locator('.redactor-preview-loading')).toBeVisible();
+  await expect(page.getByTestId('redact-download')).toBeDisabled();
+  await page.evaluate(()=>window.__releaseJpegFormatPreview());
+  await expect(stage).toHaveAttribute('data-preview-ready','true');
+  await expect.poll(corner).toEqual([255,255,255,255]);
   await expect(page.getByTestId('redact-alpha-warning')).toContainText('透明区域会变成白色');
   const downloaded=page.waitForEvent('download');
   await page.getByTestId('redact-download').click();
@@ -594,6 +620,9 @@ test('JPEG export warns of transparency loss and flattens transparent pixels to 
   expect(result.masked.slice(0,3).every(x=>x<=15)).toBe(true);
   await page.locator('#redact-format').selectOption('png');
   await expect(page.getByTestId('redact-alpha-warning')).toHaveCount(0);
+  await expect(stage).toHaveAttribute('data-preview-ready','true');
+  await expect.poll(async()=> (await corner())[3]).toBe(0);
+  await expect(page.getByTestId('redact-download-again')).toHaveCount(0);
 });
 
 test('same-image privacy edits hide stale previews and suspend export until the new masks are painted',async({page})=>{
