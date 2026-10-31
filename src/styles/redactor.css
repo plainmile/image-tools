@@ -31,7 +31,9 @@
 .redactor-stage-wrap{display:flex;align-items:center;justify-content:center;min-height:220px;background:var(--subtle);
   padding:12px;border:1px solid var(--line);overflow:hidden;}
 .redactor-stage {width:100%;max-width:900px;position:relative;margin:auto;}
-.redactor-preview-canvas{display:block;width:100%;height:100%;}
+.redactor-preview-canvas{display:block;width:100%;height:100%;
+  /* Checkerboard is visible only through transparent pixels in PNG/WebP. */
+  background:repeating-conic-gradient(#e3e5e7 0% 25%,#fff 0% 50%) 50% / 16px 16px;}
 .redactor-stage svg{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;}
 .redactor-stage svg[data-mode="erase"]{cursor:pointer;}
 .redactor-sidebar{padding:0 15px;max-height:760px;overflow-y:auto;}
