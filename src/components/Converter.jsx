@@ -17,7 +17,7 @@ const language = {
     clear:'Clear',cancel:'Stop after current image',stopping:'Stopping after the current image…',
     cancelled:'Conversion stopped. No output was saved.',partial:'Conversion stopped. Finished images are ready to download.',
     max:'Select up to 30 images and 160 MB in total.',
-    output:'Converted output',preview:'Preview',previewSource:'Selected original (not the converted result).',empty:'Your selected image appears here.',
+    output:'Converted output',preview:'Preview',previewSource:'Selected original (not the converted result).',batchResultPreview:'Actual converted image (matches the download).',batchNoResultPreview:'This image was not converted; showing the original.',empty:'Your selected image appears here.',
     local:'All image processing takes place in this browser. No files are uploaded.',
     failed:'Skipped files',showFiles:'Files selected',check:'Please check the file(s) below.',
     jpeg:'JPG has no transparency; transparent areas are exported white.',
@@ -36,7 +36,7 @@ const language = {
     clear:'清空',cancel:'处理完当前图片后停止',stopping:'当前图片处理完后停止…',
     cancelled:'已停止转换，没有生成下载文件。',partial:'已停止转换，已完成的图片可以下载。',
     max:'最多选择 30 张图片，文件总大小不超过 160 MB。',
-    output:'转换结果',preview:'预览',previewSource:'当前展示原图预览（不是转换后文件）。',empty:'选择图片后在这里查看。',
+    output:'转换结果',preview:'预览',previewSource:'当前展示原图预览（不是转换后文件）。',batchResultPreview:'实际转换结果，与下载内容一致。',batchNoResultPreview:'这张图片未成功转换，当前显示原图。',empty:'选择图片后在这里查看。',
     local:'图片仅在当前浏览器中处理，不上传文件。',
     failed:'跳过的图片',showFiles:'已选择的图片',check:'请查看下方文件错误。',
     jpeg:'JPG 不支持透明，原图透明区域会变成白色。',
@@ -154,6 +154,7 @@ export default function Converter({lang='en'}) {
   function showPreview(index){
     if(busy||inspecting||!files[index]||previewIndex===index)return;
     setPreviewIndex(index);
+    setShowOriginal(false);
     setPreview(URL.createObjectURL(files[index].file));
   }
   function reset(){
@@ -182,7 +183,7 @@ export default function Converter({lang='en'}) {
           });
           totalBytes=addBatchOutputBytes(totalBytes,encoded.bytes);
           totalPixels+=area;
-          succeeded.push({...encoded,sourceBytes:item.file.size,name:exportFilename(item.file.name,format,'converted')});
+          succeeded.push({...encoded,sourceIndex:index,sourceBytes:item.file.size,name:exportFilename(item.file.name,format,'converted')});
         }catch(error){
           failed.push({name:item.file.name,reason:localizedError(error,lang)});
         }
@@ -219,6 +220,12 @@ export default function Converter({lang='en'}) {
       setStatus(localizedError(error,lang)+(result?.url?t.kept:''));
     }finally{setBusy(false);setPhase('');}
   }
+  // Tie finished outputs to their original picker index. A failed first file
+  // must not make the second file's converted pixels appear under the first.
+  const selectedBatchOutput=result?.succeeded.find(item=>item.sourceIndex===previewIndex);
+  const selectedBatchOutputUrl=selectedBatchOutput
+    ? (selectedBatchOutput.downloadUrl||(!result.isZip?result.url:null)) : null;
+  const batchComparison=Boolean(files.length>1&&preview&&selectedBatchOutputUrl);
   const nonJpeg=files.some(item=>inputImageFormat(item.file)!=='jpeg');
   return <section className="editor" data-converter-ready={ready?'true':'false'}>
     <div className="editor-workspace">
@@ -284,15 +291,16 @@ export default function Converter({lang='en'}) {
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
           {result?.url&&!result.isZip&&files.length===1?<img data-testid="convert-comparison-image" src={showOriginal&&preview?preview:result.url} alt={showOriginal?(lang==='zh'?'原始图片':'Original image'):t.output}/>:
+            batchComparison?<img data-testid="convert-batch-comparison-image" src={showOriginal?preview:selectedBatchOutputUrl} alt={showOriginal?(lang==='zh'?'原始图片':'Original image'):t.output}/>:
             preview?<img key={preview} src={preview} alt={t.preview}/>:
             <p className="preview-empty">{t.empty}</p>}
         </div>
-        {result?.url&&!result.isZip&&files.length===1&&preview&&<div className="preview-compare-controls">
+        {result?.url&&preview&&((!result.isZip&&files.length===1)||batchComparison)&&<div className="preview-compare-controls">
           <button type="button" className="secondary" data-testid="convert-preview-toggle" aria-pressed={showOriginal}
             onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?(lang==='zh'?'查看转换结果':'View result'):(lang==='zh'?'查看原图':'View original')}</button>
           <span role="status">{showOriginal?(lang==='zh'?'正在查看原图':'Showing original'):(lang==='zh'?'正在查看转换结果':'Showing result')}</span>
         </div>}
-        {files.length>1&&<p className="preview-caption" data-testid="convert-preview-caption"><strong>{files[previewIndex]?.file.name}</strong> · {t.previewSource}</p>}
+        {files.length>1&&<p className="preview-caption" data-testid="convert-preview-caption"><strong>{files[previewIndex]?.file.name}</strong> · {result?(selectedBatchOutputUrl?(showOriginal?t.previewSource:t.batchResultPreview):t.batchNoResultPreview):t.previewSource}</p>}
         {result?.url&&<div className="result">
           <strong>{t.output}</strong>
           <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)} · {result.blob.size} {lang==='zh'?'字节':'bytes'}</p>

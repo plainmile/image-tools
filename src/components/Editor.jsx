@@ -20,7 +20,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',loadingPreview:'Rendering image preview…',previewFailed:'Preview unavailable. Check the dimensions or choose another image.',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Original preview with the current resize settings, not the final encoded bytes. Select another file to check it before downloading.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',attemptErrors:'Failed in this attempt',exported:'Exported',failedCount:'Failed',notProcessed:'Not processed after stopping',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',partial:'Batch stopped. Finished images are ready to download.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.',aspectLimited:'To keep the original proportions within browser limits, both dimensions were reduced together.'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Preview with current resize settings; this is not yet an encoded download.',batchResultPreview:'Actual exported image (exactly the image in your download).',batchOriginalPreview:'Original image before resizing.',batchNoResultPreview:'This image was not exported. Preview uses your settings, not an exported file.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',attemptErrors:'Failed in this attempt',exported:'Exported',failedCount:'Failed',notProcessed:'Not processed after stopping',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',partial:'Batch stopped. Finished images are ready to download.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.',aspectLimited:'To keep the original proportions within browser limits, both dimensions were reduced together.'
   },
   zh: {
     upload:'选择图片',addMore:'继续添加图片',appendHint:'新选图片会加入当前批次；清空可重新开始。',alreadyAdded:'这些图片已经选过，当前批次保持不变。',duplicateSkipped:'已跳过重复选择的图片。',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,7 +39,7 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',loadingPreview:'正在生成图片预览…',previewFailed:'无法生成预览，请检查尺寸或换一张图片。',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'按当前设置预览所选原图（不是最终编码文件）；可切换图片检查，最终结果请下载核对。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',attemptErrors:'本次导出失败的图片',exported:'成功导出',failedCount:'失败',notProcessed:'停止后未处理',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',partial:'已停止批量处理，已完成的图片可以下载。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。',aspectLimited:'为保持原图比例并符合浏览器尺寸上限，已同时缩小宽度和高度。'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'按当前设置预览图片，尚非实际导出文件。',batchResultPreview:'实际导出的图片，与下载内容一致。',batchOriginalPreview:'调整前的原始图片。',batchNoResultPreview:'该图片未成功导出；当前仅显示设置预览，并非结果文件。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',attemptErrors:'本次导出失败的图片',exported:'成功导出',failedCount:'失败',notProcessed:'停止后未处理',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',partial:'已停止批量处理，已完成的图片可以下载。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。',aspectLimited:'为保持原图比例并符合浏览器尺寸上限，已同时缩小宽度和高度。'
   }
 };
 function localizedImageError(error,lang) {
@@ -204,6 +204,7 @@ export default function Editor({lang='en',tool='resize'}) {
   function showBatchPreview(index){
     if(!batch||busy||inspecting||!files[index]||previewIndex===index)return;
     setPreviewIndex(index);
+    setShowOriginal(false);
     setPreview(URL.createObjectURL(files[index].file));
   }
   function pick(e){
@@ -257,7 +258,7 @@ export default function Editor({lang='en',tool='resize'}) {
         try{
           const result=sheet?await makePassportSheet(item.file,options):await processImage(item.file,options);
           if(batch)totalOutputBytes=addBatchOutputBytes(totalOutputBytes,result.bytes);
-          results.push({sourceBytes:item.file.size,name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
+          results.push({sourceIndex:index,sourceBytes:item.file.size,name:exportFilename(item.file.name,result.format,sheet?'print-sheet':'edited'),...result});
         }catch(err){
           if(!batch)throw err;
           failed.push({name:item.file.name,reason:localizedImageError(err,lang)||t.error});
@@ -292,6 +293,12 @@ export default function Editor({lang='en',tool='resize'}) {
     }catch(err){setStatus((localizedImageError(err,lang)||t.error)+(output?.url?t.kept:''));}
     finally{setBusy(false);setPhase('');}
   }
+  // A completed batch must preview the actual encoded blob for the selected
+  // source, not a simulated canvas. Source indices survive failed/skipped items.
+  const selectedBatchOutput=batch&&output?.results.find(item=>item.sourceIndex===previewIndex);
+  const selectedBatchOutputUrl=selectedBatchOutput
+    ? (selectedBatchOutput.downloadUrl||(!output.isZip?output.url:null)) : null;
+  const batchComparison=Boolean(batch&&preview&&selectedBatchOutputUrl);
   const sourceFormats=files.map(item=>inputImageFormat(item.file));
   const anyNonJpeg=sourceFormats.some(type=>type!=='jpeg');
   const allSourcePng=sourceFormats.length>0&&sourceFormats.every(type=>type==='png');
@@ -413,6 +420,7 @@ export default function Editor({lang='en',tool='resize'}) {
         <h2 className="panel-title">{t.preview}</h2>
         <div className="preview-frame">
           {output&&!output.isZip&&!batch ? <img data-testid="editor-comparison-image" alt={showOriginal?(lang==='zh'?'原始图片':'Original image'):(lang==='zh'?'处理后的图片':'Processed image')} src={showOriginal&&preview?preview:output.url}/> :
+           batchComparison ? <img data-testid="batch-comparison-image" src={showOriginal?preview:selectedBatchOutputUrl} alt={showOriginal?t.original:t.batchResultPreview}/> :
            preview ? <>
              <canvas key={previewKey} ref={canvasRef} role="img" data-testid="editor-preview-canvas"
                aria-label={sheet?t.cropPreview:t.preview} aria-busy={!previewReady&&!previewFailed}/>
@@ -425,7 +433,11 @@ export default function Editor({lang='en',tool='resize'}) {
             onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?(lang==='zh'?'查看处理结果':'View result'):(lang==='zh'?'查看原图':'View original')}</button>
           <span role="status">{showOriginal?(lang==='zh'?'正在查看原图':'Showing original'):(lang==='zh'?'正在查看处理结果':'Showing result')}</span>
         </div>}
-        {batch&&!!files.length?<p className="preview-caption" data-testid="batch-preview-caption"><strong>{previewEntry?.file.name}</strong> · {t.batchPreview}</p>:
+        {batchComparison&&<div className="preview-compare-controls">
+          <button type="button" className="secondary" data-testid="batch-preview-toggle" aria-pressed={showOriginal}
+            onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?(lang==='zh'?'查看导出结果':'View exported result'):(lang==='zh'?'查看原图':'View original')}</button>
+        </div>}
+        {batch&&!!files.length?<p className="preview-caption" data-testid="batch-preview-caption"><strong>{previewEntry?.file.name}</strong> · {output?(selectedBatchOutputUrl?(showOriginal?t.batchOriginalPreview:t.batchResultPreview):t.batchNoResultPreview):t.batchPreview}</p>:
          !!files.length&&!output&&<p className="preview-caption">{sheet?t.cropPreview:files[0].file.name+' · '+files[0].width+'×'+files[0].height}</p>}
         {output&&<div className="result">
           <strong>{t.done}</strong>
