@@ -518,13 +518,15 @@ test('signature resize has no unsolicited default file-size limit',async({page})
 });
 test('batch export has a short summary and a per-image dimensions list',async({page})=>{
   await page.goto('/bulk-image-resizer/');await uploadSynthetic(page,3);
-  await expect(page.getByTestId('batch-preview-caption')).toContainText('Original preview with the current resize settings');
+  await expect(page.getByTestId('batch-preview-caption')).toContainText('Preview with current resize settings');
   await expect(page.getByTestId('batch-preview-file')).toHaveCount(3);
   await page.getByTestId('width').fill('50');await page.getByTestId('height').fill('40');
   await page.getByTestId('process').click();
   await expect(page.getByTestId('download')).toContainText('ZIP');
   await expect(page.getByTestId('result-meta')).toContainText('3');
   await expect(page.getByTestId('result-meta')).not.toContainText(' | ');
+  await expect(page.getByTestId('batch-comparison-image')).toBeVisible();
+  await expect(page.getByTestId('batch-preview-caption')).toContainText('Actual exported image');
   const details=page.getByTestId('batch-export-details');
   await details.locator('summary').click();
   await expect(details.locator('li')).toHaveCount(3);

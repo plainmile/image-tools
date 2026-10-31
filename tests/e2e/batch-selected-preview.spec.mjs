@@ -49,7 +49,25 @@ test('converter previews each selected source without replacing an already gener
   await page.getByRole('button',{name:'Preview red.png'}).click();
   await expect(page.getByTestId('convert-preview-caption')).toContainText('red.png');
   await expect(download).toHaveAttribute('href',href);
+  const comparison=page.getByTestId('convert-batch-comparison-image');
+  await expect(comparison).toHaveAttribute('src',
+    await page.getByTestId('convert-download-item').first().getAttribute('href'));
+  const redFile=await comparison.evaluate(async img=>{
+    const blob=await(await fetch(img.src)).blob();return {type:blob.type,bytes:blob.size};
+  });
+  expect(redFile.type).toBe('image/jpeg');
+  expect(redFile.bytes).toBeGreaterThan(100);
   expect((await displayedImage(page)).color[0]).toBeGreaterThan(200);
+  await page.getByTestId('convert-preview-toggle').click();
+  await expect(comparison).toHaveAttribute('alt','Original image');
+  expect(await comparison.evaluate(async img=>(await(await fetch(img.src)).blob()).type)).toBe('image/png');
+  await page.getByTestId('convert-preview-toggle').click();
+  await expect(comparison).toHaveAttribute('src',
+    await page.getByTestId('convert-download-item').first().getAttribute('href'));
+  await page.getByRole('button',{name:'Preview blue.png'}).click();
+  await expect(comparison).toHaveAttribute('src',
+    await page.getByTestId('convert-download-item').nth(1).getAttribute('href'));
+  await expect(download).toHaveAttribute('href',href);
   const zipBytes=await page.evaluate(async()=>[...new Uint8Array(await(await fetch(document.querySelector('[data-testid=convert-download]').href)).arrayBuffer())]);
   const zip=await JSZip.loadAsync(Buffer.from(zipBytes));
   expect(Object.keys(zip.files)).toEqual(['01-red-converted.jpg','02-blue-converted.jpg']);
@@ -76,14 +94,35 @@ test('bulk resize shows each selected source with correct transparency, includin
   const download=page.getByTestId('download');
   await expect(download).toHaveAttribute('download','plainmile-images.zip');
   const href=await download.getAttribute('href');
+  const comparison=page.getByTestId('batch-comparison-image');
   await page.getByRole('button',{name:'预览 opaque.jpg'}).click();
-  await expect(page.getByTestId('batch-preview-caption')).toContainText('opaque.jpg');
-  await expect(canvas).toHaveAttribute('aria-busy','false');
-  expect(await canvas.evaluate(c=>({w:c.width,h:c.height}))).toEqual({w:90,h:45});
+  await expect(page.getByTestId('batch-preview-caption')).toContainText('实际导出的图片');
+  await expect(comparison).toHaveAttribute('src',
+    await page.getByTestId('batch-download-item').first().getAttribute('href'));
+  expect(await comparison.evaluate(async img=>{
+    const blob=await(await fetch(img.src)).blob();
+    await img.decode();return {mime:blob.type,w:img.naturalWidth,h:img.naturalHeight};
+  })).toEqual({mime:'image/jpeg',w:90,h:45});
   await page.getByRole('button',{name:'预览 transparent.png'}).click();
-  await expect(canvas).toHaveAttribute('aria-busy','false');
+  await expect(comparison).toHaveAttribute('src',
+    await page.getByTestId('batch-download-item').nth(1).getAttribute('href'));
+  // Transparent results must look transparent, not silently appear white.
+  expect(await comparison.evaluate(img=>getComputedStyle(img).backgroundImage)).toContain('conic-gradient');
+  const exportedAlpha=await comparison.evaluate(async img=>{
+    await img.decode();
+    const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
+    return ctx.getImageData(c.width-1,c.height-1,1,1).data[3];
+  });
+  expect(exportedAlpha).toBe(0);
+  await page.getByTestId('batch-preview-toggle').click();
+  await expect(page.getByTestId('batch-preview-toggle')).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByTestId('batch-preview-caption')).toContainText('调整前的原始图片');
+  expect(await comparison.evaluate(async img=>(await(await fetch(img.src)).blob()).type)).toBe('image/png');
+  await page.getByTestId('batch-preview-toggle').click();
+  await expect(comparison).toHaveAttribute('src',
+    await page.getByTestId('batch-download-item').nth(1).getAttribute('href'));
   await expect(download).toHaveAttribute('href',href);
-  expect(await canvas.evaluate(c=>c.getContext('2d').getImageData(c.width-1,c.height-1,1,1).data[3])).toBe(0);
 });
 
 test('removing a different batch file keeps the selected preview and removing the active file picks a survivor',async({page})=>{
@@ -104,4 +143,61 @@ test('removing a different batch file keeps the selected preview and removing th
   await expect(page.getByTestId('convert-preview-file')).toHaveCount(0);
   expect((await displayedImage(page)).width).toBe(40);
   await expect(page.locator('.file-summary')).toContainText('three.png');
+});
+
+
+test('failed converter input never borrows a later file’s completed export',async({page})=>{
+  await page.goto('/convert-image/');
+  await expect(page.locator('[data-converter-ready=true]')).toBeVisible();
+  const first=await picture(page,'first.png',60,40,'#ee2222');
+  const second=await picture(page,'second.png',40,60,'#2222ee');
+  await page.getByTestId('convert-upload').setInputFiles([first,second]);
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    let count=0;
+    HTMLCanvasElement.prototype.toBlob=function(callback,mime,quality){
+      if(++count===1){callback(null);return;}
+      return original.call(this,callback,mime,quality);
+    };
+  });
+  await page.getByTestId('convert-process').click();
+  const download=page.getByTestId('convert-download');
+  await expect(download).toHaveAttribute('download','second-converted.jpg');
+  await expect(page.getByTestId('convert-batch-comparison-image')).toHaveCount(0);
+  await expect(page.getByTestId('convert-preview-caption')).toContainText('This image was not converted');
+  await page.getByRole('button',{name:'Preview second.png'}).click();
+  const comparison=page.getByTestId('convert-batch-comparison-image');
+  await expect(comparison).toHaveAttribute('src',await download.getAttribute('href'));
+  expect((await displayedImage(page)).color[2]).toBeGreaterThan(200);
+  await page.getByTestId('convert-format').selectOption('webp');
+  await expect(comparison).toHaveCount(0);
+  await expect(download).toHaveCount(0);
+});
+
+test('failed bulk resize input never displays a different source’s encoded file',async({page})=>{
+  await page.goto('/bulk-image-resizer/');
+  await expect(page.locator('[data-editor-ready=true]')).toBeVisible();
+  const first=await picture(page,'first.png',60,40,'#ee2222');
+  const second=await picture(page,'second.png',40,60,'#2222ee');
+  await page.getByTestId('upload').setInputFiles([first,second]);
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    let count=0;
+    HTMLCanvasElement.prototype.toBlob=function(callback,mime,quality){
+      if(++count===1){callback(null);return;}
+      return original.call(this,callback,mime,quality);
+    };
+  });
+  await page.getByTestId('process').click();
+  const download=page.getByTestId('download');
+  await expect(download).toHaveAttribute('download','second-edited.png');
+  await expect(page.getByTestId('batch-comparison-image')).toHaveCount(0);
+  await expect(page.getByTestId('batch-preview-caption')).toContainText('This image was not exported');
+  await page.getByRole('button',{name:'Preview second.png'}).click();
+  const comparison=page.getByTestId('batch-comparison-image');
+  await expect(comparison).toHaveAttribute('src',await download.getAttribute('href'));
+  expect((await displayedImage(page)).color[2]).toBeGreaterThan(200);
+  await page.getByTestId('width').fill('80');
+  await expect(comparison).toHaveCount(0);
+  await expect(download).toHaveCount(0);
 });
