@@ -3,7 +3,7 @@ import {clipboardImageFiles} from '../lib/clipboard.mjs';
 import {
   MAX_FILES, MAX_BATCH_BYTES, MAX_BATCH_OUTPUT_PIXELS,
   inspectImage, assertDimensions, processImage, inputImageFormat,
-  addBatchOutputBytes, exportFilename, formatBytes, mergeSelectedImages
+  addBatchOutputBytes, exportFilename, numberedBatchFilename, formatBytes, mergeSelectedImages
 } from '../lib/image-core.mjs';
 
 const language = {
@@ -198,18 +198,19 @@ export default function Converter({lang='en'}) {
       // Download the only successful image directly, even if the original
       // selection contained invalid files or some conversions failed.
       const isZip=succeeded.length>1;
+      const namedSucceeded=isZip?succeeded.map((item,i)=>({...item,downloadName:numberedBatchFilename(item.name,i)})):succeeded;
       if(!isZip){
-        blob=succeeded[0].blob;name=succeeded[0].name;
+        blob=namedSucceeded[0].blob;name=namedSucceeded[0].name;
       }else{
         setPhase('zip');setStatus(t.packaging);
         const {default: JSZip}=await import('jszip');
         const zip=new JSZip();
-        succeeded.forEach((item,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+item.name,item.blob));
+        namedSucceeded.forEach(item=>zip.file(item.downloadName,item.blob));
         blob=await zip.generateAsync({type:'blob',compression:'STORE'});
         name='plainmile-converted-images.zip';
       }
       setFailedAttempt([]);
-      const downloadableSucceeded=isZip?succeeded.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):succeeded;
+      const downloadableSucceeded=isZip?namedSucceeded.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):namedSucceeded;
       setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded:downloadableSucceeded,isZip});
       setStatus(stoppedEarly
         ? t.partial+' '+t.progress+' '+processedCount+' / '+files.length+(failed.length?' '+t.check:'')
@@ -298,7 +299,7 @@ export default function Converter({lang='en'}) {
            <p data-testid="convert-size-comparison">{result.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(result.succeeded.reduce((sum,item)=>sum+item.sourceBytes,0))} · {result.isZip?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'转换结果':'Converted output')}: {formatBytes(result.blob.size)}</p>
           {result.isZip&&<details className="batch-export-details" data-testid="convert-export-details">
             <summary>{t.individual} ({result.succeeded.length})</summary>
-            <ul>{result.succeeded.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.width}×{item.height} · {item.format.toUpperCase()} · {formatBytes(item.bytes)}</span><a className="batch-file-download" data-testid="convert-download-item" download={item.name} href={item.downloadUrl}>{t.download}</a></li>)}</ul>
+            <ul>{result.succeeded.map((item,i)=><li key={i}><span>{item.downloadName||item.name}</span><span>{item.width}×{item.height} · {item.format.toUpperCase()} · {formatBytes(item.bytes)}</span><a className="batch-file-download" data-testid="convert-download-item" download={item.downloadName||item.name} href={item.downloadUrl}>{t.download}</a></li>)}</ul>
           </details>}
           {result.failed.length>0&&!failedAttempt.length&&<details open className="batch-errors" data-testid="convert-failed-output">
             <summary>{t.failed} ({result.failed.length})</summary>
