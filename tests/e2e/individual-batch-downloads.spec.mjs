@@ -63,7 +63,7 @@ for(const [route,ready,upload,run,details,item,archive,stem] of [
     await expect(page.locator(ready)).toBeVisible();
     await page.getByTestId(upload).setInputFiles(await sameNamedPictures(page));
     await page.getByTestId(run).click();
-    await expect(page.getByTestId(archive)).toHaveAttribute('download',/\\.zip$/);
+    await expect(page.getByTestId(archive)).toHaveAttribute('download',/\.zip$/);
     await page.getByTestId(details).locator('summary').click();
     const direct=await page.getByTestId(item).evaluateAll(async links=>Promise.all(links.map(async a=>({
       name:a.download,bytes:[...new Uint8Array(await (await fetch(a.href)).arrayBuffer())]
