@@ -91,7 +91,9 @@ button.secondary:hover { background: var(--subtle); color: var(--text); }
 .editor-preview { min-width: 0; padding: 22px; border-left: 1px solid var(--line); background: var(--subtle); }
 .preview-frame { position: relative; display: flex; align-items: center; justify-content: center; height: 320px; padding: 16px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
 .preview-frame img, .preview-frame canvas { max-width: 100%; max-height: 100%; object-fit: contain; display: block; } 
-.preview-frame canvas { background: repeating-conic-gradient(#e3e5e7 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
+/* Show actual transparency in original and encoded <img> previews as well
+   as the existing canvas preview. Opaque pixels still hide the checkerboard. */
+.preview-frame img, .preview-frame canvas { background: repeating-conic-gradient(#e3e5e7 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
 .preview-empty { color: var(--muted); font-size: 13px; text-align: center; max-width: 225px; }
 .preview-caption { font-size: 12px; color: var(--muted); padding-top: 10px; overflow-wrap: anywhere; }
 /* Optional comparison appears only after successful single-image export. */
