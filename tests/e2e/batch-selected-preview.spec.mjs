@@ -106,6 +106,8 @@ test('bulk resize shows each selected source with correct transparency, includin
   await page.getByRole('button',{name:'预览 transparent.png'}).click();
   await expect(comparison).toHaveAttribute('src',
     await page.getByTestId('batch-download-item').nth(1).getAttribute('href'));
+  // Transparent results must look transparent, not silently appear white.
+  expect(await comparison.evaluate(img=>getComputedStyle(img).backgroundImage)).toContain('conic-gradient');
   const exportedAlpha=await comparison.evaluate(async img=>{
     await img.decode();
     const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
