@@ -865,6 +865,7 @@ test('large-image blur preview matches exported native-resolution effect',async(
   const downloaded=page.waitForEvent('download');
   await page.getByTestId('redact-download').click();
   await downloaded;
+  await expect(page.getByTestId('redact-download-again')).toBeVisible();
   const pixels=await page.evaluate(async()=>{
     const preview=document.querySelector('.redactor-preview-canvas');
     const link=document.querySelector('[data-testid="redact-download-again"]');
