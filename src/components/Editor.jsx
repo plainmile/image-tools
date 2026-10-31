@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {clipboardImageFiles} from '../lib/clipboard.mjs';
-import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,fitLockedAspectDimensions,drawRect,inputImageFormat,exportFilename,formatBytes,mergeSelectedImages } from '../lib/image-core.mjs';
+import { MAX_FILES,MAX_BATCH_BYTES,MAX_AXIS,MAX_OUTPUT_PIXELS,assertDimensions,fitWithin,validateBatchPixels,addBatchOutputBytes,inspectImage,processImage,makePassportSheet,fitLockedAspectDimensions,drawRect,inputImageFormat,exportFilename,numberedBatchFilename,formatBytes,mergeSelectedImages } from '../lib/image-core.mjs';
 
 const dict = {
   en: {
@@ -273,16 +273,17 @@ export default function Editor({lang='en',tool='resize'}) {
       }
       let blob,name;
       const isZip=results.length>1;
-      if(!isZip){blob=results[0].blob;name=results[0].name;}
+      const namedResults=isZip?results.map((item,i)=>({...item,downloadName:numberedBatchFilename(item.name,i)})):results;
+      if(!isZip){blob=namedResults[0].blob;name=namedResults[0].name;}
       else{
         if(batch){setPhase('zip');setStatus(t.packaging);}
         const {default: JSZip}=await import('jszip');
-        const zip=new JSZip();results.forEach((r,i)=>zip.file(String(i+1).padStart(2,'0')+'-'+r.name,r.blob));
+        const zip=new JSZip();namedResults.forEach(item=>zip.file(item.downloadName,item.blob));
         blob=await zip.generateAsync({type:'blob',compression:'STORE'});name='plainmile-images.zip';
       }
-      // Create direct image links only after ZIP creation succeeds; keep the
-      // archive as the primary one-click download for the entire batch.
-      const downloadableResults=isZip?results.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):results;
+      // Direct downloads use the same numbered filename as the ZIP member:
+      // identical source basenames stay distinct in both export methods.
+      const downloadableResults=isZip?namedResults.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):namedResults;
       const url=URL.createObjectURL(blob);
       setOutput({url,blob,name,results:downloadableResults,failed,isZip,inputCount:files.length,processedCount});
       setStatus(stoppedEarly
@@ -440,7 +441,7 @@ export default function Editor({lang='en',tool='resize'}) {
           </details>}
           {batch&&<details className="batch-export-details" data-testid="batch-export-details">
             <summary>{t.batchItems} ({output.results.length})</summary>
-            <ul>{output.results.map((r,i)=><li key={i}><span>{r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span>{r.downloadUrl&&<a className="batch-file-download" data-testid="batch-download-item" href={r.downloadUrl} download={r.name}>{lang==='zh'?'下载此图':'Download image'}</a>}</li>)}</ul>
+            <ul>{output.results.map((r,i)=><li key={i}><span>{r.downloadName||r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span>{r.downloadUrl&&<a className="batch-file-download" data-testid="batch-download-item" href={r.downloadUrl} download={r.downloadName||r.name}>{lang==='zh'?'下载此图':'Download image'}</a>}</li>)}</ul>
           </details>}
           <a data-testid="download" className="download" href={output.url} download={output.name}>{output.isZip?t.zipDownload:t.download} · {formatBytes(output.blob.size)}</a>
         </div>}

@@ -248,6 +248,16 @@ export function exportFilename(filename, format, suffix = 'edited') {
   return `${sanitizeStem(filename)}-${suffix}.${extension}`;
 }
 
+// Multiple different sources may have the same basename (or sanitize to the
+// same name). Match ZIP member names in per-file browser downloads so a user
+// cannot mistake or overwrite another processed image on save.
+export function numberedBatchFilename(exportedName, index) {
+  if (typeof exportedName !== 'string' || !exportedName ||
+      !Number.isInteger(index) || index < 0 || index >= MAX_FILES)
+    throw new Error('Invalid batch output filename.');
+  return `${String(index + 1).padStart(2, '0')}-${exportedName}`;
+}
+
 export function formatBytes(bytes) {
   if (bytes < BYTES_PER_KB) return `${bytes} B`;
   if (bytes < BYTES_PER_MB) return `${(bytes / BYTES_PER_KB).toFixed(1)} KB`;

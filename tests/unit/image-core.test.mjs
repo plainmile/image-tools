@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertDimensions, aspectDimension, fitLockedAspectDimensions, drawRect, validateFile, inputImageFormat, sanitizeStem, kbLimitToBytes,
-  exportFilename, formatBytes, MAX_FILE_BYTES, MAX_FILES, MAX_BATCH_BYTES, BYTES_PER_KB, BYTES_PER_MB, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, mergeSelectedImages, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
+  exportFilename, numberedBatchFilename, formatBytes, MAX_FILE_BYTES, MAX_FILES, MAX_BATCH_BYTES, BYTES_PER_KB, BYTES_PER_MB, jpegBytesWithDpi, fitWithin, MAX_BATCH_OUTPUT_PIXELS, validateBatchPixels, addBatchOutputBytes, mergeSelectedImages, MAX_BATCH_OUTPUT_BYTES, isAnimatedImage, encodeWithTarget
 } from '../../src/lib/image-core.mjs';
 
 test('dimensions: exact positive integers and resource limits', () => {
@@ -52,6 +52,15 @@ test('reject unsupported images and huge inputs', () => {
   assert.throws(() => validateFile({ name: 'bad.png', size: 50_000_000, type: 'image/png' }), /40 MB/);
   assert.equal(MAX_FILES, 30);
 });
+test('batch filenames are unique and match numbered ZIP member names',()=>{
+  assert.equal(numberedBatchFilename('photo-edited.png',0),'01-photo-edited.png');
+  assert.equal(numberedBatchFilename('photo-edited.png',1),'02-photo-edited.png');
+  assert.equal(numberedBatchFilename('photo-converted.jpg',29),'30-photo-converted.jpg');
+  assert.throws(()=>numberedBatchFilename('image.jpg',-1),/Invalid batch/);
+  assert.throws(()=>numberedBatchFilename('image.jpg',30),/Invalid batch/);
+  assert.throws(()=>numberedBatchFilename('',0),/Invalid batch/);
+});
+
 test('safe exported names and accurate file size', () => {
   assert.equal(sanitizeStem('../../a:bad?.png'), '..-..-a-bad-');
   assert.equal(exportFilename('scan.webp', 'jpeg'), 'scan-edited.jpg');
