@@ -32,6 +32,10 @@ async function draw(page,from=[.2,.25],to=[.65,.65]){
   await page.mouse.up();
 }
 
+async function canBlur(page){
+  return page.getByTestId('redact-effect').locator('option[value="blur"]').isEnabled();
+}
+
 test('redaction pages are indexed separately and language links are reciprocal', async({page})=>{
   for(const route of ['/redact-image/','/zh/redact-image/']){
     const response=await page.goto(route);
@@ -201,7 +205,8 @@ test('no OCR controls and all three manual effects are available for export',asy
   await expect(page.getByTestId('redact-ocr')).toHaveCount(0);
   await expect(page.getByTestId('redact-effect').locator('option')).toHaveCount(3);
   await expect(page.getByTestId('redact-effect').locator('option[value=white]')).toHaveCount(0);
-  for(const mode of ['solid','mosaic','blur']){
+  if(!await canBlur(page))await expect(page.getByTestId('redact-blur-unavailable')).toBeVisible();
+  for(const mode of ['solid','mosaic',...((await canBlur(page))?['blur']:[])]){
     await page.getByTestId('redact-effect').selectOption(mode);
     if(mode!=='solid')await expect(page.getByTestId('redact-strength')).toBeVisible();
     const downloaded=page.waitForEvent('download');await page.getByTestId('redact-download').click();await downloaded;
@@ -213,15 +218,16 @@ test('existing private black boxes do not change when choosing blur for new area
   await page.goto('/redact-image/');
   await synthetic(page);
   await draw(page,[.10,.10],[.32,.7]);
-  await page.getByTestId('redact-effect').selectOption('blur');
+  const newEffect=(await canBlur(page))?'blur':'mosaic';
+  await page.getByTestId('redact-effect').selectOption(newEffect);
   await draw(page,[.55,.10],[.85,.7]);
   const selectors=page.getByTestId('redact-area-effect');
   await expect(selectors).toHaveCount(2);
   await expect(selectors.nth(0)).toHaveValue('solid');
-  await expect(selectors.nth(1)).toHaveValue('blur');
+  await expect(selectors.nth(1)).toHaveValue(newEffect);
   await page.getByTestId('redact-effect').selectOption('mosaic');
   await expect(selectors.nth(0)).toHaveValue('solid');
-  await expect(selectors.nth(1)).toHaveValue('blur');
+  await expect(selectors.nth(1)).toHaveValue(newEffect);
   await selectors.nth(1).selectOption('mosaic');
   await expect(selectors.nth(0)).toHaveValue('solid');
   await expect(selectors.nth(1)).toHaveValue('mosaic');
@@ -236,7 +242,7 @@ test('mosaic, blur and black pixel previews match actual PNG exports',async({pag
     window.__actualExports=[];
     URL.createObjectURL=(blob)=>{window.__actualExports.push(blob);return original(blob);};
   });
-  for(const mode of ['solid','mosaic','blur']){
+  for(const mode of ['solid','mosaic',...((await canBlur(page))?['blur']:[])]){
     await page.getByTestId('redact-area-effect').selectOption(mode);
     // This covers the center of the synthetic black-on-white caption.
     // Preview canvas dimensions match source for this small test image.
@@ -283,7 +289,7 @@ test('overlapping blur and mosaic never reveal an earlier solid privacy cover',a
   await draw(page,[.20,.25],[.65,.65]);
   await page.getByTestId('redact-effect').selectOption('mosaic');
   await draw(page,[.30,.30],[.60,.70]);
-  await page.getByTestId('redact-effect').selectOption('blur');
+  await page.getByTestId('redact-effect').selectOption((await canBlur(page))?'blur':'mosaic');
   await draw(page,[.30,.35],[.75,.75]);
   await expect(page.getByTestId('redact-area-effect')).toHaveCount(3);
   await expect(page.getByTestId('redact-area-effect').nth(0)).toHaveValue('solid');
@@ -629,10 +635,10 @@ test('same-image privacy edits hide stale previews and suspend export until the 
   await expect(stage).toHaveAttribute('data-preview-ready','true');
   await expect(page.getByTestId('redact-download')).toBeEnabled();
 
-  // Changing an existing mask from solid to blur is equally safety-critical:
-  // the canvas still has a black box until the blur preview finishes.
+  // Changing an existing mask effect is equally safety-critical:
+  // the canvas must not show a stale black box until the new preview finishes.
   await freezeNextPreview();
-  await page.getByTestId('redact-area-effect').selectOption('blur');
+  await page.getByTestId('redact-area-effect').selectOption((await canBlur(page))?'blur':'mosaic');
   await assertBlocked();
   await page.evaluate(()=>window.__releaseMaskPreview());
   await expect(stage).toHaveAttribute('data-preview-ready','true');
@@ -837,4 +843,65 @@ test('new valid file plus same-content repeat and corrupt image appends only the
   await expect(page.getByTestId('redact-count')).toHaveText('1');
   await page.locator('.redactor-file').nth(1).click();
   await expect(page.getByTestId('redact-count')).toHaveText('0');
+});
+
+
+test('large-image blur preview matches exported native-resolution effect',async({page})=>{
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
+  // A sharp black/white boundary reveals blur-radius scaling errors that
+  // ordinary same-size preview fixtures cannot detect.
+  const bytes=await page.evaluate(async()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=2400;canvas.height=1200;
+    const ctx=canvas.getContext('2d',{alpha:false});
+    ctx.fillStyle='#000';ctx.fillRect(0,0,1200,1200);
+    ctx.fillStyle='#fff';ctx.fillRect(1200,0,1200,1200);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.getByTestId('redact-upload').setInputFiles({
+    name:'large-test.png',mimeType:'image/png',buffer:Buffer.from(bytes)
+  });
+  await expect(page.getByTestId('redact-upload')).toBeEnabled();
+  if (!await canBlur(page)) {
+    await expect(page.getByTestId('redact-blur-unavailable')).toBeVisible();
+    await expect(page.getByTestId('redact-effect').locator('option[value="blur"]')).toBeDisabled();
+    return;
+  }
+  await page.getByTestId('redact-effect').selectOption('blur');
+  await draw(page,[.20,.20],[.80,.80]);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','true');
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await downloaded;
+  await expect(page.getByTestId('redact-download-again')).toBeVisible();
+  const pixels=await page.evaluate(async()=>{
+    const preview=document.querySelector('.redactor-preview-canvas');
+    const link=document.querySelector('[data-testid="redact-download-again"]');
+    const image=await createImageBitmap(await(await fetch(link.href)).blob());
+    const full=document.createElement('canvas');
+    full.width=image.width;full.height=image.height;
+    const fullCtx=full.getContext('2d');
+    fullCtx.drawImage(image,0,0);
+    const previewCtx=preview.getContext('2d');
+    const delta=[16,24,36].map(dx=>{
+      const x=1200+dx,y=600;
+      const xPreview=Math.round(x*preview.width/image.width);
+      const yPreview=Math.round(y*preview.height/image.height);
+      const actual=fullCtx.getImageData(x,y,1,1).data[0];
+      const shown=previewCtx.getImageData(xPreview,yPreview,1,1).data[0];
+      return {actual,shown,difference:Math.abs(actual-shown)};
+    });
+    const sizes={previewWidth:preview.width,outputWidth:image.width};
+    image.close();
+    return {sizes,delta};
+  });
+  expect(pixels.sizes.outputWidth).toBe(2400);
+  expect(pixels.sizes.previewWidth).toBeLessThan(2400);
+  // If blur fails silently, exported white-side pixels remain 255.
+  expect(pixels.delta[1].actual).toBeGreaterThan(130);
+  expect(pixels.delta[1].actual).toBeLessThan(245);
+  for(const point of pixels.delta)expect(point.difference).toBeLessThanOrEqual(23);
 });

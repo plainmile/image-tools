@@ -16,6 +16,30 @@ export function addRedactionOutputBytes(total, next) {
 }
 
 const MIN_BOX = 2;
+
+// Some Safari/iOS versions expose no working Canvas 2D filter support.
+// Probe actual synthetic output pixels once: property checks alone may give
+// false positives, and blur must never silently export unchanged source data.
+let cachedBlurSupport;
+export function supportsCanvasBlur() {
+  if (cachedBlurSupport !== undefined) return cachedBlurSupport;
+  cachedBlurSupport = false;
+  if (typeof document === 'undefined') return false;
+  try {
+    const source=document.createElement('canvas'),output=document.createElement('canvas');
+    source.width=output.width=21; source.height=output.height=21;
+    const src=source.getContext('2d'),ctx=output.getContext('2d');
+    if (!src || !ctx || typeof ctx.filter !== 'string') return false;
+    src.fillStyle='#000';src.fillRect(0,0,11,21);
+    src.fillStyle='#fff';src.fillRect(11,0,10,21);
+    ctx.filter='blur(4px)';
+    ctx.drawImage(source,0,0);
+    const channel=ctx.getImageData(8,10,1,1).data[0];
+    cachedBlurSupport=channel>8 && channel<250;
+    source.width=source.height=output.width=output.height=0;
+  } catch { cachedBlurSupport=false; }
+  return cachedBlurSupport;
+}
 export function validateRedactionFiles(files) {
   if (!Array.isArray(files) || !files.length) throw new Error('Choose one or more images.');
   if (files.length > REDACT_MAX_FILES) throw new Error('Select at most 12 images.');
@@ -92,7 +116,12 @@ export function canvasBlob(canvas, mime='image/png', quality) {
       resolve(blob) : reject(new Error('Image encoding failed.')), mime, quality);
   });
 }
-export function paintRedactions(ctx, bitmap, masks, effect, strength=24) {
+export function paintRedactions(ctx, bitmap, masks, effect, strength=24, previewScale=1) {
+  // Canvas 2D filters apply in output-bitmap pixels, NOT transformed source
+  // coordinates. A downsized preview must scale the blur radius too, or it
+  // makes the final full-resolution export appear more obscured than it is.
+  if (!Number.isFinite(previewScale) || previewScale <= 0 || previewScale > 1)
+    throw new Error('Invalid redaction preview scale.');
   // Solid privacy covers must be rendered last. Otherwise an overlapping
   // blur/mosaic drawn later from the ORIGINAL bitmap can reveal a covered secret.
   const ordered=[...masks.filter(item=>(item.effect??effect)!=='solid'),
@@ -123,8 +152,10 @@ export function paintRedactions(ctx, bitmap, masks, effect, strength=24) {
       ctx.restore();
       sample.width = 0; sample.height = 0;
     } else if (style === 'blur') {
+      if (!supportsCanvasBlur())
+        throw new Error('Gaussian blur is not supported by this browser. Use solid black or mosaic.');
       ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
-      ctx.filter = 'blur(' + amount + 'px)';
+      ctx.filter = 'blur(' + (amount * previewScale) + 'px)';
       ctx.drawImage(bitmap, 0, 0);
       ctx.restore();
     } else {
