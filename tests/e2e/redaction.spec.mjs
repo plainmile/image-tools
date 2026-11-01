@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import JSZip from 'jszip';
 
-async function synthetic(page,count=1){
+async function synthetic(page,count=1,startIndex=0){
   const bytes=await page.evaluate(async()=>{
     const c=document.createElement('canvas');c.width=960;c.height=280;
     const x=c.getContext('2d',{alpha:false});
@@ -12,7 +12,7 @@ async function synthetic(page,count=1){
   });
   await expect(page.locator('[data-redactor-ready="true"]')).toBeVisible();
   await page.getByTestId('redact-upload').setInputFiles(Array.from({length:count},(_,i)=>({
-    name:'capture-'+i+'.png',mimeType:'image/png',buffer:Buffer.from(bytes),
+    name:'capture-'+(i+startIndex)+'.png',mimeType:'image/png',buffer:Buffer.from(bytes),
   })));
   await expect(page.getByTestId('redact-overlay')).toBeVisible();
   // The image gallery can render before asynchronous decoding has released the busy state.
@@ -359,7 +359,9 @@ test('invalid and over-limit additions preserve existing redactions',async({page
   await expect(page.getByTestId('redact-upload')).toBeEnabled();
   await expect(page.locator('.redactor-file')).toHaveCount(1);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
-  await synthetic(page,12);
+  // Include 12 genuinely new filenames; the old capture-0 would now be
+  // correctly deduplicated when re-pasted and must not count against the cap.
+  await synthetic(page,12,1);
   await expect(page.getByTestId('redact-status')).toContainText('at most 12');
   await expect(page.locator('.redactor-file')).toHaveCount(1);
   await expect(page.getByTestId('redact-count')).toHaveText('1');
