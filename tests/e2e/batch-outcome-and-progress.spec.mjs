@@ -70,6 +70,10 @@ test('stopped bulk resize separates exported, failed and never-processed images'
   await page.getByTestId('batch-cancel').click();
   await page.evaluate(()=>window.__finishSecondResize());
   await expect(page.getByTestId('batch-outcome')).toHaveText('成功导出: 1 · 失败: 1 · 停止后未处理: 1');
+  const unprocessed=page.getByTestId('batch-unprocessed');
+  await expect(unprocessed).toContainText('停止后尚未处理的图片 (1)');
+  await unprocessed.locator('summary').click();
+  await expect(unprocessed.locator('li')).toHaveText(['batch-3.png']);
   await expect(page.getByTestId('skipped-outputs')).toContainText('batch-2.png');
   await expect(page.getByTestId('skipped-outputs')).not.toContainText('batch-3.png');
   await expect(page.getByTestId('download')).toHaveAttribute('download','batch-1-edited.png');
@@ -106,4 +110,35 @@ test('redaction ZIP shows truthful per-file progress without exposing source fil
   await expect(progress).toHaveCount(0);
   await expect(page.getByTestId('redact-status')).toContainText('ZIP · 2 张图片');
   await expect(page.getByTestId('redact-download-again')).toHaveAttribute('download','plainmile-redacted-images.zip');
+});
+
+test('stopped batch with zero successful outputs separates attempted failures and never-processed files, preserving an older ZIP',async({page})=>{
+  await page.goto('/zh/bulk-image-resizer/');
+  await expect(page.locator('[data-editor-ready=true]')).toBeVisible();
+  await page.getByTestId('upload').setInputFiles(await pngFiles(page,3));
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('download')).toHaveAttribute('download','plainmile-images.zip');
+  const priorUrl=await page.getByTestId('download').getAttribute('href');
+  await page.evaluate(()=>{
+    let n=0;
+    HTMLCanvasElement.prototype.toBlob=function(callback){
+      if(++n===2){window.__finishSecondFailure=()=>callback(null);return;}
+      callback(null);
+    };
+  });
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('batch-progress')).toContainText('已处理 1 / 3');
+  await page.getByTestId('batch-cancel').click();
+  await page.evaluate(()=>window.__finishSecondFailure());
+  await expect(page.getByTestId('batch-attempt-outcome')).toHaveText('本次尝试 · 成功导出: 0 · 失败: 2 · 停止后未处理: 1');
+  const failures=page.getByTestId('batch-attempt-errors');
+  await expect(failures).toContainText('batch-1.png');
+  await expect(failures).toContainText('batch-2.png');
+  await expect(failures).not.toContainText('batch-3.png');
+  const unprocessed=page.getByTestId('batch-unprocessed-attempt');
+  await unprocessed.locator('summary').click();
+  await expect(unprocessed.locator('li')).toHaveText(['batch-3.png']);
+  await expect(page.getByTestId('download')).toHaveAttribute('href',priorUrl);
+  await expect(page.getByTestId('status')).toContainText('已保留之前的图片和下载结果');
+  await expect(page.getByTestId('batch-outcome')).toHaveText('成功导出: 3 · 失败: 0');
 });
