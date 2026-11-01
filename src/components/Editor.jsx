@@ -271,9 +271,16 @@ export default function Editor({lang='en',tool='resize'}) {
       // Keep original selection order for the file-specific retry list.
       const unprocessed=stoppedEarly?files.slice(processedCount).map(item=>item.file.name):[];
       if(!results.length){
-        if(batch){setFailedAttempt(failed);setAttemptOutcome({failedCount:failed.length,unprocessed});}
-        if(stoppedEarly){setStatus(t.cancelled+(output?.url?t.kept:''));return;}
-        throw new Error(t.noExport+(failed[0]?' '+failed[0].reason:''));
+        if(batch){
+          setFailedAttempt(failed);setAttemptOutcome({failedCount:failed.length,unprocessed});
+          // Keep the per-file localized reason in the main status. Passing
+          // translated UI text through the exception translator erased the
+          // useful Chinese diagnostic.
+          setStatus((stoppedEarly?t.cancelled:t.noExport+(failed[0]?' '+failed[0].reason:''))+
+            (output?.url?t.kept:''));
+          return;
+        }
+        throw new Error(t.noExport);
       }
       let blob,name;
       const isZip=results.length>1;
@@ -450,7 +457,7 @@ export default function Editor({lang='en',tool='resize'}) {
             output.results.length+' '+t.count+' · ZIP '+formatBytes(output.blob.size):
             output.results.map(r=>r.width+'×'+r.height+' · '+r.format.toUpperCase()+' · '+formatBytes(r.bytes)).join(' | ')}</p>
           <p data-testid="exact-bytes">{lang==='zh'?'实际文件大小：':'Exact file size: '}{output.blob.size} {lang==='zh'?'字节':'bytes'}</p>
-           <p data-testid="size-comparison">{output.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(output.results.reduce((sum,item)=>sum+item.sourceBytes,0))} · {output.isZip?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'结果文件':'Output file')}: {formatBytes(output.blob.size)}</p>
+           <p data-testid="size-comparison">{(output.failed.length||output.unprocessed?.length)?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(output.results.reduce((sum,item)=>sum+item.sourceBytes,0))} · {output.isZip?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'结果文件':'Output file')}: {formatBytes(output.blob.size)}</p>
           {batch&&output.failed.length>0&&<details className="batch-errors" data-testid="skipped-outputs" open>
             <summary>{t.skippedOutputs} ({output.failed.length})</summary>
             <ul>{output.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>

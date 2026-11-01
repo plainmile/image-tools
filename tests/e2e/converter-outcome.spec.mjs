@@ -30,6 +30,8 @@ test('stopping a batch keeps encoded successes and counts unattempted images sep
   await page.getByTestId('convert-cancel').click();
   await page.evaluate(()=>window.__finish());
   await expect(page.getByTestId('convert-batch-outcome')).toHaveText('转换成功: 2 · 失败: 0 · 停止后未处理: 1');
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('成功导出图片的原文件');
+  await expect(page.getByTestId('convert-size-comparison')).not.toContainText('原文件合计');
   const untouched=page.getByTestId('convert-not-processed');
   await untouched.locator('summary').click();
   await expect(untouched.locator('li')).toHaveText(['third.png']);
@@ -81,6 +83,7 @@ test('completed partial failure never invents a stopped-before-processing count'
   });
   await page.getByTestId('convert-process').click();
   await expect(page.getByTestId('convert-batch-outcome')).toHaveText('Converted: 2 · Failed: 1');
+  await expect(page.getByTestId('convert-size-comparison')).toContainText('Original (exported images)');
   await expect(page.getByTestId('convert-failed-output')).toContainText('second.png');
   await expect(page.getByTestId('convert-not-processed')).toHaveCount(0);
   const bytes=await page.evaluate(async()=>Array.from(new Uint8Array(await(await fetch(
