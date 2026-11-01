@@ -56,16 +56,16 @@ const METADATA_COLLISION_PNGS=[
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgFUkBAACfAH6yIjP3AAAAAElFTkSuQmCC',
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNIEWEFAAFdAH5CFQ0QAAAAAElFTkSuQmCC'
 ];
-async function chooseWithFixedMetadata(page,inputId,base64){
-  await page.evaluate(({inputId,base64})=>{
+async function chooseWithFixedMetadata(page,inputId,base64,lastModified=1700000000000){
+  await page.evaluate(({inputId,base64,lastModified})=>{
     const bytes=Uint8Array.from(atob(base64),letter=>letter.charCodeAt(0));
-    const file=new File([bytes],'same-name.png',{type:'image/png',lastModified:1700000000000});
+    const file=new File([bytes],'same-name.png',{type:'image/png',lastModified});
     const transfer=new DataTransfer();
     transfer.items.add(file);
     const input=document.querySelector('[data-testid="'+inputId+'"]');
     input.files=transfer.files;
     input.dispatchEvent(new Event('change',{bubbles:true}));
-  },{inputId,base64});
+  },{inputId,base64,lastModified});
 }
 for(const tool of [
   {route:'/bulk-image-resizer/',upload:'upload',ready:'editor-ready',process:'process',download:'download',suffix:'edited.png',status:'status'},
@@ -105,3 +105,60 @@ for(const tool of [
     await expect(download).toHaveAttribute('href',originalHref);
   });
 }
+
+for(const tool of [
+  {route:'/bulk-image-resizer/',upload:'upload',ready:'editor-ready',process:'process',download:'download',status:'status'},
+  {route:'/convert-image/',upload:'convert-upload',ready:'converter-ready',process:'convert-process',download:'convert-download',status:'convert-status'}
+]){
+  test(tool.route+' re-pasting identical bytes with a new timestamp preserves working output',async({page})=>{
+    await page.goto(tool.route);
+    await expect(page.locator('[data-'+tool.ready+'="true"]')).toBeVisible();
+    await chooseWithFixedMetadata(page,tool.upload,METADATA_COLLISION_PNGS[0],1700000000000);
+    await expect(page.locator('.file-summary strong')).toContainText('1');
+    await page.getByTestId(tool.process).click();
+    const download=page.getByTestId(tool.download);
+    await expect(download).toBeVisible();
+    const originalHref=await download.getAttribute('href');
+    // A browser paste can wrap the exact same image bytes in a fresh File.
+    await chooseWithFixedMetadata(page,tool.upload,METADATA_COLLISION_PNGS[0],1700000006000);
+    await expect(page.locator('.file-summary strong')).toContainText('1');
+    await expect(page.getByTestId(tool.status)).toContainText('already selected');
+    await expect(download).toHaveAttribute('href',originalHref);
+    // Equal filename, byte count and MIME are not enough to discard changes.
+    await chooseWithFixedMetadata(page,tool.upload,METADATA_COLLISION_PNGS[1],1700000012000);
+    await expect(page.locator('.file-summary strong')).toContainText('2');
+    await expect(download).toHaveCount(0);
+    await page.getByTestId(tool.process).click();
+    await expect(download).toHaveAttribute('download',/\.zip$/);
+  });
+}
+
+test('redaction masks and previous download survive an identical screenshot with a new timestamp',async({page})=>{
+  await page.goto('/redact-image/');
+  await expect(page.locator('[data-redactor-ready=true]')).toBeVisible();
+  const png=await pngSample(page);
+  const image=png.toString('base64');
+  await chooseWithFixedMetadata(page,'redact-upload',image,1700000000000);
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.locator('.redactor-stage')).toHaveAttribute('data-preview-ready','true');
+  const overlay=page.getByTestId('redact-overlay');
+  await overlay.scrollIntoViewIfNeeded();
+  const rect=await overlay.boundingBox();
+  if(!rect)throw Error('Missing redaction stage');
+  await page.mouse.move(rect.x+rect.width*.15,rect.y+rect.height*.15);
+  await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width*.7,rect.y+rect.height*.7,{steps:6});
+  await page.mouse.up();
+  await expect(page.getByTestId('redact-mark')).toHaveCount(1);
+  const downloaded=page.waitForEvent('download');
+  await page.getByTestId('redact-download').click();
+  await downloaded;
+  const link=page.getByTestId('redact-download-again');
+  await expect(link).toBeVisible();
+  const savedHref=await link.getAttribute('href');
+  await chooseWithFixedMetadata(page,'redact-upload',image,1700000006000);
+  await expect(page.locator('.redactor-file')).toHaveCount(1);
+  await expect(page.getByTestId('redact-mark')).toHaveCount(1);
+  await expect(page.getByTestId('redact-count')).toHaveText('1');
+  await expect(link).toHaveAttribute('href',savedHref);
+});
