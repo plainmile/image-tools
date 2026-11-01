@@ -20,7 +20,7 @@ class Page(HTMLParser):
         super().__init__()
         self.tags, self.title, self.description, self.canonical = [], "", "", ""
         self.h1, self.hreflangs, self.robots, self.jsonld = 0, {}, "", []
-        self.opengraph, self.local_links, self.html_lang = {}, [], None
+        self.opengraph, self.local_links, self.external_links, self.html_lang = {}, [], [], None
         self._in_title, self._in_ld, self._ld_buffer = False, False, ""
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -32,6 +32,8 @@ class Page(HTMLParser):
             href = attrs.get("href", "")
             if href.startswith("/") and not href.startswith("//"):
                 self.local_links.append(urlparse(href).path)
+            elif href.startswith("https://"):
+                self.external_links.append(href)
         if tag == "meta" and attrs.get("property", "").startswith("og:"):
             self.opengraph[attrs["property"]] = attrs.get("content", "")
         if tag == "h1":
@@ -78,6 +80,15 @@ for route in ROUTES:
     assert doc.opengraph.get("og:url") == doc.canonical, (route, "OG URL mismatch")
     for linked_path in doc.local_links:
         assert linked_path in ROUTES, (route, f"broken local link: {linked_path}")
+    # A PDF task belongs on the existing PDF domain, not an invented image
+    # conversion route or duplicate SEO page. Link to the matching language.
+    if route in ("/", "/zh/", "/convert-image/", "/zh/convert-image/"):
+        language_prefix = "/zh" if route.startswith("/zh/") else ""
+        pdf_links = {
+            f"https://pdf.plainmile.com{language_prefix}/image-to-pdf/",
+            f"https://pdf.plainmile.com{language_prefix}/pdf-to-images/",
+        }
+        assert pdf_links.issubset(doc.external_links), (route, sorted(pdf_links - set(doc.external_links)))
     counterpart = route[3:] if route.startswith("/zh/") else "/zh" + route
     english = counterpart if route.startswith("/zh/") else route
     chinese = route if route.startswith("/zh/") else counterpart
