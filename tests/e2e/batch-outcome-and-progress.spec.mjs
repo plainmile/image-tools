@@ -45,6 +45,8 @@ test('bulk resize reports every failed output and retains an earlier working ZIP
   await expect(failures).toContainText('本次导出失败的图片 (3)');
   for(const i of [1,2,3])await expect(failures).toContainText('batch-'+i+'.png');
   await expect(failures).toContainText('图片编码失败');
+  await expect(page.getByTestId('status')).toContainText('没有可以导出的图片');
+  await expect(page.getByTestId('status')).toContainText('图片编码失败');
   await expect(page.getByTestId('status')).toContainText('已保留之前的图片和下载结果');
   await expect(page.getByTestId('download')).toHaveAttribute('href',previous);
   await expect(page.getByTestId('batch-outcome')).toHaveText('成功导出: 3 · 失败: 0');
@@ -79,6 +81,32 @@ test('stopped bulk resize separates exported, failed and never-processed images'
   await expect(page.getByTestId('download')).toHaveAttribute('download','batch-1-edited.png');
   await expect(page.getByTestId('status')).toContainText('已停止批量处理');
   await expect(page.getByTestId('batch-progress')).toHaveCount(0);
+});
+
+test('stopped successful bulk resize does not present partial originals as the complete input total',async({page})=>{
+  await page.goto('/zh/bulk-image-resizer/');
+  await expect(page.locator('[data-editor-ready=true]')).toBeVisible();
+  await page.getByTestId('upload').setInputFiles(await pngFiles(page,3));
+  await expect(page.locator('.file-summary')).toContainText('3 个文件');
+  await page.evaluate(()=>{
+    const original=HTMLCanvasElement.prototype.toBlob;
+    let count=0;
+    HTMLCanvasElement.prototype.toBlob=function(callback,mime,quality){
+      if(++count===2){
+        window.__finishSecondSuccessfulResize=()=>original.call(this,callback,mime,quality);
+        return;
+      }
+      return original.call(this,callback,mime,quality);
+    };
+  });
+  await page.getByTestId('process').click();
+  await expect(page.getByTestId('batch-progress')).toContainText('已处理 1 / 3');
+  await page.getByTestId('batch-cancel').click();
+  await page.evaluate(()=>window.__finishSecondSuccessfulResize());
+  await expect(page.getByTestId('batch-outcome')).toHaveText('成功导出: 2 · 失败: 0 · 停止后未处理: 1');
+  await expect(page.getByTestId('size-comparison')).toContainText('成功导出图片的原文件');
+  await expect(page.getByTestId('size-comparison')).not.toContainText('原文件合计');
+  await expect(page.getByTestId('download')).toHaveAttribute('download','plainmile-images.zip');
 });
 
 test('redaction ZIP shows truthful per-file progress without exposing source filenames',async({page})=>{
