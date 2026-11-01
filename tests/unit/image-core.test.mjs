@@ -306,3 +306,23 @@ test('redaction batch can reuse content-aware dedup with 12 files and 100 MB lim
   assert.equal(skip.duplicates,1);
   assert.equal(skip.added,0);
 });
+
+test('same screenshot with a new clipboard timestamp is skipped only when actual bytes match',async()=>{
+  const originalBytes=new Uint8Array(140_000).fill(47);
+  const changedBytes=new Uint8Array(originalBytes);
+  changedBytes[changedBytes.length-1]=48;
+  const file=(bytes,stamp)=>({file:new File([bytes],'capture.png',{
+    type:'image/png',lastModified:stamp
+  })});
+  const first=file(originalBytes,1700000000000);
+  const rePasted=file(originalBytes,1700000003000);
+  const different=file(changedBytes,1700000006000);
+  const selected=await mergeSelectedImages([first],[rePasted,different]);
+  assert.equal(selected.duplicates,1,'new lastModified must not create a second copy');
+  assert.equal(selected.added,1,'different content must remain selectable');
+  assert.deepEqual(selected.items,[first,different]);
+  const again=await mergeSelectedImages(selected.items,[file(changedBytes,1700000012000)]);
+  assert.equal(again.added,0);
+  assert.equal(again.duplicates,1);
+  assert.deepEqual(again.items,selected.items);
+});

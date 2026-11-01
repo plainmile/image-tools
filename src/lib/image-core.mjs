@@ -148,7 +148,10 @@ export async function mergeSelectedImages(current, additions, limits = {}) {
     const file = fileOf(entry);
     if (!file || typeof file.name !== 'string' || !Number.isSafeInteger(file.size) || file.size < 0)
       throw new Error('Invalid batch file.');
-    return JSON.stringify([file.name, file.size, file.type || '', file.lastModified ?? null]);
+    // Clipboard pastes and newly created File objects can change lastModified
+    // without changing the bytes. Only name/size/type narrow the candidates;
+    // sameFileBytes is the deciding check, so distinct pixels are never lost.
+    return JSON.stringify([file.name, file.size, file.type || '']);
   };
   const seen = new Map();
   let totalBytes = 0;
