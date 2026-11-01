@@ -19,7 +19,7 @@ const language = {
     max:'Select up to 30 images and 160 MB in total.',
     output:'Converted output',preview:'Preview',previewSource:'Selected original (not the converted result).',batchResultPreview:'Actual converted image (matches the download).',batchNoResultPreview:'This image was not converted; showing the original.',empty:'Your selected image appears here.',
     local:'All image processing takes place in this browser. No files are uploaded.',
-    failed:'Skipped files',showFiles:'Files selected',check:'Please check the file(s) below.',
+    failed:'Skipped files',invalidInputs:'Invalid files not added',failedExports:'Conversions that failed',exported:'Converted',failedCount:'Failed',notProcessed:'Not processed after stopping',notProcessedFiles:'Images not attempted after stopping',thisAttempt:'This attempt',showFiles:'Files selected',check:'Please check the file(s) below.',
     jpeg:'JPG has no transparency; transparent areas are exported white.',
     noOutput:'No images could be converted.',
     note:'Image dimensions stay unchanged; metadata such as EXIF is not preserved. Maximum 32 megapixels per output.',
@@ -38,7 +38,7 @@ const language = {
     max:'最多选择 30 张图片，文件总大小不超过 160 MB。',
     output:'转换结果',preview:'预览',previewSource:'当前展示原图预览（不是转换后文件）。',batchResultPreview:'实际转换结果，与下载内容一致。',batchNoResultPreview:'这张图片未成功转换，当前显示原图。',empty:'选择图片后在这里查看。',
     local:'图片仅在当前浏览器中处理，不上传文件。',
-    failed:'跳过的图片',showFiles:'已选择的图片',check:'请查看下方文件错误。',
+    failed:'跳过的图片',invalidInputs:'未导入的无效图片',failedExports:'转换失败的图片',exported:'转换成功',failedCount:'失败',notProcessed:'停止后未处理',notProcessedFiles:'停止后尚未处理的图片',thisAttempt:'本次尝试',showFiles:'已选择的图片',check:'请查看下方文件错误。',
     jpeg:'JPG 不支持透明，原图透明区域会变成白色。',
     noOutput:'没有可以转换的图片。',
     note:'转换时保留原始像素宽高，但不保留 EXIF 等元数据；单张输出最多 3200 万像素。',
@@ -76,7 +76,7 @@ export default function Converter({lang='en'}) {
   const [preview,setPreview]=useState(null),[previewIndex,setPreviewIndex]=useState(0),[result,setResult]=useState(null);
   const [showOriginal,setShowOriginal]=useState(false);
   const [status,setStatus]=useState(''),[phase,setPhase]=useState(''),[processed,setProcessed]=useState(0);
-  const [failedAttempt,setFailedAttempt]=useState([]);
+  const [failedAttempt,setFailedAttempt]=useState([]),[attemptOutcome,setAttemptOutcome]=useState(null);
   const cancelled=useRef(false),sequence=useRef(0);
   useEffect(()=>{setReady(true);return()=>{sequence.current+=1;};},[]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
@@ -84,7 +84,7 @@ export default function Converter({lang='en'}) {
     if(result?.url)URL.revokeObjectURL(result.url);
     result?.succeeded?.forEach(item=>{if(item.downloadUrl)URL.revokeObjectURL(item.downloadUrl);});
   },[result]);
-  useEffect(()=>{setResult(null);setFailedAttempt([]);setStatus(prev=>prev.startsWith(t.done)||prev.startsWith(t.partial)?t.selected:prev);},[format,quality]);
+  useEffect(()=>{setResult(null);setFailedAttempt([]);setAttemptOutcome(null);setStatus(prev=>prev.startsWith(t.done)||prev.startsWith(t.partial)?t.selected:prev);},[format,quality]);
 
   async function choose(chosen) {
     if(busy||inspecting||!chosen.length)return;
@@ -118,7 +118,7 @@ export default function Converter({lang='en'}) {
         setStatus(t.alreadyAdded+(invalid.length?' '+t.check:''));
         return;
       }
-      setFiles(merged.items);setResult(null);setFailedAttempt([]);
+      setFiles(merged.items);setResult(null);setFailedAttempt([]);setAttemptOutcome(null);
       if(!files.length){setPreviewIndex(0);setPreview(URL.createObjectURL(merged.items[0].file));}
       setProcessed(0);
       setStatus(t.selected+(invalid.length?' '+t.check:'')+(merged.duplicates?' '+t.duplicateSkipped:''));
@@ -147,7 +147,7 @@ export default function Converter({lang='en'}) {
     setFiles(remaining);
     setPreviewIndex(nextPreviewIndex);
     setPreview(remaining.length?URL.createObjectURL(remaining[nextPreviewIndex].file):null);
-    setResult(null);setFailedAttempt([]);setProcessed(0);
+    setResult(null);setFailedAttempt([]);setAttemptOutcome(null);setProcessed(0);
     if(!remaining.length)setRejected([]);
     setStatus(remaining.length?t.selected:t.choose);
   }
@@ -159,13 +159,13 @@ export default function Converter({lang='en'}) {
   }
   function reset(){
     if(busy||inspecting)return;
-    sequence.current+=1;setFiles([]);setRejected([]);setResult(null);setFailedAttempt([]);
+    sequence.current+=1;setFiles([]);setRejected([]);setResult(null);setFailedAttempt([]);setAttemptOutcome(null);
     setPreview(null);setPreviewIndex(0);setStatus('');setProcessed(0);
   }
   async function convert(event){
     event.preventDefault();
     if(!files.length||busy||inspecting)return;
-    cancelled.current=false;setShowOriginal(false);setBusy(true);setFailedAttempt([]);
+    cancelled.current=false;setShowOriginal(false);setBusy(true);setFailedAttempt([]);setAttemptOutcome(null);
     setPhase('processing');setProcessed(0);setStatus(t.working+'…');
     try{
       let totalPixels=0,totalBytes=0,processedCount=0;
@@ -191,8 +191,11 @@ export default function Converter({lang='en'}) {
         setProcessed(processedCount);
       }
       const stoppedEarly=cancelled.current&&processedCount<files.length;
+      // Unattempted files are neither successes nor failures, even if stopped.
+      const unprocessed=stoppedEarly?files.slice(processedCount).map(item=>item.file.name):[];
       if(!succeeded.length){
         setFailedAttempt(failed);
+        setAttemptOutcome({failedCount:failed.length,unprocessed});
         setStatus((stoppedEarly?t.cancelled:t.noOutput+' '+t.check)+(result?.url?t.kept:''));return;
       }
       let blob,name;
@@ -210,9 +213,9 @@ export default function Converter({lang='en'}) {
         blob=await zip.generateAsync({type:'blob',compression:'STORE'});
         name='plainmile-converted-images.zip';
       }
-      setFailedAttempt([]);
+      setFailedAttempt([]);setAttemptOutcome(null);
       const downloadableSucceeded=isZip?namedSucceeded.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):namedSucceeded;
-      setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded:downloadableSucceeded,isZip});
+      setResult({url:URL.createObjectURL(blob),blob,name,failed,succeeded:downloadableSucceeded,isZip,unprocessed});
       setStatus(stoppedEarly
         ? t.partial+' '+t.progress+' '+processedCount+' / '+files.length+(failed.length?' '+t.check:'')
         : t.done+(failed.length?' '+t.check:''));
@@ -255,7 +258,7 @@ export default function Converter({lang='en'}) {
             </li>)}</ul>
           </div>}
           {rejected.length>0&&<details open className="batch-errors" data-testid="convert-failed-input">
-            <summary>{t.failed} ({rejected.length})</summary>
+            <summary>{t.invalidInputs} ({rejected.length})</summary>
             <ul>{rejected.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
           </details>}
         </div>
@@ -303,6 +306,7 @@ export default function Converter({lang='en'}) {
         {files.length>1&&<p className="preview-caption" data-testid="convert-preview-caption"><strong>{files[previewIndex]?.file.name}</strong> · {result?(selectedBatchOutputUrl?(showOriginal?t.previewSource:t.batchResultPreview):t.batchNoResultPreview):t.previewSource}</p>}
         {result?.url&&<div className="result">
           <strong>{t.output}</strong>
+          {files.length>1&&<p data-testid="convert-batch-outcome">{t.exported}: {result.succeeded.length} · {t.failedCount}: {result.failed.length}{result.unprocessed.length?' · '+t.notProcessed+': '+result.unprocessed.length:''}</p>}
           <p data-testid="convert-result-meta">{result.succeeded.length} {lang==='zh'?'张':'image(s)'} · {formatBytes(result.blob.size)} · {result.blob.size} {lang==='zh'?'字节':'bytes'}</p>
            <p data-testid="convert-size-comparison">{result.failed.length?(lang==='zh'?'成功导出图片的原文件':'Original (exported images)'):(lang==='zh'?'原文件合计':'Original total')}: {formatBytes(result.succeeded.reduce((sum,item)=>sum+item.sourceBytes,0))} · {result.isZip?(lang==='zh'?'下载 ZIP 大小':'Download ZIP size'):(lang==='zh'?'转换结果':'Converted output')}: {formatBytes(result.blob.size)}</p>
           {result.isZip&&<details className="batch-export-details" data-testid="convert-export-details">
@@ -310,17 +314,20 @@ export default function Converter({lang='en'}) {
             <ul>{result.succeeded.map((item,i)=><li key={i}><span>{item.downloadName||item.name}</span><span>{item.width}×{item.height} · {item.format.toUpperCase()} · {formatBytes(item.bytes)}</span><a className="batch-file-download" data-testid="convert-download-item" download={item.downloadName||item.name} href={item.downloadUrl}>{t.download}</a></li>)}</ul>
           </details>}
           {result.failed.length>0&&!failedAttempt.length&&<details open className="batch-errors" data-testid="convert-failed-output">
-            <summary>{t.failed} ({result.failed.length})</summary>
+            <summary>{t.failedExports} ({result.failed.length})</summary>
             <ul>{result.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
           </details>}
+          {result.unprocessed.length>0&&<details className="batch-errors" data-testid="convert-not-processed"><summary>{t.notProcessedFiles} ({result.unprocessed.length})</summary><ul>{result.unprocessed.map((name,i)=><li key={i}>{name}</li>)}</ul></details>}
           <a data-testid="convert-download" className="download" download={result.name} href={result.url}>
             {result.isZip?t.zip:t.download} · {formatBytes(result.blob.size)}
           </a>
         </div>}
+        {attemptOutcome&&<p className="preview-caption" data-testid="convert-attempt-outcome">{t.thisAttempt} · {t.exported}: 0 · {t.failedCount}: {attemptOutcome.failedCount}{attemptOutcome.unprocessed.length?' · '+t.notProcessed+': '+attemptOutcome.unprocessed.length:''}</p>}
         {failedAttempt.length>0&&<details open className="batch-errors" data-testid="convert-failed-output">
-          <summary>{t.failed} ({failedAttempt.length})</summary>
+          <summary>{t.failedExports} ({failedAttempt.length})</summary>
           <ul>{failedAttempt.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
         </details>}
+        {attemptOutcome?.unprocessed.length>0&&<details className="batch-errors" data-testid="convert-not-processed-attempt"><summary>{t.notProcessedFiles} ({attemptOutcome.unprocessed.length})</summary><ul>{attemptOutcome.unprocessed.map((name,i)=><li key={i}>{name}</li>)}</ul></details>}
       </aside>
     </div>
     <div className="editor-footer"><p role="status" data-testid="convert-status">{status||t.choose}</p><span>{t.local}</span></div>
