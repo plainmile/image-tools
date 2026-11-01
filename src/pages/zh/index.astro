@@ -17,5 +17,5 @@ const entries = [
   <section class="home-tools" aria-label="图片工具">
     <div class="tool-list">{entries.map(([path,title,detail])=><a class="tool-link" href={'/zh/'+path}><span><strong>{title}</strong><small>{detail}</small></span><span class="arrow" aria-hidden="true">›</span></a>)}</div>
   </section>
-  <section class="reference"><h2>支持的格式</h2><p>目前支持 JPG、PNG 和 WebP。裁剪会去掉图片边缘、旋转改变方向，格式转换保持原有像素尺寸。普通缩放和批量处理默认保留原格式与 PNG 透明背景。按 KB 压缩默认输出 JPG，如果源图有透明区域会提示转白风险。全部在浏览器本地处理，结果显示实际宽高和文件大小。</p><p>其他 PlainMile 工具：<a href="https://plainmile.com/">PlainMile 主站</a>、<a href="https://pdf.plainmile.com/">PDF 工具</a>。</p></section>
+  <section class="reference"><h2>支持的格式</h2><p>目前支持 JPG、PNG 和 WebP。裁剪会去掉图片边缘、旋转改变方向，格式转换保持原有像素尺寸。普通缩放和批量处理默认保留原格式与 PNG 透明背景。按 KB 压缩默认输出 JPG，如果源图有透明区域会提示转白风险。全部在浏览器本地处理，结果显示实际宽高和文件大小。</p><p>需要把照片合成 PDF，或把 PDF 页面保存为图片？请使用独立 PDF 工具站的<a href="https://pdf.plainmile.com/zh/image-to-pdf/">图片转 PDF</a>或<a href="https://pdf.plainmile.com/zh/pdf-to-images/">PDF 转 JPG/PNG</a>，这里的图片格式转换不处理 PDF。</p><p>其他 PlainMile 工具：<a href="https://plainmile.com/">PlainMile 主站</a>、<a href="https://pdf.plainmile.com/">PDF 工具</a>。</p></section>
 </Base>
