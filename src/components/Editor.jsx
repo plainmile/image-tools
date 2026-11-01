@@ -20,7 +20,7 @@ const dict = {
     single:'Choose one image for this tool.',count:'Output files',
     loading:'Reading image…',loadingPreview:'Rendering image preview…',previewFailed:'Preview unavailable. Check the dimensions or choose another image.',limit:'Total selected files must be 160 MB or less.',
     drop:'You can also drop images here.',cropPreview:'Crop preview; the downloaded sheet has six copies.',
-    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Preview with current resize settings; this is not yet an encoded download.',batchResultPreview:'Actual exported image (exactly the image in your download).',batchOriginalPreview:'Original image before resizing.',batchNoResultPreview:'This image was not exported. Preview uses your settings, not an exported file.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',attemptErrors:'Failed in this attempt',exported:'Exported',failedCount:'Failed',notProcessed:'Not processed after stopping',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',partial:'Batch stopped. Finished images are ready to download.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.',aspectLimited:'To keep the original proportions within browser limits, both dimensions were reduced together.'
+    estimate:'Planned dimensions (before optional KB downscaling)',noPadding:'No borders, no cropping, no upscaling',mayPad:'Exact size; may add padding',mayCrop:'Exact size; may crop edges',zipDownload:'Download ZIP',formatWarning:'JPEG cannot keep transparency; transparent PNG/WebP pixels become white.',pngSizeWarning:'PNG uses lossless encoding. For very small KB limits, choose a supported JPG/WebP format or enable smaller dimensions.',qualityNote:'Quality changes JPEG/WebP only.',batchPreview:'Preview with current resize settings; this is not yet an encoded download.',batchResultPreview:'Actual exported image (exactly the image in your download).',batchOriginalPreview:'Original image before resizing.',batchNoResultPreview:'This image was not exported. Preview uses your settings, not an exported file.',optionalSize:'File-size and quality (optional)',batchItems:'View each exported image',batchPlan:'Planned sizes (before optional KB downscaling)',skippedInputs:'Skipped invalid files',skippedOutputs:'Not exported',attemptErrors:'Failed in this attempt',thisAttempt:'This attempt',unprocessedFiles:'Images not attempted after stopping',exported:'Exported',failedCount:'Failed',notProcessed:'Not processed after stopping',someSkipped:'Some files were skipped; review details below.',noExport:'No files could be exported.',processed:'Processed',cancel:'Stop after current image',stopping:'Stopping after the current image…',cancelled:'Batch stopped. No output was saved.',partial:'Batch stopped. Finished images are ready to download.',packaging:'Creating ZIP…',paste:'Paste a screenshot with Ctrl+V / ⌘V.',kept:' Your previous image and download are still available.',aspectLimited:'To keep the original proportions within browser limits, both dimensions were reduced together.'
   },
   zh: {
     upload:'选择图片',addMore:'继续添加图片',appendHint:'新选图片会加入当前批次；清空可重新开始。',alreadyAdded:'这些图片已经选过，当前批次保持不变。',duplicateSkipped:'已跳过重复选择的图片。',hint:'支持 JPG、PNG、WebP，单张不超过 40 MB',
@@ -39,7 +39,7 @@ const dict = {
     single:'该工具一次只能处理一张图片。',count:'输出文件',
     loading:'正在读取图片…',loadingPreview:'正在生成图片预览…',previewFailed:'无法生成预览，请检查尺寸或换一张图片。',limit:'所选文件总大小不能超过 160 MB。',
     drop:'也可以把图片拖到这里。',cropPreview:'裁剪预览；下载的打印排版包含六张照片。',
-    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'按当前设置预览图片，尚非实际导出文件。',batchResultPreview:'实际导出的图片，与下载内容一致。',batchOriginalPreview:'调整前的原始图片。',batchNoResultPreview:'该图片未成功导出；当前仅显示设置预览，并非结果文件。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',attemptErrors:'本次导出失败的图片',exported:'成功导出',failedCount:'失败',notProcessed:'停止后未处理',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',partial:'已停止批量处理，已完成的图片可以下载。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。',aspectLimited:'为保持原图比例并符合浏览器尺寸上限，已同时缩小宽度和高度。'
+    estimate:'预计输出像素（不含可选的 KB 缩小）',noPadding:'按原图比例，无白边、不裁剪、不放大小图',mayPad:'固定尺寸，可能添加留白',mayCrop:'固定尺寸，可能裁掉边缘',zipDownload:'下载 ZIP 压缩包',formatWarning:'JPG 不支持透明背景。透明 PNG/WebP 转 JPG 时，透明区域会变为白色。',pngSizeWarning:'PNG 为无损编码，较小的 KB 限制可能无法达到；可按接收要求改用 JPG/WebP，或允许缩小尺寸。',qualityNote:'画质只影响 JPG/WebP。',batchPreview:'按当前设置预览图片，尚非实际导出文件。',batchResultPreview:'实际导出的图片，与下载内容一致。',batchOriginalPreview:'调整前的原始图片。',batchNoResultPreview:'该图片未成功导出；当前仅显示设置预览，并非结果文件。',optionalSize:'文件大小与画质（可选）',batchItems:'逐张查看输出结果',batchPlan:'预计各图片输出尺寸（不含可选的 KB 缩小）',skippedInputs:'已跳过无效图片',skippedOutputs:'未能导出的图片',attemptErrors:'本次导出失败的图片',thisAttempt:'本次尝试',unprocessedFiles:'停止后尚未处理的图片',exported:'成功导出',failedCount:'失败',notProcessed:'停止后未处理',someSkipped:'部分文件已跳过，请查看下方原因。',noExport:'没有可以导出的图片。',processed:'已处理',cancel:'当前图片处理完后停止',stopping:'当前图片处理完后停止…',cancelled:'已停止批量处理，没有生成下载文件。',partial:'已停止批量处理，已完成的图片可以下载。',packaging:'正在生成 ZIP…',paste:'也可以用 Ctrl+V / ⌘V 粘贴截图。',kept:' 已保留之前的图片和下载结果。',aspectLimited:'为保持原图比例并符合浏览器尺寸上限，已同时缩小宽度和高度。'
   }
 };
 function localizedImageError(error,lang) {
@@ -80,7 +80,7 @@ export default function Editor({lang='en',tool='resize'}) {
   const [quality,setQuality]=useState(90),[downscale,setDownscale]=useState(tool==='compress-image-to-size');
   const [zoom,setZoom]=useState(100),[cropX,setCropX]=useState(0),[cropY,setCropY]=useState(0);
   const [status,setStatus]=useState(''),[busy,setBusy]=useState(false),[output,setOutput]=useState(null);
-  const [rejected,setRejected]=useState([]),[failedAttempt,setFailedAttempt]=useState([]);
+  const [rejected,setRejected]=useState([]),[failedAttempt,setFailedAttempt]=useState([]),[attemptOutcome,setAttemptOutcome]=useState(null);
   const [progress,setProgress]=useState(0),[phase,setPhase]=useState('');
   const cancelRequested=useRef(false);
   const [preview,setPreview]=useState(null),[previewIndex,setPreviewIndex]=useState(0),[ready,setReady]=useState(false);
@@ -95,7 +95,7 @@ export default function Editor({lang='en',tool='resize'}) {
   const [inspecting,setInspecting]=useState(false);
   const canvasRef=useRef(null),selectionId=useRef(0);
   useEffect(()=>{setReady(true);return ()=>{selectionId.current+=1;};},[]);
-  useEffect(()=>{setOutput(null);setFailedAttempt([]);setStatus(prev=>prev.startsWith(t.done)||prev.startsWith(t.partial)?t.pending:prev);},[width,height,mode,format,target,quality,downscale,zoom,cropX,cropY]);
+  useEffect(()=>{setOutput(null);setFailedAttempt([]);setAttemptOutcome(null);setStatus(prev=>prev.startsWith(t.done)||prev.startsWith(t.partial)?t.pending:prev);},[width,height,mode,format,target,quality,downscale,zoom,cropX,cropY]);
   useEffect(()=>{
     if (!preview || !canvasRef.current || (output&&!batch)) return;
     let active=true;
@@ -176,7 +176,7 @@ export default function Editor({lang='en',tool='resize'}) {
         setStatus(t.alreadyAdded+(invalid.length?' '+t.someSkipped:''));
         return;
       }
-      setFiles(merged.items);setOutput(null);setFailedAttempt([]);
+      setFiles(merged.items);setOutput(null);setFailedAttempt([]);setAttemptOutcome(null);
       if(!batch||!files.length){setPreviewIndex(0);setPreview(URL.createObjectURL(merged.items[0].file));}
       if(!sheet&&!batch&&valid.length===1){
         const {width:w,height:h}=valid[0];
@@ -197,7 +197,7 @@ export default function Editor({lang='en',tool='resize'}) {
     setFiles(remaining);
     setPreviewIndex(nextPreviewIndex);
     setPreview(remaining.length?URL.createObjectURL(remaining[nextPreviewIndex].file):null);
-    setOutput(null);setFailedAttempt([]);
+    setOutput(null);setFailedAttempt([]);setAttemptOutcome(null);
     if(!remaining.length)setRejected([]);
     setStatus(remaining.length?t.pending:t.choose);
   }
@@ -244,7 +244,7 @@ export default function Editor({lang='en',tool='resize'}) {
     cancelRequested.current=false;
     setShowOriginal(false);
     // Retain the previous usable download until this reprocessing attempt succeeds.
-    setBusy(true);setFailedAttempt([]);setStatus(t.working);
+    setBusy(true);setFailedAttempt([]);setAttemptOutcome(null);setStatus(t.working);
     if(batch){setProgress(0);setPhase('processing');}
     try{
       const options={width:Number(width),height:Number(height),mode,format,targetKb:Number(target),
@@ -267,8 +267,11 @@ export default function Editor({lang='en',tool='resize'}) {
         if(batch)setProgress(processedCount);
       }
       const stoppedEarly=batch&&cancelRequested.current&&processedCount<files.length;
+      // User-requested stop does not mean remaining images failed to encode.
+      // Keep original selection order for the file-specific retry list.
+      const unprocessed=stoppedEarly?files.slice(processedCount).map(item=>item.file.name):[];
       if(!results.length){
-        if(batch&&failed.length)setFailedAttempt(failed);
+        if(batch){setFailedAttempt(failed);setAttemptOutcome({failedCount:failed.length,unprocessed});}
         if(stoppedEarly){setStatus(t.cancelled+(output?.url?t.kept:''));return;}
         throw new Error(t.noExport+(failed[0]?' '+failed[0].reason:''));
       }
@@ -286,7 +289,8 @@ export default function Editor({lang='en',tool='resize'}) {
       // identical source basenames stay distinct in both export methods.
       const downloadableResults=isZip?namedResults.map(item=>({...item,downloadUrl:URL.createObjectURL(item.blob)})):namedResults;
       const url=URL.createObjectURL(blob);
-      setOutput({url,blob,name,results:downloadableResults,failed,isZip,inputCount:files.length,processedCount});
+      setOutput({url,blob,name,results:downloadableResults,failed,isZip,inputCount:files.length,processedCount,unprocessed});
+      setAttemptOutcome(null);
       setStatus(stoppedEarly
         ? t.partial+' '+t.processed+' '+processedCount+' / '+files.length+(failed.length?' '+t.someSkipped:'')
         : failed.length?t.done+' '+t.someSkipped:t.done);
@@ -409,7 +413,7 @@ export default function Editor({lang='en',tool='resize'}) {
         <div className="form-actions">
           <button data-testid="process" disabled={!files.length||busy||inspecting} type="submit">{busy?t.working:sheet?t.sheet:batch?t.runBatch:tool==='compress-image-to-size'?t.runCompress:tool==='signature-resizer'?t.runSignature:t.run}</button>
           {batch&&busy&&phase==='processing'&&<button type="button" className="secondary" data-testid="batch-cancel" onClick={()=>{cancelRequested.current=true;setStatus(t.stopping);}}>{t.cancel}</button>}
-          <button type="button" disabled={busy||inspecting} className="secondary" onClick={()=>{selectionId.current+=1;setFiles([]);setRejected([]);setFailedAttempt([]);setPreview(null);setPreviewIndex(0);setOutput(null);setStatus('');const el=document.querySelector('[data-testid=upload]');if(el)el.value='';}}>{t.reset}</button>
+          <button type="button" disabled={busy||inspecting} className="secondary" onClick={()=>{selectionId.current+=1;setFiles([]);setRejected([]);setFailedAttempt([]);setPreview(null);setPreviewIndex(0);setOutput(null);setAttemptOutcome(null);setStatus('');const el=document.querySelector('[data-testid=upload]');if(el)el.value='';}}>{t.reset}</button>
         </div>
         {batch&&busy&&<div className="batch-progress" data-testid="batch-progress">
           <span role="status">{phase==='zip'?t.packaging:t.processed+' '+progress+' / '+files.length}</span>
@@ -451,16 +455,19 @@ export default function Editor({lang='en',tool='resize'}) {
             <summary>{t.skippedOutputs} ({output.failed.length})</summary>
             <ul>{output.failed.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
           </details>}
+          {batch&&output.unprocessed?.length>0&&<details className="batch-errors" data-testid="batch-unprocessed"><summary>{t.unprocessedFiles} ({output.unprocessed.length})</summary><ul>{output.unprocessed.map((name,i)=><li key={i}>{name}</li>)}</ul></details>}
           {batch&&<details className="batch-export-details" data-testid="batch-export-details">
             <summary>{t.batchItems} ({output.results.length})</summary>
             <ul>{output.results.map((r,i)=><li key={i}><span>{r.downloadName||r.name}</span><span>{r.width}×{r.height} · {r.format.toUpperCase()} · {formatBytes(r.bytes)}</span>{r.downloadUrl&&<a className="batch-file-download" data-testid="batch-download-item" href={r.downloadUrl} download={r.downloadName||r.name}>{lang==='zh'?'下载此图':'Download image'}</a>}</li>)}</ul>
           </details>}
           <a data-testid="download" className="download" href={output.url} download={output.name}>{output.isZip?t.zipDownload:t.download} · {formatBytes(output.blob.size)}</a>
         </div>}
+        {batch&&attemptOutcome&&<p className="preview-caption" data-testid="batch-attempt-outcome">{t.thisAttempt} · {t.exported}: 0 · {t.failedCount}: {attemptOutcome.failedCount}{attemptOutcome.unprocessed.length?' · '+t.notProcessed+': '+attemptOutcome.unprocessed.length:''}</p>}
         {batch&&failedAttempt.length>0&&<details open className="batch-errors" data-testid="batch-attempt-errors">
           <summary>{t.attemptErrors} ({failedAttempt.length})</summary>
           <ul>{failedAttempt.map((item,i)=><li key={i}><span>{item.name}</span><span>{item.reason}</span></li>)}</ul>
         </details>}
+        {batch&&attemptOutcome?.unprocessed.length>0&&<details className="batch-errors" data-testid="batch-unprocessed-attempt"><summary>{t.unprocessedFiles} ({attemptOutcome.unprocessed.length})</summary><ul>{attemptOutcome.unprocessed.map((name,i)=><li key={i}>{name}</li>)}</ul></details>}
       </aside>
     </div>
     <div className="editor-footer"><p role="status" data-testid="status">{status||t.choose}</p><span>{t.local}</span></div>
